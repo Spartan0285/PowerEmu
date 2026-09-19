@@ -225,6 +225,10 @@ final class ServicesHub: ObservableObject {
         if let d = try? Data(contentsOf: configURL), let c = try? PropertyListDecoder().decode(ServicesConfig.self, from: d) {
             config = c
         }
+        // Write back at once: settings new in this version (the pairing
+        // code above all, which is made up when missing) must stay the same
+        // from one launch to the next.
+        save()
     }
 
     func start() {
