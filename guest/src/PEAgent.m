@@ -12,6 +12,7 @@
  *                   CLIP    UTF-8 text for the pasteboard
  *                   SHUTDOWN / RESTART
  *                   MOUNT   "URL\tNAME" of a shared folder (WebDAV)
+ *                   UNMOUNT NAME of a shared folder
  *                   PING
  *   guest -> host   HELLO   "agent-version\tmac-os-version\tuser"
  *                   CLIP    UTF-8 text copied in the guest
@@ -29,6 +30,9 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <sys/param.h>
+#include <sys/ucred.h>
+#include <sys/mount.h>
 
 #define PE_AGENT_VERSION "1.0"
 #define PE_HOST_ADDR     "10.0.2.100"
@@ -46,7 +50,24 @@
 - (void)processInbox;
 - (void)handle:(NSString *)verb payload:(NSData *)payload;
 - (void)mount:(NSString *)spec;
+- (void)unmount:(NSString *)name;
 @end
+
+/* Where the volume mounted from `from` (a WebDAV URL) is, or nil. */
+static NSString *MountPointFor(NSString *from)
+{
+    struct statfs *m;
+    int i, n = getmntinfo(&m, MNT_NOWAIT);
+    for (i = 0; i < n; i++) {
+        /* webdavfs records the URL percent-encoded; PowerEmu sends it plain. */
+        NSString *f = [[NSString stringWithUTF8String:m[i].f_mntfromname]
+                          stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
+        if (!f) continue;
+        if ([f isEqualToString:from] || [[f stringByAppendingString:@"/"] isEqualToString:from])
+            return [NSString stringWithUTF8String:m[i].f_mntonname];
+    }
+    return nil;
+}
 
 /* Ask loginwindow to shut down or restart, as the Apple menu does:
  * applications are asked to quit and can still stop it (unsaved work).
@@ -196,6 +217,8 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
         SendLoginwindowEvent(kAERestart);
     } else if ([verb isEqualToString:@"MOUNT"]) {
         [self mount:text];
+    } else if ([verb isEqualToString:@"UNMOUNT"]) {
+        [self unmount:text];
     } else if ([verb isEqualToString:@"PING"]) {
         [self send:@"PONG" data:nil];
     }
@@ -207,11 +230,28 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
     NSArray *f = [spec componentsSeparatedByString:@"\t"];
     if ([f count] < 1) return;
     NSString *url = [f objectAtIndex:0];
-    NSString *src = [NSString stringWithFormat:@"mount volume \"%@\"", url];
+    if (MountPointFor(url)) return;                 /* already there */
+    NSMutableString *q = [NSMutableString stringWithString:url];
+    [q replaceOccurrencesOfString:@"\\" withString:@"\\\\" options:0 range:NSMakeRange(0, [q length])];
+    [q replaceOccurrencesOfString:@"\"" withString:@"\\\"" options:0 range:NSMakeRange(0, [q length])];
+    NSString *src = [NSString stringWithFormat:@"mount volume \"%@\"", q];
     NSAppleScript *as = [[[NSAppleScript alloc] initWithSource:src] autorelease];
     NSDictionary *err = nil;
     if (![as executeAndReturnError:&err])
         [self send:@"LOG" text:[NSString stringWithFormat:@"mount %@ failed: %@", url, err]];
+}
+
+/* Unmount the shared folder served at http://10.0.2.100/<name>/. */
+- (void)unmount:(NSString *)name
+{
+    NSString *url = [NSString stringWithFormat:@"http://10.0.2.100/%@/", name];
+    NSString *path = MountPointFor(url);
+    if (!path) return;
+    /* NSWorkspace declines network volumes on 10.4; the user mounted it,
+     * so the user may unmount it. */
+    if (![[NSWorkspace sharedWorkspace] unmountAndEjectDeviceAtPath:path] &&
+        unmount([path fileSystemRepresentation], 0) != 0)
+        [self send:@"LOG" text:[NSString stringWithFormat:@"unmount %@ failed: %s", path, strerror(errno)]];
 }
 
 /* Poll the pasteboard: Cocoa has no change notification. */

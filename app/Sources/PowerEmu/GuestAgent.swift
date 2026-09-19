@@ -15,6 +15,8 @@ final class GuestAgent: ObservableObject {
 
     let socketPath: String
     var shareClipboard = true
+    /// Called when the agent says hello (after every guest login).
+    var onConnect: (() -> Void)?
     private var listenFD: Int32 = -1
     private var acceptSource: DispatchSourceRead?
     private var conn: Connection?
@@ -98,6 +100,7 @@ final class GuestAgent: ObservableObject {
             let f = text.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
             info = (f.first ?? "?", f.count > 1 ? f[1] : "?", f.count > 2 ? f[2] : "?")
             startClipboard()
+            onConnect?()
         case "CLIP":
             guard shareClipboard else { return }
             lastClip = text

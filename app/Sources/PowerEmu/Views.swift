@@ -132,6 +132,8 @@ struct MachineDetail: View {
 
             ToolsSection(vm: vm)
 
+            SharedFoldersSection(vm: vm)
+
             Group {
 
             Section {
@@ -272,6 +274,54 @@ struct ToolsSection: View {
             Text("With PowerEmu Tools installed in Mac OS X, text you copy on either Mac can be pasted on the other, and Shut Down and Restart work without asking.")
                 .font(.caption).foregroundStyle(.secondary)
         }
+    }
+}
+
+/// Folders on this Mac that appear in the guest as network volumes.
+struct SharedFoldersSection: View {
+    @ObservedObject var vm: VirtualMachine
+
+    var body: some View {
+        Section {
+            ForEach(vm.config.sharedFolders) { f in
+                HStack {
+                    Image(systemName: "folder")
+                    VStack(alignment: .leading) {
+                        Text(f.name)
+                        Text(f.path).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                    }
+                    Spacer()
+                    Toggle("Read only", isOn: Binding(get: { f.readOnly },
+                                                      set: { vm.setSharedFolderReadOnly(f, $0) }))
+                        .toggleStyle(.checkbox).controlSize(.small)
+                    Button { vm.removeSharedFolder(f) } label: { Image(systemName: "minus.circle") }
+                        .buttonStyle(.borderless).help("Stop sharing (the folder is not touched)")
+                }
+            }
+            if vm.config.sharedFolders.isEmpty {
+                Text("No shared folders").foregroundStyle(.secondary)
+            }
+        } header: {
+            HStack {
+                Text("Shared Folders")
+                Spacer()
+                Button("Add Folder…") { chooseFolder() }.controlSize(.small)
+            }
+        } footer: {
+            Text("PowerEmu Tools open shared folders in Mac OS X as network volumes on the desktop. Without the tools: Go → Connect to Server, http://10.0.2.100/ and the folder’s name. Mac OS X can take up to half a minute to notice files added on this Mac. Read-only changes apply the next time it opens the folder.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    private func chooseFolder() {
+        let p = NSOpenPanel()
+        p.canChooseDirectories = true
+        p.canChooseFiles = false
+        p.allowsMultipleSelection = true
+        p.prompt = "Share"
+        p.message = "Choose folders to share with the virtual Mac."
+        guard p.runModal() == .OK else { return }
+        for u in p.urls { vm.addSharedFolder(u) }
     }
 }
 

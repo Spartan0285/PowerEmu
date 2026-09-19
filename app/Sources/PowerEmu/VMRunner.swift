@@ -11,6 +11,8 @@ final class VMRunner {
     private let qmpPath: String
     /// PowerEmu Tools' socket (GuestAgent listens on it).
     let agentPath: String
+    /// Shared folders' WebDAV socket (WebDAVServer listens on it).
+    let davPath: String
     /// The host ports this run uses: the configured ones, or the next free
     /// ones when another virtual Mac (or anything else) has them.
     private(set) var sshPort: Int?
@@ -22,6 +24,7 @@ final class VMRunner {
         let tag = "poweremu-\(abs(vm.url.path.hashValue) % 1_000_000)"
         qmpPath = NSTemporaryDirectory() + tag + ".qmp"
         agentPath = NSTemporaryDirectory() + tag + ".agent"
+        davPath = NSTemporaryDirectory() + tag + ".dav"
     }
 
     /// The first port from `start` that nothing on 127.0.0.1 is using.
@@ -93,6 +96,8 @@ final class VMRunner {
             // PowerEmu Tools: the guest's connections to 10.0.2.100:7700
             // reach GuestAgent's socket, one nc per connection.
             net += ",guestfwd=tcp:10.0.2.100:7700-cmd:/usr/bin/nc -U \(agentPath)"
+            // Shared folders: http://10.0.2.100/ in the guest.
+            net += ",guestfwd=tcp:10.0.2.100:80-cmd:/usr/bin/nc -U \(davPath)"
             a += ["-netdev", net, "-device", "sungem,netdev=net0"]
         } else {
             a += ["-nic", "none"]

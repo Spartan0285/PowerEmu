@@ -37,6 +37,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
     private var runner: VMRunner?
     /// PowerEmu Tools in the guest, while running.
     @Published private(set) var agent: GuestAgent?
+    private var dav: WebDAVServer?
     private var agentWatch: AnyCancellable?
 
     init(url: URL) throws {
@@ -68,7 +69,12 @@ final class VirtualMachine: ObservableObject, Identifiable {
             let a = GuestAgent(socketPath: r.agentPath)
             a.shareClipboard = config.shareClipboard
             try? a.start()
+            a.onConnect = { [weak self] in self?.mountSharedFolders() }
             agent = a
+            let d = WebDAVServer(socketPath: r.davPath)
+            d.setShares(config.sharedFolders)
+            try? d.start()
+            dav = d
             // Views watch the machine; pass the agent's changes on.
             agentWatch = a.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
             if config.bootChime { Chime.play() }
@@ -82,6 +88,8 @@ final class VirtualMachine: ObservableObject, Identifiable {
         } catch {
             agent?.stop()
             agent = nil
+            dav?.stop()
+            dav = nil
             state = .stopped
             runner = nil
             lastError = error.localizedDescription
@@ -107,6 +115,45 @@ final class VirtualMachine: ObservableObject, Identifiable {
     }
 
     var toolsConnected: Bool { agent?.connected ?? false }
+
+    // MARK: shared folders
+
+    /// The URL a shared folder has inside the guest, as Mac OS X's mount
+    /// volume wants it: not percent-encoded (webdavfs encodes it itself).
+    static func guestURL(_ f: SharedFolder) -> String { "http://10.0.2.100/\(f.name)/" }
+
+    private func mountSharedFolders() {
+        for f in config.sharedFolders { agent?.send("MOUNT", "\(Self.guestURL(f))\t\(f.name)") }
+    }
+
+    func addSharedFolder(_ url: URL) {
+        var name = url.lastPathComponent.replacingOccurrences(of: "/", with: "-")
+        let taken = Set(config.sharedFolders.map(\.name))
+        if taken.contains(name) {
+            var i = 2
+            while taken.contains("\(name) \(i)") { i += 1 }
+            name = "\(name) \(i)"
+        }
+        let f = SharedFolder(path: url.path, name: name)
+        config.sharedFolders.append(f)
+        try? save()
+        dav?.setShares(config.sharedFolders)
+        agent?.send("MOUNT", "\(Self.guestURL(f))\t\(f.name)")
+    }
+
+    func removeSharedFolder(_ f: SharedFolder) {
+        agent?.send("UNMOUNT", f.name)
+        config.sharedFolders.removeAll { $0.id == f.id }
+        try? save()
+        dav?.setShares(config.sharedFolders)
+    }
+
+    func setSharedFolderReadOnly(_ f: SharedFolder, _ ro: Bool) {
+        guard let i = config.sharedFolders.firstIndex(where: { $0.id == f.id }) else { return }
+        config.sharedFolders[i].readOnly = ro
+        try? save()
+        dav?.setShares(config.sharedFolders)
+    }
 
     func setShareClipboard(_ on: Bool) {
         config.shareClipboard = on
@@ -264,6 +311,8 @@ final class VirtualMachine: ObservableObject, Identifiable {
         agent?.stop()
         agent = nil
         agentWatch = nil
+        dav?.stop()
+        dav = nil
         hostDiscName = nil
         sshPortInUse = nil
         monitorPortInUse = nil
