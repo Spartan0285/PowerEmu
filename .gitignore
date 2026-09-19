@@ -10,3 +10,5 @@ tools/setmode
 *.iso
 *.img
 *.rom
+build/
+app/.build/

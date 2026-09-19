@@ -5,6 +5,27 @@ Run Mac OS X 10.4 Tiger and 10.5 Leopard for PowerPC - with Quartz Extreme,
 [poweremu-qemu](https://github.com/Spartan0285/poweremu-qemu) (QEMU `mac99`
 with an emulated ATI Radeon 9000 rendered through Metal).
 
+## PowerEmu.app
+
+    scripts/build-app.sh          # -> build/PowerEmu.app
+
+`build-app.sh` builds the SwiftUI app (`app/`) and bundles the emulator with
+`scripts/bundle-qemu.sh`: `qemu-system-ppc` from the poweremu-qemu build, the
+20 libraries it needs (install names rewritten into the bundle, so no
+Homebrew at run time), OpenBIOS, the NDRV loader and NDRVs, as the helper
+`PowerEmu.app/Contents/Helpers/PowerEmu VM.app` (ad-hoc signed; the emulator
+window and menus read "PowerEmu").
+
+Virtual Macs are packages in `~/Library/Application Support/PowerEmu/Virtual
+Machines/<Name>.poweremu` (`config.plist`, `Disks/`, `ROMs/`, `Logs/`).
+**Add Virtual Mac** imports existing disks and the ATI ROMs as APFS clones
+(instant, no extra space; originals untouched).  Per machine: memory, disks
+and startup disk, fullscreen, host-shaped display modes, hardware cursor,
+startup chime, verbose / safe boot / single-user, sound, network (ssh at
+localhost:2222), QEMU monitor (localhost:4444), AGP bridge, GPU trace.
+**Shut Down…** presses the guest's power key (Mac OS X asks); **Force Power
+Off** quits the emulator.  The app controls QEMU over QMP.
+
 ## What is here today
 
 | Folder | Contents |
@@ -33,12 +54,11 @@ on localhost:4444.
 
 A native macOS app around the emulator:
 
-1. **Foundation** - self-contained QEMU (bundled dylibs, signed with the JIT
-   entitlement), VM documents (`.poweremu`: disks + settings).
-2. **App** - VM library, create-from-install-disc, settings, start/stop via
-   QMP, display resolutions (custom modes through the NDRV mode table), boot
-   options (verbose `-v`, safe boot `-x`, single user, reset PRAM), boot chime,
-   fullscreen (whole panel or below the notch).
+1. **Foundation** - done: self-contained QEMU bundle, `.poweremu` packages.
+2. **App** - done: library, import, settings, start / shut down / force off
+   via QMP, boot options, chime, fullscreen, display-mode toggle.  To do:
+   create a VM from an install disc, custom resolutions (NDRV mode table),
+   reset PRAM.
 3. **Storage** - create/import/attach disks, startup disk, disc images, the
    Mac's CD/DVD drive and USB floppies attached as guest drives (hot-plug).
 4. **Guest Tools** (Tiger/Leopard, PPC) - clipboard sync, shared folders via a
