@@ -92,6 +92,16 @@ struct ServicesConfig: Codable {
     /// Let real Macs on the network use the services, not just virtual ones.
     var allowNetwork = false
     var accounts: [MailAccount] = []
+    // Web Accelerator
+    var webEnabled = true
+    var webConvertImages = true
+    var webBlockTrackers = true
+    /// What real Macs on the network send as X-PowerEmu-Token.
+    var pairingCode = ServicesConfig.newPairingCode()
+
+    static func newPairingCode() -> String {
+        String(format: "%04d-%04d", Int.random(in: 0...9999), Int.random(in: 0...9999))
+    }
 
     init() {}
     init(from decoder: Decoder) throws {
@@ -99,6 +109,10 @@ struct ServicesConfig: Codable {
         mailEnabled = try c.decodeIfPresent(Bool.self, forKey: .mailEnabled) ?? true
         allowNetwork = try c.decodeIfPresent(Bool.self, forKey: .allowNetwork) ?? false
         accounts = try c.decodeIfPresent([MailAccount].self, forKey: .accounts) ?? []
+        webEnabled = try c.decodeIfPresent(Bool.self, forKey: .webEnabled) ?? true
+        webConvertImages = try c.decodeIfPresent(Bool.self, forKey: .webConvertImages) ?? true
+        webBlockTrackers = try c.decodeIfPresent(Bool.self, forKey: .webBlockTrackers) ?? true
+        pairingCode = try c.decodeIfPresent(String.self, forKey: .pairingCode) ?? ServicesConfig.newPairingCode()
     }
 }
 
@@ -192,6 +206,11 @@ final class ServicesHub: ObservableObject {
     /// Ports for real Macs on the network (above 1024: no privileges needed).
     nonisolated static let networkIMAPPort: UInt16 = 1143
     nonisolated static let networkSMTPPort: UInt16 = 1025
+    nonisolated static let webSocket = NSTemporaryDirectory() + "poweremu-web.sock"
+
+    /// The Web Accelerator (always exists; listens only when switched on).
+    nonisolated let web = WebAccelerator(note: { s in Task { @MainActor in ServicesHub.shared.note(s) } })
+    private var bonjour: NetService?
 
     /// What the proxy sessions (on their own threads) read.
     nonisolated let accounts = AccountStore()
@@ -222,18 +241,35 @@ final class ServicesHub: ObservableObject {
     private func restartListeners() {
         listeners.forEach { $0.stop() }
         listeners = []
+        bonjour?.stop()
+        bonjour = nil
         accounts.set(config.accounts)
-        guard config.mailEnabled else { return }
+        web.update(.init(convertImages: config.webConvertImages, blockTrackers: config.webBlockTrackers,
+                         pairingCode: config.pairingCode))
         let store = accounts
         let note: @Sendable (String) -> Void = { s in Task { @MainActor in ServicesHub.shared.note(s) } }
-        let imap: @Sendable (Int32, String) -> Void = { fd, peer in IMAPProxySession(fd: fd, peer: peer, accounts: store, note: note).run() }
-        let smtp: @Sendable (Int32, String) -> Void = { fd, peer in SMTPProxySession(fd: fd, peer: peer, accounts: store, note: note).run() }
         var l: [SocketListener] = []
-        l.append(SocketListener(unixPath: Self.imapSocket, name: "virtual Mac", handler: imap))
-        l.append(SocketListener(unixPath: Self.smtpSocket, name: "virtual Mac", handler: smtp))
-        if config.allowNetwork {
-            l.append(SocketListener(tcpPort: Self.networkIMAPPort, handler: imap))
-            l.append(SocketListener(tcpPort: Self.networkSMTPPort, handler: smtp))
+        if config.mailEnabled {
+            let imap: @Sendable (Int32, String) -> Void = { fd, peer in IMAPProxySession(fd: fd, peer: peer, accounts: store, note: note).run() }
+            let smtp: @Sendable (Int32, String) -> Void = { fd, peer in SMTPProxySession(fd: fd, peer: peer, accounts: store, note: note).run() }
+            l.append(SocketListener(unixPath: Self.imapSocket, name: "virtual Mac", handler: imap))
+            l.append(SocketListener(unixPath: Self.smtpSocket, name: "virtual Mac", handler: smtp))
+            if config.allowNetwork {
+                l.append(SocketListener(tcpPort: Self.networkIMAPPort, handler: imap))
+                l.append(SocketListener(tcpPort: Self.networkSMTPPort, handler: smtp))
+            }
+        }
+        if config.webEnabled {
+            let web = self.web
+            l.append(SocketListener(unixPath: Self.webSocket, name: "virtual Mac") { fd, _ in web.serve(fd: fd, fromNetwork: false) })
+            if config.allowNetwork {
+                l.append(SocketListener(tcpPort: WebAccelerator.port) { fd, _ in web.serve(fd: fd, fromNetwork: true) })
+                // Captain Polliwog on real Macs finds it by browsing for this.
+                let b = NetService(domain: "local.", type: "_poweremu-web._tcp.", name: "", port: Int32(WebAccelerator.port))
+                b.setTXTRecord(NetService.data(fromTXTRecord: ["v": Data("1".utf8)]))
+                b.publish()
+                bonjour = b
+            }
         }
         for x in l {
             do { try x.start() } catch { note("Could not listen for \(x.name): \(error.localizedDescription)") }
@@ -251,6 +287,10 @@ final class ServicesHub: ObservableObject {
     // MARK: settings
 
     func setMailEnabled(_ on: Bool) { config.mailEnabled = on; save(); restartListeners() }
+    func setWebEnabled(_ on: Bool) { config.webEnabled = on; save(); restartListeners() }
+    func setWebConvertImages(_ on: Bool) { config.webConvertImages = on; save(); restartListeners() }
+    func setWebBlockTrackers(_ on: Bool) { config.webBlockTrackers = on; save(); restartListeners() }
+    func newPairingCode() { config.pairingCode = ServicesConfig.newPairingCode(); save(); restartListeners() }
     func setAllowNetwork(_ on: Bool) { config.allowNetwork = on; save(); restartListeners() }
 
     /// Add an account after its provider sign-in has been checked.

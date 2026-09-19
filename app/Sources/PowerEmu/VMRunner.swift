@@ -108,6 +108,7 @@ final class VMRunner {
             net += ",guestfwd=tcp:10.0.2.100:143-cmd:/usr/bin/nc -U \(ServicesHub.imapSocket)"
             net += ",guestfwd=tcp:10.0.2.100:25-cmd:/usr/bin/nc -U \(ServicesHub.smtpSocket)"
             net += ",guestfwd=tcp:10.0.2.100:587-cmd:/usr/bin/nc -U \(ServicesHub.smtpSocket)"
+            net += ",guestfwd=tcp:10.0.2.100:7780-cmd:/usr/bin/nc -U \(ServicesHub.webSocket)"
             a += ["-netdev", net, "-device", "sungem,netdev=net0"]
         } else {
             a += ["-nic", "none"]

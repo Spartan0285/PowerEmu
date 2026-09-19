@@ -1,6 +1,42 @@
 import SwiftUI
 import AppKit
 
+/// The Web Accelerator's switches, pairing code and what it has done.
+private struct WebAcceleratorSection: View {
+    @ObservedObject var hub = ServicesHub.shared
+    @State private var stats = WebAccelerator.Stats()
+    private let tick = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        Section {
+            Toggle("Web Accelerator", isOn: Binding(get: { hub.config.webEnabled }, set: { hub.setWebEnabled($0) }))
+            Group {
+                Toggle("Convert images old Macs can’t show, and shrink huge ones",
+                       isOn: Binding(get: { hub.config.webConvertImages }, set: { hub.setWebConvertImages($0) }))
+                Toggle("Block ads and trackers",
+                       isOn: Binding(get: { hub.config.webBlockTrackers }, set: { hub.setWebBlockTrackers($0) }))
+                HStack {
+                    Text("Pairing code for other Macs")
+                    Spacer()
+                    Text(hub.config.pairingCode).font(.system(.body, design: .monospaced)).textSelection(.enabled)
+                        .opacity(hub.config.allowNetwork ? 1 : 0.4)
+                    Button("New Code") { hub.newPairingCode() }.controlSize(.small)
+                }
+                Text("\(stats.requests) requests · \(stats.converted) images converted · \(stats.blocked) blocked · \(ByteCountFormatter.string(fromByteCount: stats.bytesSaved, countStyle: .file)) saved")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            .disabled(!hub.config.webEnabled)
+        } header: {
+            Text("Web Accelerator")
+        } footer: {
+            Text("Captain Polliwog fetches web pages through PowerEmu when it finds it: this Mac does the secure connections, converts images, and leaves out ads. The old Mac still draws the page itself. Without PowerEmu, it connects on its own as before.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+        .onReceive(tick) { _ in stats = hub.web.currentStats }
+        .onAppear { stats = hub.web.currentStats }
+    }
+}
+
 /// The Service Hub window: the mail proxy's accounts and the settings to
 /// type into Mail on an old Mac.
 struct ServicesView: View {
@@ -10,16 +46,25 @@ struct ServicesView: View {
     var body: some View {
         Form {
             Section {
+                Toggle("Let other Macs on the network use the Service Hub", isOn: Binding(get: { hub.config.allowNetwork },
+                                                                                        set: { hub.setAllowNetwork($0) }))
+            } header: {
+                Text("Network")
+            } footer: {
+                Text("Virtual Macs always reach the Service Hub at 10.0.2.100. Real PowerPC Macs need this on. What passes between them and this Mac is not encrypted, so only allow it on a network you trust.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
+            Section {
                 Toggle("Mail proxy", isOn: Binding(get: { hub.config.mailEnabled }, set: { hub.setMailEnabled($0) }))
-                Toggle("Let other Macs on the network use it", isOn: Binding(get: { hub.config.allowNetwork },
-                                                                             set: { hub.setAllowNetwork($0) }))
-                    .disabled(!hub.config.mailEnabled)
             } header: {
                 Text("Mail")
             } footer: {
-                Text("Old versions of Mail can’t use today’s secure connections. They connect to PowerEmu without SSL and sign in with a password PowerEmu makes up; PowerEmu signs in to your provider securely and passes the mail through. Your real password never leaves this Mac. Between Macs on the network the PowerEmu password travels unencrypted, so only allow that on a network you trust.")
+                Text("Old versions of Mail can’t use today’s secure connections. They connect to PowerEmu without SSL and sign in with a password PowerEmu makes up; PowerEmu signs in to your provider securely and passes the mail through. Your real password never leaves this Mac.")
                     .font(.caption).foregroundStyle(.secondary)
             }
+
+            WebAcceleratorSection()
 
             Section {
                 ForEach(hub.config.accounts) { a in

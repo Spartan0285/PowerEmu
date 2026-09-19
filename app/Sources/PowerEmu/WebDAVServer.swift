@@ -320,11 +320,13 @@ final class WebDAVServer: @unchecked Sendable {
 struct HTTPRequest {
     var method: String
     var path: String                 // percent-decoded
+    var target = ""                  // as sent (absolute-form URLs too)
+    var version = "HTTP/1.1"
     var headers: [String: String]    // lower-case names
     func header(_ n: String) -> String? { headers[n] }
 }
 
-private final class HTTPConnection {
+final class HTTPConnection {
     let fd: Int32
     private var buffer = Data()
 
@@ -359,15 +361,17 @@ private final class HTTPConnection {
             headers[l[..<colon].lowercased()] = l[l.index(after: colon)...].trimmingCharacters(in: .whitespaces)
         }
         WebDAVServer.trace(">>> " + head)
-        var target = String(first[1])
+        let raw = String(first[1])
+        var target = raw
         if let u = URLComponents(string: target), u.host != nil { target = u.percentEncodedPath }   // absolute-form
         if let q = target.firstIndex(of: "?") { target = String(target[..<q]) }
         return HTTPRequest(method: String(first[0]).uppercased(),
-                           path: target.removingPercentEncoding ?? target, headers: headers)
+                           path: target.removingPercentEncoding ?? target, target: raw,
+                           version: first.count > 2 ? String(first[2]) : "HTTP/1.0", headers: headers)
     }
 
     /// Stream the request body into `sink`; false if the connection broke.
-    private func readBody(_ r: HTTPRequest, _ sink: (Data) -> Void) -> Bool {
+    func readBody(_ r: HTTPRequest, _ sink: (Data) -> Void) -> Bool {
         if r.header("transfer-encoding")?.lowercased().contains("chunked") == true {
             while true {
                 guard let line = readLine(), let size = Int(line.split(separator: ";")[0].trimmingCharacters(in: .whitespaces), radix: 16) else { return false }
@@ -431,7 +435,7 @@ private final class HTTPConnection {
         return ok
     }
 
-    private func writeAll(_ d: Data) -> Bool {
+    func writeAll(_ d: Data) -> Bool {
         d.withUnsafeBytes { raw in
             guard var p = raw.baseAddress else { return true }
             var left = raw.count
@@ -448,7 +452,8 @@ private final class HTTPConnection {
     private static let reasons = [200: "OK", 201: "Created", 204: "No Content", 206: "Partial Content",
                                   207: "Multi-Status", 400: "Bad Request", 403: "Forbidden", 404: "Not Found",
                                   405: "Method Not Allowed", 409: "Conflict", 412: "Precondition Failed",
-                                  416: "Range Not Satisfiable", 500: "Internal Server Error"]
+                                  416: "Range Not Satisfiable", 500: "Internal Server Error", 401: "Unauthorized",
+                                  502: "Bad Gateway", 504: "Gateway Timeout"]
 
     private func head(_ status: Int, _ headers: [String: String], length: Int) -> Data {
         var s = "HTTP/1.1 \(status) \(Self.reasons[status] ?? "Status")\r\n"
