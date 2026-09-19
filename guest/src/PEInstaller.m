@@ -12,6 +12,7 @@
 #import <Cocoa/Cocoa.h>
 #import <Security/Security.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
 #define AGENT_NAME @"PowerEmu Agent.app"
 #define CLOCK_PLIST "/Library/LaunchDaemons/com.spartan0285.poweremu.clock.plist"
@@ -32,13 +33,20 @@ static BOOL RunAsAdmin(NSString *script, NSString *arg)
         char *args[] = { "-c", (char *)[script UTF8String], "sh", (char *)[arg fileSystemRepresentation], NULL };
         FILE *pipe = NULL;
         err = AuthorizationExecuteWithPrivileges(auth, "/bin/sh", kAuthorizationFlagDefaults, args, &pipe);
+        /* The script is done when its output closes. */
         if (pipe) {
             char buf[256];
             while (fgets(buf, sizeof buf, pipe)) {}
             fclose(pipe);
         }
-        int status;
-        while (wait(&status) > 0) {}
+        /* Collect the finished helper without blocking: a plain wait() would
+         * also wait for PowerEmu Agent, which this process launched (on 10.4
+         * it is a child) and which never exits. */
+        int status, tries;
+        for (tries = 0; tries < 50; tries++) {
+            if (waitpid(-1, &status, WNOHANG) > 0) break;
+            usleep(20000);
+        }
     }
     AuthorizationFree(auth, kAuthorizationFlagDefaults);
     return err == errAuthorizationSuccess;

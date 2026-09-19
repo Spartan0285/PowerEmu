@@ -124,6 +124,18 @@ enum Secrets {
         return String(data: d, encoding: .utf8)
     }
 
+    /// Whether a saved password exists but this copy of PowerEmu may not
+    /// read it (the Keychain trusts the build that saved it; an ad-hoc
+    /// signed rebuild is a different app to it).
+    static func isLocked(_ key: String) -> Bool {
+        guard testFile == nil else { return false }
+        let q: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
+                                kSecAttrAccount as String: key, kSecReturnData as String: true]
+        var out: CFTypeRef?
+        let st = SecItemCopyMatching(q as CFDictionary, &out)
+        return st != errSecSuccess && st != errSecItemNotFound
+    }
+
     static func set(_ value: String, for key: String) {
         if let f = testFile {
             lock.lock(); defer { lock.unlock() }
@@ -263,6 +275,11 @@ final class ServicesHub: ObservableObject {
     }
 
     func localPassword(_ a: MailAccount) -> String { Secrets.get(Secrets.localPasswordKey(a)) ?? "" }
+
+    /// The account's saved passwords can't be read by this copy of PowerEmu.
+    func passwordsLocked(_ a: MailAccount) -> Bool {
+        Secrets.isLocked(Secrets.localPasswordKey(a)) || Secrets.isLocked(Secrets.providerPasswordKey(a))
+    }
 
     func newLocalPassword(_ a: MailAccount) {
         Secrets.set(Secrets.newLocalPassword(), for: Secrets.localPasswordKey(a))

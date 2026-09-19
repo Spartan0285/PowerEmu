@@ -13,3 +13,4 @@ tools/setmode
 build/
 app/.build/
 guest/build/
+scripts/signing.local

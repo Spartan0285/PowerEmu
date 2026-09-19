@@ -63,6 +63,11 @@ private struct AccountRow: View {
     var body: some View {
         DisclosureGroup(isExpanded: $expanded) {
             VStack(alignment: .leading, spacing: 10) {
+                if hub.passwordsLocked(account) {
+                    Label("This copy of PowerEmu can’t read the passwords saved for this account: the Keychain trusts the copy that saved them. Remove the account and add it again.",
+                          systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange).font(.callout)
+                }
                 Text("In Mail on the old Mac, add an account with these settings (Use SSL: off, Authentication: Password):")
                     .font(.callout).foregroundStyle(.secondary)
                 Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 6) {

@@ -55,7 +55,25 @@ cat > "$OUT/Contents/Info.plist" <<EOF
 </plist>
 EOF
 
-# The helper is already signed; sign the outer app around it.
-codesign --force --sign - "$OUT/Contents/MacOS/PowerEmu" >/dev/null
-codesign --force --sign - "$OUT" >/dev/null
+# Signing.  Ad hoc by default; with a real identity every build has the same
+# designated requirement, so the Keychain keeps trusting PowerEmu with its
+# saved passwords across updates (ad-hoc builds each look like a new app).
+# Set POWEREMU_SIGN_IDENTITY, or put the identity's name in
+# scripts/signing.local (not in git), e.g.
+#   Developer ID Application: Your Name (TEAMID)
+SIGN=${POWEREMU_SIGN_IDENTITY:-}
+[ -z "$SIGN" ] && [ -f "$ROOT/scripts/signing.local" ] && SIGN=$(head -1 "$ROOT/scripts/signing.local")
+SIGN=${SIGN:--}
+HELPER="$OUT/Contents/Helpers/PowerEmu VM.app"
+if [ "$SIGN" != "-" ]; then
+    for f in "$HELPER"/Contents/Frameworks/*.dylib "$HELPER/Contents/MacOS/qemu-img"; do
+        [ -f "$f" ] && codesign --force --sign "$SIGN" --timestamp=none "$f" >/dev/null
+    done
+    codesign --force --sign "$SIGN" --timestamp=none --entitlements "${POWEREMU_QEMU:-$HOME/Developer/poweremu-qemu}/accel/hvf/entitlements.plist" \
+        "$HELPER/Contents/MacOS/qemu-system-ppc" >/dev/null
+    codesign --force --sign "$SIGN" --timestamp=none "$HELPER" >/dev/null
+fi
+codesign --force --sign "$SIGN" --timestamp=none "$OUT/Contents/MacOS/PowerEmu" >/dev/null
+codesign --force --sign "$SIGN" --timestamp=none "$OUT" >/dev/null
+echo "signed: $SIGN"
 echo "built $OUT ($(du -sh "$OUT" | cut -f1))"
