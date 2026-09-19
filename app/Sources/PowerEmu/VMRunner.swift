@@ -75,7 +75,8 @@ final class VMRunner {
 
         // OpenBIOS: fake AGP properties on the PCI path (only used when the
         // AGP bridge is off) and the VRAM size for the QEMU VGA node.
-        let bootCmd = #"boot-command=" /pci@f2000000" find-device " uni-north" encode-string " compatible" property device-end " /pci@f2000000/ATY,Adagio@e" ['] find-device catch 0= if 7 encode-int " IOAGPFlags" property h# 104 encode-int " IOAGPCommandValue" property device-end then " /pci@f2000000/QEMU,VGA@e" ['] find-device catch 0= if h# 4000000 encode-int " VRAM,totalsize" property device-end then boot"#
+        let vramHex = String(c.vramMB * 1024 * 1024, radix: 16)
+        let bootCmd = #"boot-command=" /pci@f2000000" find-device " uni-north" encode-string " compatible" property device-end " /pci@f2000000/ATY,Adagio@e" ['] find-device catch 0= if 7 encode-int " IOAGPFlags" property h# 104 encode-int " IOAGPCommandValue" property device-end then " /pci@f2000000/QEMU,VGA@e" ['] find-device catch 0= if h# "# + vramHex + #" encode-int " VRAM,totalsize" property device-end then boot"#
 
         var a: [String] = [
             "-name", c.name,
@@ -96,7 +97,7 @@ final class VMRunner {
             if c.startFullscreen { a.append("-full-screen") }
         }
 
-        var gpu = "ppc-mac-gpu,vgamem_mb=64"
+        var gpu = "ppc-mac-gpu,vgamem_mb=\(c.vramMB)"
         if let r = c.gpuOptionROM { gpu += ",romfile=\(vm.romsURL.appendingPathComponent(r).path)" }
         if let r = c.gpuBIOSROM { gpu += ",biosrom=\(vm.romsURL.appendingPathComponent(r).path)" }
         a += ["-device", gpu]
