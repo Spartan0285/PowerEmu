@@ -23,6 +23,12 @@ mkdir -p "$OUT/Contents/MacOS" "$OUT/Contents/Frameworks" "$OUT/Contents/Resourc
 EXE="$OUT/Contents/MacOS/qemu-system-ppc"
 cp "$BIN" "$EXE"
 chmod u+w "$EXE"
+# qemu-img creates blank disks for the app (same libraries).
+IMG="$OUT/Contents/MacOS/qemu-img"
+if [ -x "$QEMU_SRC/build/qemu-img" ]; then
+    cp "$QEMU_SRC/build/qemu-img" "$IMG"
+    chmod u+w "$IMG"
+fi
 
 is_system() {
     case "$1" in
@@ -48,6 +54,7 @@ resolve() {
 }
 
 queue=("$EXE")
+[ -f "$IMG" ] && queue+=("$IMG")
 while [ ${#queue[@]} -gt 0 ]; do
     file=${queue[0]}
     queue=("${queue[@]:1}")
@@ -107,12 +114,13 @@ for lib in "$OUT/Contents/Frameworks/"*.dylib; do
     codesign --force --sign - "$lib" >/dev/null 2>&1
 done
 codesign --force --sign - --entitlements "$ENT" "$EXE" >/dev/null 2>&1
+[ -f "$IMG" ] && codesign --force --sign - "$IMG" >/dev/null 2>&1
 codesign --force --sign - "$OUT" >/dev/null 2>&1 || true
 
 echo "bundled $(ls "$OUT/Contents/Frameworks" | wc -l | tr -d ' ') libraries into $OUT"
 # Every binary must now reference only the system and the bundle.
 bad=0
-for f in "$EXE" "$OUT/Contents/Frameworks/"*.dylib; do
+for f in "$EXE" ${IMG:+"$IMG"} "$OUT/Contents/Frameworks/"*.dylib; do
     left=$(otool -L "$f" | tail -n +2 | awk '{print $1}' | grep -v "^@executable_path/\|^/System/\|^/usr/lib/" || true)
     [ -z "$left" ] || { echo "$(basename "$f") still needs: $left" >&2; bad=1; }
 done

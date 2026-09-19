@@ -15,6 +15,12 @@ final class VirtualMachine: ObservableObject, Identifiable {
     @Published var config: VMConfig
     @Published private(set) var state: RunState = .stopped
     @Published private(set) var lastError: String?
+    /// A host drive (not an image) is in the virtual CD/DVD drive.
+    @Published private(set) var hostDiscName: String?
+    /// Host ports of the running machine (they move when taken).
+    @Published private(set) var sshPortInUse: Int?
+    @Published private(set) var monitorPortInUse: Int?
+    private var discPoll: Timer?
 
     enum RunState: Equatable {
         case stopped, starting, running, stopping
@@ -60,6 +66,9 @@ final class VirtualMachine: ObservableObject, Identifiable {
                 Task { @MainActor in self?.processEnded(status: status) }
             }
             state = .running
+            sshPortInUse = r.sshPort
+            monitorPortInUse = r.monitorPort
+            startDiscPolling()
         } catch {
             state = .stopped
             runner = nil
@@ -82,7 +91,133 @@ final class VirtualMachine: ObservableObject, Identifiable {
         runner?.terminate()
     }
 
+    // MARK: discs
+
+    /// Put a disc image in the CD/DVD drive: now if running, else at startup.
+    func insertDisc(_ url: URL) {
+        let path = url.path
+        if !config.discs.contains(path) { config.discs.insert(path, at: 0) }
+        lastError = nil
+        ejectRefused = false
+        if state == .running, let runner {
+            ejecting = true
+            runner.insertDisc(path) { err in
+                Task { @MainActor in
+                    self.ejecting = false
+                    if let err {
+                        // Went in after all (the reply was lost): the drive
+                        // poll will show it; only report real failures.
+                        runner.queryDisc { file in
+                            Task { @MainActor in
+                                guard file != path else { self.config.insertedDisc = path; try? self.save(); return }
+                                self.lastError = err
+                                self.ejectRefused = err == VMRunner.discInUse
+                            }
+                        }
+                    } else {
+                        self.config.insertedDisc = path
+                        self.hostDiscName = nil
+                        try? self.save()
+                    }
+                }
+            }
+        } else {
+            config.insertedDisc = path
+            try? save()
+        }
+    }
+
+    /// Asks Mac OS X to give the disc up (it unmounts it); `force` takes it
+    /// out regardless.  While the guest decides, `ejecting` is true.
+    @Published private(set) var ejecting = false
+    @Published private(set) var ejectRefused = false
+
+    func ejectDisc(force: Bool = false) {
+        guard state == .running, let runner else {
+            config.insertedDisc = nil
+            if config.bootFromDisc { config.bootFromDisc = false }
+            try? save()
+            return
+        }
+        ejecting = true
+        ejectRefused = false
+        lastError = nil
+        runner.ejectDisc(force: force) { err in
+            Task { @MainActor in
+                self.ejecting = false
+                if let err {
+                    self.lastError = err
+                    self.ejectRefused = err == VMRunner.discInUse
+                } else {
+                    self.config.insertedDisc = nil
+                    self.hostDiscName = nil
+                    if self.config.bootFromDisc { self.config.bootFromDisc = false }
+                    try? self.save()
+                }
+            }
+        }
+    }
+
+    func forgetDisc(_ path: String) {
+        config.discs.removeAll { $0 == path }
+        if config.insertedDisc == path && state != .running { config.insertedDisc = nil }
+        try? save()
+    }
+
+    /// Put one of this Mac's drives (DVD, CD, floppy) in the virtual drive.
+    func insertHostDrive(_ drive: HostDrive) {
+        guard state == .running, let runner else { return }
+        lastError = nil
+        ejectRefused = false
+        HostDrive.open(drive) { fd, err in
+            Task { @MainActor in
+                guard fd >= 0 else { self.lastError = err; return }
+                self.ejecting = true
+                runner.insertDevice(fd: fd) { err in
+                    close(fd)
+                    Task { @MainActor in
+                        self.ejecting = false
+                        if let err { self.lastError = err; self.ejectRefused = err == VMRunner.discInUse } else {
+                            self.hostDiscName = drive.name
+                            self.config.insertedDisc = nil
+                            try? self.save()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Keep the drive's state in step with the guest, which can eject too.
+    private func startDiscPolling() {
+        discPoll?.invalidate()
+        discPoll = Timer.scheduledTimer(withTimeInterval: 4, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.state == .running, let runner = self.runner else { return }
+                runner.queryDisc { file in
+                    Task { @MainActor in
+                        if file == nil {
+                            if self.config.insertedDisc != nil || self.hostDiscName != nil {
+                                self.config.insertedDisc = nil
+                                self.hostDiscName = nil
+                                try? self.save()
+                            }
+                        } else if let f = file, !f.isEmpty, f != self.config.insertedDisc {
+                            self.config.insertedDisc = f
+                            try? self.save()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private func processEnded(status: Int32) {
+        discPoll?.invalidate()
+        discPoll = nil
+        hostDiscName = nil
+        sshPortInUse = nil
+        monitorPortInUse = nil
         state = .stopped
         runner = nil
         if status != 0 {

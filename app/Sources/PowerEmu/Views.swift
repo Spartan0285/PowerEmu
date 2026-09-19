@@ -8,6 +8,7 @@ struct ContentView: View {
     @EnvironmentObject var library: VMLibrary
     @State private var selection: URL?
     @State private var showingImport = false
+    @State private var showingNew = false
 
     var body: some View {
         NavigationSplitView {
@@ -19,8 +20,11 @@ struct ContentView: View {
             .navigationSplitViewColumnWidth(min: 200, ideal: 230)
             .toolbar {
                 ToolbarItem {
-                    Button { showingImport = true } label: { Label("Add Virtual Mac", systemImage: "plus") }
-                        .help("Add a virtual Mac from an existing disk")
+                    Menu {
+                        Button("New Virtual Mac…") { showingNew = true }
+                        Button("Add Existing Virtual Mac…") { showingImport = true }
+                    } label: { Label("Add Virtual Mac", systemImage: "plus") }
+                        .help("Make a new virtual Mac or add one from existing disks")
                 }
             }
             .overlay {
@@ -28,7 +32,8 @@ struct ContentView: View {
                     VStack(spacing: 10) {
                         Image(systemName: "desktopcomputer").font(.system(size: 40)).foregroundStyle(.secondary)
                         Text("No Virtual Macs").font(.headline)
-                        Button("Add Virtual Mac…") { showingImport = true }
+                        Button("New Virtual Mac…") { showingNew = true }
+                        Button("Add Existing Virtual Mac…") { showingImport = true }
                     }
                 }
             }
@@ -39,8 +44,13 @@ struct ContentView: View {
                 Text("Select a virtual Mac").foregroundStyle(.secondary)
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .newVirtualMac)) { _ in showingNew = true }
+        .onReceive(NotificationCenter.default.publisher(for: .addVirtualMac)) { _ in showingImport = true }
         .sheet(isPresented: $showingImport) {
             ImportSheet { vm in selection = vm.url }
+        }
+        .sheet(isPresented: $showingNew) {
+            NewMachineSheet { vm in selection = vm.url }
         }
         .onAppear { if selection == nil { selection = library.machines.first?.url } }
     }
@@ -115,6 +125,12 @@ struct MachineDetail: View {
             }
 
             DisksSection(vm: vm, error: $error)
+            }
+            .disabled(locked)
+
+            DriveSection(vm: vm)
+
+            Group {
 
             Section {
                 Toggle("Start in fullscreen", isOn: binding(\.startFullscreen))
@@ -128,6 +144,8 @@ struct MachineDetail: View {
             }
 
             Section("Startup") {
+                Toggle("Start from the disc in the drive (to install)", isOn: binding(\.bootFromDisc))
+                    .disabled(vm.config.insertedDisc == nil)
                 Toggle("Play startup chime", isOn: binding(\.bootChime))
                 Toggle("Verbose startup (show messages instead of the Apple logo)", isOn: binding(\.verboseBoot))
                 Toggle("Safe Boot (skip third-party extensions)", isOn: binding(\.safeBoot))
@@ -140,7 +158,7 @@ struct MachineDetail: View {
                     Text("Off").tag("none")
                 }
                 Toggle("Network", isOn: binding(\.network))
-                Toggle("Reach the guest’s Remote Login (ssh) at localhost:2222", isOn: Binding(
+                Toggle("Reach the guest’s Remote Login (ssh) at localhost:\(String(vm.sshPortInUse ?? vm.config.sshPort ?? 2222))", isOn: Binding(
                     get: { vm.config.sshPort != nil },
                     set: { vm.config.sshPort = $0 ? 2222 : nil; try? vm.save() }))
                     .disabled(!vm.config.network)
@@ -151,7 +169,7 @@ struct MachineDetail: View {
 
             Section("Developer") {
                 Group {
-                Toggle("QEMU monitor at localhost:4444", isOn: Binding(
+                Toggle("QEMU monitor at localhost:\(String(vm.monitorPortInUse ?? vm.config.monitorPort ?? 4444))", isOn: Binding(
                     get: { vm.config.monitorPort != nil },
                     set: { vm.config.monitorPort = $0 ? 4444 : nil; try? vm.save() }))
                 Toggle("AGP bridge (Quartz Extreme)", isOn: binding(\.agpBridge))
@@ -216,12 +234,19 @@ struct DisksSection: View {
     @EnvironmentObject var library: VMLibrary
     @ObservedObject var vm: VirtualMachine
     @Binding var error: String?
+    @State private var showingNewDisk = false
+    @State private var newName = "Data"
+    @State private var newSize = 20
 
     var body: some View {
+        disks.sheet(isPresented: $showingNewDisk) { newDiskSheet }
+    }
+
+    private var disks: some View {
         Section {
-            ForEach(vm.config.disks) { d in
+            ForEach(vm.config.hardDisks) { d in
                 HStack {
-                    Image(systemName: d.kind == .cdrom ? "opticaldisc" : "internaldrive")
+                    Image(systemName: "internaldrive")
                     VStack(alignment: .leading) {
                         Text(d.displayName)
                         Text(d.file).font(.caption).foregroundStyle(.secondary)
@@ -229,7 +254,7 @@ struct DisksSection: View {
                     Spacer()
                     if vm.config.startupDiskConfig?.id == d.id {
                         Text("Startup Disk").font(.caption.bold()).foregroundStyle(.green)
-                    } else if d.kind == .hardDisk && vm.state == .stopped {
+                    } else if vm.state == .stopped {
                         Button("Start Up From This") { vm.config.startupDisk = d.id; try? vm.save() }
                             .controlSize(.small)
                     }
@@ -243,6 +268,7 @@ struct DisksSection: View {
             HStack {
                 Text("Disks")
                 Spacer()
+                Button("New Disk…") { showingNewDisk = true }.controlSize(.small).disabled(vm.state != .stopped)
                 Button("Add Disk Image…") { add() }.controlSize(.small).disabled(vm.state != .stopped)
             }
         }
@@ -251,9 +277,33 @@ struct DisksSection: View {
     private func add() {
         let p = NSOpenPanel()
         p.allowsMultipleSelection = false
-        p.message = "Choose a disk image (qcow2, img, dmg, iso, toast, cdr)"
+        p.message = "Choose a hard disk image (qcow2, img, dmg). Discs go in the CD/DVD drive."
         guard p.runModal() == .OK, let u = p.url else { return }
         do { try library.addDisk(u, to: vm) } catch { self.error = error.localizedDescription }
+    }
+
+    private var newDiskSheet: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("New Disk").font(.title2.bold())
+            Form {
+                TextField("Name", text: $newName)
+                Picker("Size", selection: $newSize) {
+                    ForEach([2, 5, 10, 20, 40, 80, 120], id: \.self) { Text("\($0) GB").tag($0) }
+                }
+            }.formStyle(.grouped)
+            Text("The disk takes space on this Mac only as it fills. Initialize it in Mac OS X with Disk Utility (Mac OS Extended).")
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            HStack {
+                Spacer()
+                Button("Cancel") { showingNewDisk = false }.keyboardShortcut(.cancelAction)
+                Button("Create") {
+                    do { try library.createBlankDisk(named: newName, gigabytes: newSize, in: vm) }
+                    catch { self.error = error.localizedDescription }
+                    showingNewDisk = false
+                }.keyboardShortcut(.defaultAction).disabled(newName.isEmpty)
+            }
+        }
+        .padding(20).frame(width: 420)
     }
 
     private func remove(_ d: DiskConfig) {
@@ -343,5 +393,159 @@ struct ImportSheet: View {
             self.error = error.localizedDescription
         }
         working = false
+    }
+}
+
+
+// MARK: - CD/DVD drive
+
+struct DriveSection: View {
+    @ObservedObject var vm: VirtualMachine
+    @ObservedObject var host = HostDriveMonitor.shared
+
+    private var running: Bool { vm.state == .running }
+
+    var body: some View {
+        Section {
+            HStack {
+                Image(systemName: "opticaldiscdrive")
+                if let h = vm.hostDiscName {
+                    Text(h)
+                    Text("(this Mac’s drive)").foregroundStyle(.secondary)
+                } else if let d = vm.config.insertedDisc {
+                    Text((d as NSString).lastPathComponent)
+                } else {
+                    Text("No disc").foregroundStyle(.secondary)
+                }
+                Spacer()
+                if vm.ejecting {
+                    ProgressView().controlSize(.small)
+                    Text("Asking Mac OS X…").font(.caption).foregroundStyle(.secondary)
+                } else if vm.config.insertedDisc != nil || vm.hostDiscName != nil {
+                    if vm.ejectRefused {
+                        Button("Force Eject") { vm.ejectDisc(force: true) }
+                            .help("Take the disc out even though Mac OS X is using it")
+                    }
+                    Button("Eject") { vm.ejectDisc() }
+                }
+                Button("Insert Disc…") { pickDisc() }
+            }
+            ForEach(vm.config.discs.filter { $0 != vm.config.insertedDisc }, id: \.self) { path in
+                HStack {
+                    Image(systemName: "opticaldisc").foregroundStyle(.secondary)
+                    VStack(alignment: .leading) {
+                        Text((path as NSString).lastPathComponent)
+                        Text((path as NSString).deletingLastPathComponent).font(.caption).foregroundStyle(.secondary)
+                            .lineLimit(1).truncationMode(.middle)
+                    }
+                    Spacer()
+                    Button("Insert") { vm.insertDisc(URL(fileURLWithPath: path)) }.controlSize(.small)
+                        .disabled(!FileManager.default.fileExists(atPath: path))
+                    Button { vm.forgetDisc(path) } label: { Image(systemName: "minus.circle") }
+                        .buttonStyle(.borderless).help("Remove from this list (the file is not touched)")
+                }
+            }
+            ForEach(host.drives) { d in
+                HStack {
+                    Image(systemName: d.kind == .floppy ? "externaldrive" : "opticaldiscdrive.fill")
+                    Text(d.name)
+                    Text(d.kind == .floppy ? "floppy" : "this Mac").font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Use") { vm.insertHostDrive(d) }.controlSize(.small).disabled(!running)
+                        .help(running ? "Lend this drive to the virtual Mac (read-only)" : "Start the virtual Mac first")
+                }
+            }
+        } header: {
+            Text("CD/DVD Drive")
+        } footer: {
+            Text("Disc images (iso, cdr, toast, dmg) are used where they are, read-only. Discs can be changed while the virtual Mac runs. Using one of this Mac’s drives asks for an administrator’s password.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    private func pickDisc() {
+        let p = NSOpenPanel()
+        p.message = "Choose a disc image (iso, cdr, toast, dmg)"
+        p.allowedContentTypes = VMConfig.discExtensions.compactMap { UTType(filenameExtension: $0) }
+        guard p.runModal() == .OK, let u = p.url else { return }
+        vm.insertDisc(u)
+    }
+}
+
+// MARK: - New virtual Mac
+
+struct NewMachineSheet: View {
+    @EnvironmentObject var library: VMLibrary
+    @Environment(\.dismiss) private var dismiss
+    var onDone: (VirtualMachine) -> Void
+
+    @State private var name = "Leopard"
+    @State private var osName = "Mac OS X 10.5 Leopard"
+    @State private var memory = 2048
+    @State private var diskGB = 40
+    @State private var disc: URL?
+    @State private var romSource: URL?
+    @State private var error: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("New Virtual Mac").font(.title2.bold())
+            Text("Makes a Power Mac G4 with an empty disk and your install disc in the drive. Start it, erase the disk in the installer’s Disk Utility (Mac OS Extended, Journaled), then install.")
+                .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            Form {
+                TextField("Name", text: $name)
+                Picker("System", selection: $osName) {
+                    ForEach(["Mac OS X 10.5 Leopard", "Mac OS X 10.4 Tiger", "Mac OS X 10.3 Panther",
+                             "Mac OS X 10.2 Jaguar"], id: \.self) { Text($0).tag($0) }
+                }
+                Picker("Memory", selection: $memory) {
+                    ForEach([512, 1024, 1536, 2048], id: \.self) { Text($0 >= 1024 ? "\($0 / 1024) GB" : "\($0) MB").tag($0) }
+                }
+                Picker("Disk", selection: $diskGB) {
+                    ForEach([10, 20, 40, 80, 120], id: \.self) { Text("\($0) GB").tag($0) }
+                }
+                LabeledContent("Install disc") {
+                    HStack {
+                        Text(disc?.lastPathComponent ?? "None").foregroundStyle(disc == nil ? .secondary : .primary)
+                        Button("Choose…") {
+                            let p = NSOpenPanel()
+                            p.allowedContentTypes = VMConfig.discExtensions.compactMap { UTType(filenameExtension: $0) }
+                            if p.runModal() == .OK { disc = p.url }
+                        }
+                    }
+                }
+                Picker("ATI ROMs from", selection: $romSource) {
+                    Text("None").tag(URL?.none)
+                    ForEach(library.machines.filter { $0.config.gpuOptionROM != nil }) { m in
+                        Text(m.config.name).tag(Optional(m.url))
+                    }
+                }
+            }
+            .formStyle(.grouped)
+            if let error { Text(error).foregroundStyle(.red) }
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("Create") { create() }.keyboardShortcut(.defaultAction).disabled(name.isEmpty)
+            }
+        }
+        .padding(20)
+        .frame(width: 520)
+        .onAppear { romSource = library.machines.first { $0.config.gpuOptionROM != nil }?.url }
+        .onChange(of: osName) { _, v in
+            if let short = v.split(separator: " ").last { name = String(short) }
+        }
+    }
+
+    private func create() {
+        do {
+            let src = library.machines.first { $0.url == romSource }
+            let vm = try library.newMachine(name: name, osName: osName, memoryMB: memory, diskGB: diskGB,
+                                            installDisc: disc, romsFrom: src)
+            onDone(vm)
+            dismiss()
+        } catch {
+            self.error = error.localizedDescription
+        }
     }
 }

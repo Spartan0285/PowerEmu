@@ -39,10 +39,13 @@ final class VMLibrary: ObservableObject {
         config.osName = osName
         do {
             for src in [startupDisk] + extraDisks {
+                if VMConfig.discExtensions.contains(src.pathExtension.lowercased()) && src != startupDisk {
+                    config.discs.append(src.path)         // discs are used where they are
+                    continue
+                }
                 let dst = pkg.appendingPathComponent("Disks").appendingPathComponent(src.lastPathComponent)
                 try cloneOrCopy(src, to: dst)
-                let kind: DiskConfig.Kind = ["iso", "cdr", "toast"].contains(src.pathExtension.lowercased()) ? .cdrom : .hardDisk
-                config.disks.append(DiskConfig(file: src.lastPathComponent, kind: kind))
+                config.disks.append(DiskConfig(file: src.lastPathComponent))
             }
             config.startupDisk = config.disks.first?.id
             config.gpuOptionROM = nil
@@ -81,9 +84,75 @@ final class VMLibrary: ObservableObject {
             n += 1
         }
         try cloneOrCopy(src, to: dst)
-        let kind: DiskConfig.Kind = ["iso", "cdr", "toast"].contains(src.pathExtension.lowercased()) ? .cdrom : .hardDisk
-        vm.config.disks.append(DiskConfig(file: name, kind: kind))
+        vm.config.disks.append(DiskConfig(file: name))
         try vm.save()
+    }
+
+    /// A new empty hard disk (qcow2: grows as it fills) in the machine's package.
+    func createBlankDisk(named name: String, gigabytes: Int, in vm: VirtualMachine) throws {
+        guard let helper = VMRunner.helperURL else { throw PackageError.missing("The emulator (PowerEmu VM.app)") }
+        let tool = helper.appendingPathComponent("Contents/MacOS/qemu-img")
+        var file = name + ".qcow2"
+        var n = 2
+        while FileManager.default.fileExists(atPath: vm.disksURL.appendingPathComponent(file).path) {
+            file = "\(name) \(n).qcow2"; n += 1
+        }
+        let p = Process()
+        p.executableURL = tool
+        p.arguments = ["create", "-q", "-f", "qcow2", vm.disksURL.appendingPathComponent(file).path, "\(gigabytes)G"]
+        let err = Pipe()
+        p.standardError = err
+        try p.run()
+        p.waitUntilExit()
+        guard p.terminationStatus == 0 else {
+            let msg = String(data: err.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+            throw NSError(domain: "PowerEmu", code: Int(p.terminationStatus),
+                          userInfo: [NSLocalizedDescriptionKey: "Could not create the disk. \(msg)"])
+        }
+        vm.config.disks.append(DiskConfig(file: file, label: name))
+        if vm.config.startupDisk == nil { vm.config.startupDisk = vm.config.disks.last?.id }
+        try vm.save()
+    }
+
+    /// A new virtual Mac to install from a disc: a blank disk, the install
+    /// disc in the drive, starting from the disc.  The ATI ROMs are copied
+    /// from an existing machine.
+    func newMachine(name: String, osName: String, memoryMB: Int, diskGB: Int, installDisc: URL?,
+                    romsFrom source: VirtualMachine?) throws -> VirtualMachine {
+        let pkg = folder.appendingPathComponent(name + ".poweremu", isDirectory: true)
+        let fm = FileManager.default
+        guard !fm.fileExists(atPath: pkg.path) else { throw PackageError.exists(name) }
+        for sub in ["Disks", "ROMs", "Logs"] {
+            try fm.createDirectory(at: pkg.appendingPathComponent(sub), withIntermediateDirectories: true)
+        }
+        var config = VMConfig(name: name)
+        config.osName = osName
+        config.memoryMB = memoryMB
+        config.gpuOptionROM = nil
+        config.gpuBIOSROM = nil
+        do {
+            if let source {
+                for rom in [source.config.gpuOptionROM, source.config.gpuBIOSROM].compactMap({ $0 }) {
+                    try cloneOrCopy(source.romsURL.appendingPathComponent(rom),
+                                    to: pkg.appendingPathComponent("ROMs").appendingPathComponent(rom))
+                }
+                config.gpuOptionROM = source.config.gpuOptionROM
+                config.gpuBIOSROM = source.config.gpuBIOSROM
+            }
+            if let installDisc {
+                config.discs = [installDisc.path]
+                config.insertedDisc = installDisc.path
+                config.bootFromDisc = true
+            }
+            let vm = VirtualMachine(url: pkg, config: config)
+            try vm.save()
+            try createBlankDisk(named: "Macintosh HD", gigabytes: diskGB, in: vm)
+            reload()
+            return machines.first { $0.url == pkg } ?? vm
+        } catch {
+            try? fm.removeItem(at: pkg)
+            throw error
+        }
     }
 
     func moveToTrash(_ vm: VirtualMachine) throws {
