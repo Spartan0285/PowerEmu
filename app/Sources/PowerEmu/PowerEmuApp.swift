@@ -15,6 +15,9 @@ struct PowerEmuApp: App {
         }
         .windowResizability(.contentMinSize)
         .commands {
+            CommandGroup(after: .windowList) {
+                OpenServicesButton()
+            }
             CommandGroup(replacing: .newItem) {
                 Button("New Virtual Mac…") { NotificationCenter.default.post(name: .newVirtualMac, object: nil) }
                     .keyboardShortcut("n")
@@ -22,6 +25,20 @@ struct PowerEmuApp: App {
                     .keyboardShortcut("o")
             }
         }
+
+        Window("Service Hub", id: "services") {
+            ServicesView()
+        }
+        .windowResizability(.contentMinSize)
+    }
+}
+
+/// Window → Service Hub (the mail proxy and friends).
+struct OpenServicesButton: View {
+    @Environment(\.openWindow) private var openWindow
+    var body: some View {
+        Button("Service Hub") { openWindow(id: "services") }
+            .keyboardShortcut("h", modifiers: [.command, .shift])
     }
 }
 
@@ -34,6 +51,10 @@ extension Notification.Name {
 /// controls, so ask first.
 final class AppDelegate: NSObject, NSApplicationDelegate {
     weak var library: VMLibrary?
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        MainActor.assumeIsolated { ServicesHub.shared.start() }
+    }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         let running = MainActor.assumeIsolated {

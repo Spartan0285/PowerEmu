@@ -17,6 +17,7 @@ struct ContentView: View {
                     MachineRow(vm: vm).tag(vm.url)
                 }
             }
+            .safeAreaInset(edge: .bottom) { ServiceHubButton() }
             .navigationSplitViewColumnWidth(min: 200, ideal: 230)
             .toolbar {
                 ToolbarItem {
@@ -53,6 +54,19 @@ struct ContentView: View {
             NewMachineSheet { vm in selection = vm.url }
         }
         .onAppear { if selection == nil { selection = library.machines.first?.url } }
+    }
+}
+
+/// At the foot of the sidebar: the Service Hub, which serves all old Macs.
+struct ServiceHubButton: View {
+    @Environment(\.openWindow) private var openWindow
+    var body: some View {
+        Button { openWindow(id: "services") } label: {
+            Label("Service Hub", systemImage: "network").frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .buttonStyle(.borderless)
+        .padding(.horizontal, 12).padding(.vertical, 8)
+        .help("Mail and other services for old Macs, virtual and real")
     }
 }
 

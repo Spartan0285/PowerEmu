@@ -103,6 +103,11 @@ final class VMRunner {
             net += ",guestfwd=tcp:10.0.2.100:80-cmd:/usr/bin/nc -U \(davPath)"
             // The guest's clock daemon asks the time at 10.0.2.100:7701.
             net += ",guestfwd=tcp:10.0.2.100:7701-cmd:/usr/bin/nc -U \(clockPath)"
+            // The Service Hub (shared by all virtual Macs): mail at
+            // 10.0.2.100 on the standard IMAP and SMTP ports.
+            net += ",guestfwd=tcp:10.0.2.100:143-cmd:/usr/bin/nc -U \(ServicesHub.imapSocket)"
+            net += ",guestfwd=tcp:10.0.2.100:25-cmd:/usr/bin/nc -U \(ServicesHub.smtpSocket)"
+            net += ",guestfwd=tcp:10.0.2.100:587-cmd:/usr/bin/nc -U \(ServicesHub.smtpSocket)"
             a += ["-netdev", net, "-device", "sungem,netdev=net0"]
         } else {
             a += ["-nic", "none"]
