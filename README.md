@@ -44,3 +44,8 @@ A native macOS app around the emulator:
 4. **Guest Tools** (Tiger/Leopard, PPC) - clipboard sync, shared folders via a
    WebDAV server in PowerEmu (Tiger's Finder mounts WebDAV natively), clean
    shutdown, time sync, later dynamic resolution.
+
+## License
+
+GPL-2.0-or-later (see `LICENSE`, `COPYING`). Third-party components are listed
+in `THIRD-PARTY-NOTICES.md`.
