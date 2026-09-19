@@ -36,8 +36,11 @@ static BOOL RunAsAdmin(NSString *script, NSString *arg)
     OSStatus err = AuthorizationCopyRights(auth, &rights, NULL, flags, NULL);
     if (err == errAuthorizationSuccess) {
         /* Nothing the script starts may keep our pipe open (a launchd it
-         * spawns would, and we'd wait for the end of the output forever). */
-        NSString *quiet = [@"exec </dev/null >/dev/null 2>&1; " stringByAppendingString:script];
+         * spawns would, and we'd wait for the end of the output forever), so
+         * its output goes to a log.  LAUNCHD_SOCKET, if the user's session
+         * has one, would point launchctl at the user's launchd. */
+        NSString *quiet = [@"exec </dev/null >>/var/log/PowerEmuTools.log 2>&1; date; unset LAUNCHD_SOCKET; set -x; "
+                              stringByAppendingString:script];
         char *args[] = { "-c", (char *)[quiet UTF8String], "sh", (char *)[arg fileSystemRepresentation], NULL };
         FILE *pipe = NULL;
         err = AuthorizationExecuteWithPrivileges(auth, "/bin/sh", kAuthorizationFlagDefaults, args, &pipe);
@@ -211,7 +214,7 @@ static void StopAgent(void)
              LAUNCHCTL " unload " CLOCK_PLIST " || true; "
              "cp \"$1/com.spartan0285.poweremu.clock.plist\" " CLOCK_PLIST "; "
              "chown root:wheel " CLOCK_PLIST "; chmod 644 " CLOCK_PLIST "; "
-             LAUNCHCTL " load " CLOCK_PLIST;
+             LAUNCHCTL " load " CLOCK_PLIST "; " LAUNCHCTL " list";
         if (!RunAsAdmin(script, [[NSBundle mainBundle] resourcePath]) || !ClockInstalled())
             msg = @"Installed, but without clock syncing (no administrator's password was given).";
     }
