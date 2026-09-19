@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import Darwin
 import Combine
 
@@ -39,6 +40,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
     @Published private(set) var agent: GuestAgent?
     private var dav: WebDAVServer?
     private var clock: ClockServer?
+    private var display: DisplayChannel?
     private var agentWatch: AnyCancellable?
 
     init(url: URL) throws {
@@ -79,6 +81,13 @@ final class VirtualMachine: ObservableObject, Identifiable {
             let ck = ClockServer(socketPath: r.clockPath)
             try? ck.start()
             clock = ck
+            if config.embeddedDisplay {
+                let ch = DisplayChannel(socketPath: r.displayPath)
+                try ch.start()
+                display = ch
+                let w = VMWindowController.show(self, channel: ch)
+                if config.startFullscreen { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { w.window?.toggleFullScreen(nil) } }
+            }
             // Views watch the machine; pass the agent's changes on.
             agentWatch = a.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
             if config.bootChime { Chime.play() }
@@ -96,6 +105,9 @@ final class VirtualMachine: ObservableObject, Identifiable {
             dav = nil
             clock?.stop()
             clock = nil
+            display?.stop()
+            display = nil
+            VMWindowController.close(self)
             state = .stopped
             runner = nil
             lastError = error.localizedDescription
@@ -113,6 +125,15 @@ final class VirtualMachine: ObservableObject, Identifiable {
             runner?.pressPowerKey()
         }
     }
+
+    /// Bring the virtual Mac's window forward (it only hides when closed).
+    func showWindow() {
+        guard let display, state == .running else { return }
+        _ = VMWindowController.show(self, channel: display)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    var hasWindow: Bool { display != nil }
 
     /// Restart through PowerEmu Tools (there is no key for it otherwise).
     func requestRestart() {
@@ -321,6 +342,9 @@ final class VirtualMachine: ObservableObject, Identifiable {
         dav = nil
         clock?.stop()
         clock = nil
+        display?.stop()
+        display = nil
+        VMWindowController.close(self)
         hostDiscName = nil
         sshPortInUse = nil
         monitorPortInUse = nil

@@ -116,6 +116,9 @@ struct MachineDetail: View {
                     } else {
                         Label(vm.state == .starting ? "Starting…" : "Running", systemImage: "circle.fill")
                             .foregroundStyle(.green).font(.headline)
+                        if vm.hasWindow {
+                            Button("Show Window") { vm.showWindow() }
+                        }
                     }
                 }
                 if let e = vm.lastError ?? error {
@@ -191,6 +194,8 @@ struct MachineDetail: View {
                     get: { vm.config.monitorPort != nil },
                     set: { vm.config.monitorPort = $0 ? 4444 : nil; try? vm.save() }))
                 Toggle("AGP bridge (Quartz Extreme)", isOn: binding(\.agpBridge))
+                Toggle("Show in QEMU’s own window (a separate app in the Dock)", isOn: Binding(
+                    get: { !vm.config.embeddedDisplay }, set: { v in guard !locked else { return }; vm.config.embeddedDisplay = !v; try? vm.save() }))
                 Toggle("Trace GPU registers (slow)", isOn: binding(\.gpuTrace))
                 }
                 .disabled(locked)

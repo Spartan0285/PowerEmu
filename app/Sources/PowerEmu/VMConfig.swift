@@ -43,6 +43,9 @@ struct VMConfig: Codable, Equatable {
     var hardwareCursor = true
     var extraDisplayModes = true
     var startFullscreen = false
+    /// Show the guest in PowerEmu's own window (poweremu-display); false
+    /// uses QEMU's Cocoa window, a separate app in the Dock.
+    var embeddedDisplay = true
 
     // Startup
     var bootChime = true
@@ -69,7 +72,7 @@ struct VMConfig: Codable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case name, osName, memoryMB, disks, startupDisk, discs, insertedDisc, bootFromDisc
-        case gpuOptionROM, gpuBIOSROM, hardwareCursor, extraDisplayModes, startFullscreen
+        case gpuOptionROM, gpuBIOSROM, hardwareCursor, extraDisplayModes, startFullscreen, embeddedDisplay
         case bootChime, verboseBoot, safeBoot, singleUser, audio, network, sshPort, shareClipboard, sharedFolders
         case agpBridge, monitorPort, gpuTrace
     }
@@ -90,6 +93,7 @@ struct VMConfig: Codable, Equatable {
         if c.contains(.gpuBIOSROM) { d.gpuBIOSROM = try c.decodeIfPresent(String.self, forKey: .gpuBIOSROM) }
         try get(.hardwareCursor, &d.hardwareCursor); try get(.extraDisplayModes, &d.extraDisplayModes)
         try get(.startFullscreen, &d.startFullscreen); try get(.bootChime, &d.bootChime)
+        try get(.embeddedDisplay, &d.embeddedDisplay)
         try get(.verboseBoot, &d.verboseBoot); try get(.safeBoot, &d.safeBoot)
         try get(.singleUser, &d.singleUser); try get(.audio, &d.audio); try get(.network, &d.network)
         if c.contains(.sshPort) { d.sshPort = try c.decodeIfPresent(Int.self, forKey: .sshPort) }

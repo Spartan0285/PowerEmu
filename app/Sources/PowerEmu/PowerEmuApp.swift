@@ -18,6 +18,21 @@ struct PowerEmuApp: App {
             CommandGroup(after: .windowList) {
                 OpenServicesButton()
             }
+            CommandMenu("Machine") {
+                Button("Release Mouse  (⌃⌥G)") { VMWindowController.key?.display.ungrab() }
+                Button("Full Screen  (⌃⌥F)") { VMWindowController.key?.window?.toggleFullScreen(nil) }
+                Divider()
+                Button("Shut Down") { VMWindowController.key?.vm.requestShutDown() }
+                Button("Restart") { VMWindowController.key?.vm.requestRestart() }
+                Button("Force Power Off…") {
+                    guard let vm = VMWindowController.key?.vm else { return }
+                    let a = NSAlert()
+                    a.messageText = "Force “\(vm.config.name)” to power off?"
+                    a.informativeText = "This is like pulling the plug: unsaved work is lost and Mac OS X may need to repair its disk."
+                    a.addButton(withTitle: "Cancel"); a.addButton(withTitle: "Force Power Off")
+                    if a.runModal() == .alertSecondButtonReturn { vm.forcePowerOff() }
+                }
+            }
             CommandGroup(replacing: .newItem) {
                 Button("New Virtual Mac…") { NotificationCenter.default.post(name: .newVirtualMac, object: nil) }
                     .keyboardShortcut("n")

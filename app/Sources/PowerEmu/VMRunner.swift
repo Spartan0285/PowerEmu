@@ -15,6 +15,8 @@ final class VMRunner {
     let davPath: String
     /// PowerEmu Clock's socket (ClockServer listens on it).
     let clockPath: String
+    /// The screen's socket (DisplayChannel listens on it) when shown in PowerEmu.
+    let displayPath: String
     /// The host ports this run uses: the configured ones, or the next free
     /// ones when another virtual Mac (or anything else) has them.
     private(set) var sshPort: Int?
@@ -28,6 +30,7 @@ final class VMRunner {
         agentPath = NSTemporaryDirectory() + tag + ".agent"
         davPath = NSTemporaryDirectory() + tag + ".dav"
         clockPath = NSTemporaryDirectory() + tag + ".clock"
+        displayPath = NSTemporaryDirectory() + tag + ".display"
     }
 
     /// The first port from `start` that nothing on 127.0.0.1 is using.
@@ -76,7 +79,7 @@ final class VMRunner {
 
         var a: [String] = [
             "-name", c.name,
-            "-L", fw.path, "-nodefaults", "-vga", "none", "-display", "cocoa",
+            "-L", fw.path, "-nodefaults", "-vga", "none",
             "-smp", "cpus=1,sockets=1,cores=1,threads=1", "-machine", "mac99,via=pmu",
             "-accel", "tcg,tb-size=512", "-g", "1024x768x32",
             "-device", "loader,addr=0x4000000,file=\(fw.appendingPathComponent("ppc-ndrvloader").path)",
@@ -85,7 +88,13 @@ final class VMRunner {
             "-audio", c.audio,
         ]
         if c.extraDisplayModes { a += ["-global", "ppc-mac-gpu.host-aspect-modes=on"] }
-        if c.startFullscreen { a.append("-full-screen") }
+        if c.embeddedDisplay {
+            // No window of QEMU's own (and so no second app in the Dock).
+            a += ["-display", "none", "-object", "poweremu-display,id=pd0,path=\(displayPath)"]
+        } else {
+            a += ["-display", "cocoa"]
+            if c.startFullscreen { a.append("-full-screen") }
+        }
 
         var gpu = "ppc-mac-gpu,vgamem_mb=64"
         if let r = c.gpuOptionROM { gpu += ",romfile=\(vm.romsURL.appendingPathComponent(r).path)" }
