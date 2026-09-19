@@ -12,3 +12,4 @@ tools/setmode
 *.rom
 build/
 app/.build/
+guest/build/

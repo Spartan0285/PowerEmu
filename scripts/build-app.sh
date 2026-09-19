@@ -17,6 +17,12 @@ mkdir -p "$OUT/Contents/MacOS" "$OUT/Contents/Helpers" "$OUT/Contents/Resources"
 cp "$BIN" "$OUT/Contents/MacOS/PowerEmu"
 ditto "$ROOT/build/PowerEmu VM.app" "$OUT/Contents/Helpers/PowerEmu VM.app"
 cp "$ROOT/LICENSE" "$ROOT/COPYING" "$ROOT/THIRD-PARTY-NOTICES.md" "$OUT/Contents/Resources/"
+# The PowerEmu Tools disc (guest/scripts/build.sh builds its apps on a PowerPC Mac).
+if [ -d "$ROOT/guest/build/Install PowerEmu Tools.app" ]; then
+    "$ROOT/scripts/make-tools-disc.sh" "$OUT/Contents/Resources/PowerEmu Tools.iso" >/dev/null
+else
+    echo "warning: guest/build is empty; PowerEmu.app will have no Tools disc" >&2
+fi
 
 cat > "$OUT/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>

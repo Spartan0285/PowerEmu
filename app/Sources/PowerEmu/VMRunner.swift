@@ -9,6 +9,8 @@ final class VMRunner {
     private let vm: VirtualMachine
     private var process: Process?
     private let qmpPath: String
+    /// PowerEmu Tools' socket (GuestAgent listens on it).
+    let agentPath: String
     /// The host ports this run uses: the configured ones, or the next free
     /// ones when another virtual Mac (or anything else) has them.
     private(set) var sshPort: Int?
@@ -17,7 +19,9 @@ final class VMRunner {
     init(vm: VirtualMachine) {
         self.vm = vm
         // Unix socket paths are limited to 104 bytes; keep it short.
-        qmpPath = NSTemporaryDirectory() + "poweremu-\(abs(vm.url.path.hashValue) % 1_000_000).qmp"
+        let tag = "poweremu-\(abs(vm.url.path.hashValue) % 1_000_000)"
+        qmpPath = NSTemporaryDirectory() + tag + ".qmp"
+        agentPath = NSTemporaryDirectory() + tag + ".agent"
     }
 
     /// The first port from `start` that nothing on 127.0.0.1 is using.
@@ -86,6 +90,9 @@ final class VMRunner {
             var net = "user,id=net0,ipv6=off"
             sshPort = c.sshPort.map(Self.freePort)
             if let p = sshPort { net += ",hostfwd=tcp:127.0.0.1:\(p)-:22" }
+            // PowerEmu Tools: the guest's connections to 10.0.2.100:7700
+            // reach GuestAgent's socket, one nc per connection.
+            net += ",guestfwd=tcp:10.0.2.100:7700-cmd:/usr/bin/nc -U \(agentPath)"
             a += ["-netdev", net, "-device", "sungem,netdev=net0"]
         } else {
             a += ["-nic", "none"]

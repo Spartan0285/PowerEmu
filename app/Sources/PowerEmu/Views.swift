@@ -130,6 +130,8 @@ struct MachineDetail: View {
 
             DriveSection(vm: vm)
 
+            ToolsSection(vm: vm)
+
             Group {
 
             Section {
@@ -211,8 +213,13 @@ struct MachineDetail: View {
             ProgressView().controlSize(.small)
         case .running, .stopping:
             HStack {
-                Button { vm.requestShutDown() } label: { Label("Shut Down…", systemImage: "power") }
-                    .help("Press the virtual Mac’s power key; Mac OS X asks whether to shut down.")
+                if vm.toolsConnected {
+                    Button { vm.requestShutDown() } label: { Label("Shut Down", systemImage: "power") }
+                        .help("Shut down Mac OS X, as from the Apple menu; programs are asked to quit first.")
+                } else {
+                    Button { vm.requestShutDown() } label: { Label("Shut Down…", systemImage: "power") }
+                        .help("Press the virtual Mac’s power key; Mac OS X asks whether to shut down.")
+                }
                 Button("Force Power Off") { confirmForce = true }
             }
         }
@@ -230,6 +237,44 @@ struct MachineDetail: View {
     }
 }
 
+/// PowerEmu Tools: whether the agent is running in the guest, installing
+/// it, and what it offers.
+struct ToolsSection: View {
+    @ObservedObject var vm: VirtualMachine
+
+    var body: some View {
+        Section {
+            HStack {
+                if let info = vm.agent?.info {
+                    Label("Running in Mac OS X \(info.system) for \(info.user)", systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                } else if vm.state == .running {
+                    Label("Not running in the virtual Mac", systemImage: "circle.dashed")
+                        .foregroundStyle(.secondary)
+                } else {
+                    Label("Start the virtual Mac to use or install them", systemImage: "circle.dashed")
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                if vm.toolsConnected {
+                    Button("Restart") { vm.requestRestart() }
+                        .help("Restart Mac OS X, as from the Apple menu.")
+                }
+                Button(vm.toolsConnected ? "Update Tools…" : "Install Tools…") { vm.insertToolsDisc() }
+                    .disabled(vm.state != .running || VirtualMachine.toolsDiscURL == nil)
+                    .help("Put the PowerEmu Tools disc in the drive; open its installer in Mac OS X.")
+            }
+            Toggle("Share the clipboard with this Mac", isOn: Binding(
+                get: { vm.config.shareClipboard }, set: { vm.setShareClipboard($0) }))
+        } header: {
+            Text("PowerEmu Tools")
+        } footer: {
+            Text("With PowerEmu Tools installed in Mac OS X, text you copy on either Mac can be pasted on the other, and Shut Down and Restart work without asking.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+}
+
 struct DisksSection: View {
     @EnvironmentObject var library: VMLibrary
     @ObservedObject var vm: VirtualMachine
@@ -237,9 +282,17 @@ struct DisksSection: View {
     @State private var showingNewDisk = false
     @State private var newName = "Data"
     @State private var newSize = 20
+    @State private var removing: DiskConfig?
 
     var body: some View {
         disks.sheet(isPresented: $showingNewDisk) { newDiskSheet }
+            .confirmationDialog("Remove “\(removing?.displayName ?? "")” from this virtual Mac?",
+                                isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } })) {
+                Button("Move to Trash", role: .destructive) { if let d = removing { remove(d, trash: true) } }
+                Button("Keep the File") { if let d = removing { remove(d, trash: false) } }
+            } message: {
+                Text("Move the disk file to the Trash, or keep it in the virtual Mac’s package to add again later.")
+            }
     }
 
     private var disks: some View {
@@ -259,8 +312,8 @@ struct DisksSection: View {
                             .controlSize(.small)
                     }
                     if vm.state == .stopped && vm.config.startupDiskConfig?.id != d.id {
-                        Button { remove(d) } label: { Image(systemName: "minus.circle") }
-                            .buttonStyle(.borderless).help("Detach (the file stays in the package)")
+                        Button { removing = d } label: { Image(systemName: "minus.circle") }
+                            .buttonStyle(.borderless).help("Remove this disk")
                     }
                 }
             }
@@ -306,9 +359,14 @@ struct DisksSection: View {
         .padding(20).frame(width: 420)
     }
 
-    private func remove(_ d: DiskConfig) {
+    private func remove(_ d: DiskConfig, trash: Bool) {
         vm.config.disks.removeAll { $0.id == d.id }
         try? vm.save()
+        if trash {
+            let url = vm.disksURL.appendingPathComponent(d.file)
+            do { try FileManager.default.trashItem(at: url, resultingItemURL: nil) }
+            catch { self.error = error.localizedDescription }
+        }
     }
 }
 

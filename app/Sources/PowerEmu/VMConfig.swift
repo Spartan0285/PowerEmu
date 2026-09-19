@@ -55,6 +55,8 @@ struct VMConfig: Codable, Equatable {
     var network = true
     /// Host port forwarded to the guest's ssh (Remote Login); nil = none.
     var sshPort: Int? = 2222
+    /// Share the clipboard with the guest (needs PowerEmu Tools).
+    var shareClipboard = true
 
     // Developer
     var agpBridge = true
@@ -66,7 +68,7 @@ struct VMConfig: Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case name, osName, memoryMB, disks, startupDisk, discs, insertedDisc, bootFromDisc
         case gpuOptionROM, gpuBIOSROM, hardwareCursor, extraDisplayModes, startFullscreen
-        case bootChime, verboseBoot, safeBoot, singleUser, audio, network, sshPort
+        case bootChime, verboseBoot, safeBoot, singleUser, audio, network, sshPort, shareClipboard
         case agpBridge, monitorPort, gpuTrace
     }
 
@@ -89,6 +91,7 @@ struct VMConfig: Codable, Equatable {
         try get(.verboseBoot, &d.verboseBoot); try get(.safeBoot, &d.safeBoot)
         try get(.singleUser, &d.singleUser); try get(.audio, &d.audio); try get(.network, &d.network)
         if c.contains(.sshPort) { d.sshPort = try c.decodeIfPresent(Int.self, forKey: .sshPort) }
+        try get(.shareClipboard, &d.shareClipboard)
         try get(.agpBridge, &d.agpBridge)
         if c.contains(.monitorPort) { d.monitorPort = try c.decodeIfPresent(Int.self, forKey: .monitorPort) }
         try get(.gpuTrace, &d.gpuTrace)

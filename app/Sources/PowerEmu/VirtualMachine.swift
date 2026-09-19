@@ -1,5 +1,6 @@
 import Foundation
 import Darwin
+import Combine
 
 /// One .poweremu package on disk:
 ///
@@ -34,6 +35,9 @@ final class VirtualMachine: ObservableObject, Identifiable {
     var configURL: URL { url.appendingPathComponent("config.plist") }
 
     private var runner: VMRunner?
+    /// PowerEmu Tools in the guest, while running.
+    @Published private(set) var agent: GuestAgent?
+    private var agentWatch: AnyCancellable?
 
     init(url: URL) throws {
         self.url = url
@@ -61,6 +65,12 @@ final class VirtualMachine: ObservableObject, Identifiable {
         runner = r
         state = .starting
         do {
+            let a = GuestAgent(socketPath: r.agentPath)
+            a.shareClipboard = config.shareClipboard
+            try? a.start()
+            agent = a
+            // Views watch the machine; pass the agent's changes on.
+            agentWatch = a.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
             if config.bootChime { Chime.play() }
             try r.launch { [weak self] status in
                 Task { @MainActor in self?.processEnded(status: status) }
@@ -70,6 +80,8 @@ final class VirtualMachine: ObservableObject, Identifiable {
             monitorPortInUse = r.monitorPort
             startDiscPolling()
         } catch {
+            agent?.stop()
+            agent = nil
             state = .stopped
             runner = nil
             lastError = error.localizedDescription
@@ -81,7 +93,25 @@ final class VirtualMachine: ObservableObject, Identifiable {
     /// guest tools.)
     func requestShutDown() {
         guard state == .running else { return }
-        runner?.pressPowerKey()
+        if let agent, agent.connected {
+            agent.send("SHUTDOWN")
+        } else {
+            runner?.pressPowerKey()
+        }
+    }
+
+    /// Restart through PowerEmu Tools (there is no key for it otherwise).
+    func requestRestart() {
+        guard state == .running, let agent, agent.connected else { return }
+        agent.send("RESTART")
+    }
+
+    var toolsConnected: Bool { agent?.connected ?? false }
+
+    func setShareClipboard(_ on: Bool) {
+        config.shareClipboard = on
+        agent?.shareClipboard = on
+        try? save()
     }
 
     /// Pull the plug.  Mac OS X's disk may need repair afterwards.
@@ -94,9 +124,25 @@ final class VirtualMachine: ObservableObject, Identifiable {
     // MARK: discs
 
     /// Put a disc image in the CD/DVD drive: now if running, else at startup.
-    func insertDisc(_ url: URL) {
+    /// The PowerEmu Tools disc inside the app (or the repository's build
+    /// folder when running from source).
+    static var toolsDiscURL: URL? {
+        let fm = FileManager.default
+        if let u = Bundle.main.url(forResource: "PowerEmu Tools", withExtension: "iso") { return u }
+        let dev = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("build/PowerEmu.app/Contents/Resources/PowerEmu Tools.iso")
+        return fm.fileExists(atPath: dev.path) ? dev : nil
+    }
+
+    func insertToolsDisc() {
+        guard let u = Self.toolsDiscURL else { return }
+        insertDisc(u, remember: false)
+    }
+
+    func insertDisc(_ url: URL, remember: Bool = true) {
         let path = url.path
-        if !config.discs.contains(path) { config.discs.insert(path, at: 0) }
+        if remember && !config.discs.contains(path) { config.discs.insert(path, at: 0) }
         lastError = nil
         ejectRefused = false
         if state == .running, let runner {
@@ -215,6 +261,9 @@ final class VirtualMachine: ObservableObject, Identifiable {
     private func processEnded(status: Int32) {
         discPoll?.invalidate()
         discPoll = nil
+        agent?.stop()
+        agent = nil
+        agentWatch = nil
         hostDiscName = nil
         sshPortInUse = nil
         monitorPortInUse = nil
