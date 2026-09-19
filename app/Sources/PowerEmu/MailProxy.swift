@@ -461,7 +461,7 @@ final class SMTPProxySession {
                 return fail("TLS with \(host) failed\(u.error.map { ": " + $0 } ?? "")")
             }
         }
-        u.write("AUTH PLAIN " + b64("\0\(a.login)\0\(password)") + "\r\n")
+        u.write("AUTH PLAIN " + b64("\0\(a.outgoingLogin)\0\(password)") + "\r\n")
         guard let (r, rt) = reply(u) else { return fail("\(host) closed the connection") }
         guard r == 235 else { return fail("\(host) refused the sign-in: \(r) \(rt)") }
         return .success(u)
@@ -471,20 +471,51 @@ final class SMTPProxySession {
 // MARK: - Checking an account
 
 enum MailAccountCheck {
-    /// Sign in to both servers; nil if both work, else what went wrong.
-    static func run(_ a: MailAccount, password: String) async -> String? {
+    /// App-specific passwords are letters and dashes; anything pasted
+    /// around them (spaces, a line break) is dropped.
+    static func clean(_ password: String) -> String {
+        password.filter { !$0.isWhitespace && !$0.isNewline }
+    }
+
+    /// Sign in to both servers, trying the account's possible sign-in names.
+    /// Returns the account with the names that worked, and nil or what went
+    /// wrong.
+    static func run(_ account: MailAccount, password: String) async -> (MailAccount, String?) {
         await withCheckedContinuation { cont in
             Thread.detachNewThread {
+                var a = account
                 var problems: [String] = []
-                switch IMAPProxySession.connect(a, password: password) {
-                case .success(let (u, _)): u.write("P2 LOGOUT\r\n"); u.close()
-                case .failure(let m): problems.append("Incoming mail: " + m)
+                var imapError = "", smtpError = ""
+                var imapOK = false, smtpOK = false
+                for name in account.loginCandidates {
+                    var t = a; t.login = name
+                    switch IMAPProxySession.connect(t, password: password) {
+                    case .success(let (u, _)):
+                        u.write("P2 LOGOUT\r\n"); u.close()
+                        a.login = name; imapOK = true
+                    case .failure(let m): imapError = m
+                    }
+                    if imapOK { break }
                 }
-                switch SMTPProxySession.connect(a, password: password) {
-                case .success(let u): u.write("QUIT\r\n"); u.close()
-                case .failure(let m): problems.append("Outgoing mail: " + m)
+                // SMTP: the whole address first, then the others.
+                let smtpNames = [account.email] + account.loginCandidates.filter { $0 != account.email }
+                for name in smtpNames {
+                    var t = a; t.smtpLogin = name
+                    switch SMTPProxySession.connect(t, password: password) {
+                    case .success(let u):
+                        u.write("QUIT\r\n"); u.close()
+                        a.smtpLogin = name == a.login ? nil : name; smtpOK = true
+                    case .failure(let m): smtpError = m
+                    }
+                    if smtpOK { break }
                 }
-                cont.resume(returning: problems.isEmpty ? nil : problems.joined(separator: "\n"))
+                let tried = account.loginCandidates.map { "“\($0)”" }.joined(separator: " and ")
+                if !imapOK { problems.append("Incoming mail: " + imapError) }
+                if !smtpOK { problems.append("Outgoing mail: " + smtpError) }
+                if !imapOK && !smtpOK && imapError.contains("refused the sign-in") {
+                    problems.append("Tried signing in as \(tried). If that is right, the app-specific password is probably mistyped or revoked: it looks like xxxx-xxxx-xxxx-xxxx. Make a new one and paste it here.")
+                }
+                cont.resume(returning: (a, problems.isEmpty ? nil : problems.joined(separator: "\n")))
             }
         }
     }

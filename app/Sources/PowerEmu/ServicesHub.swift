@@ -41,8 +41,23 @@ struct MailAccount: Codable, Hashable, Identifiable {
     var id = UUID()
     var provider: Provider
     var email: String
-    /// Sign-in name at the provider (usually the address).
+    /// Sign-in name at the provider for incoming mail (usually the address).
     var login: String
+    /// For outgoing mail, when it differs (nil: `login`).
+    var smtpLogin: String?
+    var outgoingLogin: String { smtpLogin ?? login }
+
+    /// Names to try signing in with, best first: iCloud documents the part
+    /// before the @ for IMAP but wants the whole address for SMTP, and
+    /// either may be what a given account takes.
+    var loginCandidates: [String] {
+        var c = [login]
+        if provider == .icloud {
+            let name = String(email.split(separator: "@").first ?? "")
+            for x in [email, name] where !x.isEmpty && !c.contains(x) { c.append(x) }
+        }
+        return c
+    }
     var imapHost: String
     var imapPort = 993
     var smtpHost: String
@@ -55,11 +70,9 @@ struct MailAccount: Codable, Hashable, Identifiable {
     static func preset(_ p: Provider, email: String) -> MailAccount {
         switch p {
         case .icloud:
-            // iCloud's sign-in name is the part before @ for @icloud.com/@me.com/@mac.com.
-            let lower = email.lowercased()
-            let login = ["@icloud.com", "@me.com", "@mac.com"].contains { lower.hasSuffix($0) }
-                ? String(email.split(separator: "@").first ?? "") : email
-            return MailAccount(provider: p, email: email, login: login, imapHost: "imap.mail.me.com",
+            // The whole address; MailAccountCheck falls back to the part
+            // before the @ if iCloud refuses it.
+            return MailAccount(provider: p, email: email, login: email, imapHost: "imap.mail.me.com",
                                smtpHost: "smtp.mail.me.com", smtpPort: 587, smtpSecurity: .starttls)
         case .gmail:
             return MailAccount(provider: p, email: email, login: email, imapHost: "imap.gmail.com", smtpHost: "smtp.gmail.com")

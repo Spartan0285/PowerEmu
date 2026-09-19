@@ -198,19 +198,24 @@ private struct AddAccountSheet: View {
         .frame(width: 520)
     }
 
+    @State private var checked: MailAccount?
+
     private func check() {
         checking = true
         problem = nil
-        let a = account, pw = password
+        let a = account, pw = MailAccountCheck.clean(password)
         Task {
-            let result = await MailAccountCheck.run(a, password: pw)
+            let (found, result) = await MailAccountCheck.run(a, password: pw)
             checking = false
+            checked = found
             if let result { problem = result } else { save() }
         }
     }
 
     private func save() {
-        ServicesHub.shared.add(account, providerPassword: password)
+        // The checked account, unless the address was changed since.
+        let a = checked.flatMap { $0.email == account.email && $0.imapHost == account.imapHost ? $0 : nil } ?? account
+        ServicesHub.shared.add(a, providerPassword: MailAccountCheck.clean(password))
         dismiss()
     }
 }
