@@ -13,6 +13,8 @@ final class VMRunner {
     let agentPath: String
     /// Shared folders' WebDAV socket (WebDAVServer listens on it).
     let davPath: String
+    /// PowerEmu Clock's socket (ClockServer listens on it).
+    let clockPath: String
     /// The host ports this run uses: the configured ones, or the next free
     /// ones when another virtual Mac (or anything else) has them.
     private(set) var sshPort: Int?
@@ -25,6 +27,7 @@ final class VMRunner {
         qmpPath = NSTemporaryDirectory() + tag + ".qmp"
         agentPath = NSTemporaryDirectory() + tag + ".agent"
         davPath = NSTemporaryDirectory() + tag + ".dav"
+        clockPath = NSTemporaryDirectory() + tag + ".clock"
     }
 
     /// The first port from `start` that nothing on 127.0.0.1 is using.
@@ -98,6 +101,8 @@ final class VMRunner {
             net += ",guestfwd=tcp:10.0.2.100:7700-cmd:/usr/bin/nc -U \(agentPath)"
             // Shared folders: http://10.0.2.100/ in the guest.
             net += ",guestfwd=tcp:10.0.2.100:80-cmd:/usr/bin/nc -U \(davPath)"
+            // The guest's clock daemon asks the time at 10.0.2.100:7701.
+            net += ",guestfwd=tcp:10.0.2.100:7701-cmd:/usr/bin/nc -U \(clockPath)"
             a += ["-netdev", net, "-device", "sungem,netdev=net0"]
         } else {
             a += ["-nic", "none"]

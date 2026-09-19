@@ -38,6 +38,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
     /// PowerEmu Tools in the guest, while running.
     @Published private(set) var agent: GuestAgent?
     private var dav: WebDAVServer?
+    private var clock: ClockServer?
     private var agentWatch: AnyCancellable?
 
     init(url: URL) throws {
@@ -75,6 +76,9 @@ final class VirtualMachine: ObservableObject, Identifiable {
             d.setShares(config.sharedFolders)
             try? d.start()
             dav = d
+            let ck = ClockServer(socketPath: r.clockPath)
+            try? ck.start()
+            clock = ck
             // Views watch the machine; pass the agent's changes on.
             agentWatch = a.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
             if config.bootChime { Chime.play() }
@@ -90,6 +94,8 @@ final class VirtualMachine: ObservableObject, Identifiable {
             agent = nil
             dav?.stop()
             dav = nil
+            clock?.stop()
+            clock = nil
             state = .stopped
             runner = nil
             lastError = error.localizedDescription
@@ -313,6 +319,8 @@ final class VirtualMachine: ObservableObject, Identifiable {
         agentWatch = nil
         dav?.stop()
         dav = nil
+        clock?.stop()
+        clock = nil
         hostDiscName = nil
         sshPortInUse = nil
         monitorPortInUse = nil

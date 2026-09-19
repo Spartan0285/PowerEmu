@@ -2,14 +2,52 @@
  * Install PowerEmu Tools - on the PowerEmu Tools disc.
  *
  * Installs PowerEmu Agent for the current user: copies it to
- * ~/Library/PowerEmu, makes it a login item and starts it.  Nothing needs an
- * administrator's password.  "Remove" undoes all three.
+ * ~/Library/PowerEmu, makes it a login item and starts it; none of that
+ * needs an administrator.  Optionally (asking for an administrator's
+ * password) it also installs PowerEmu Clock, a LaunchDaemon that keeps the
+ * clock with the host's.  "Remove" undoes it all.
  *
  * Objective-C 1 with manual retain/release, for the 10.4 SDK; no nib.
  */
 #import <Cocoa/Cocoa.h>
+#import <Security/Security.h>
+#include <sys/wait.h>
 
 #define AGENT_NAME @"PowerEmu Agent.app"
+#define CLOCK_PLIST "/Library/LaunchDaemons/com.spartan0285.poweremu.clock.plist"
+
+/* Run a shell script as root after Mac OS X asks for an administrator's
+ * name and password.  Returns NO if the user cancelled or it failed. */
+static BOOL RunAsAdmin(NSString *script, NSString *arg)
+{
+    AuthorizationRef auth;
+    if (AuthorizationCreate(NULL, kAuthorizationEmptyEnvironment, kAuthorizationFlagDefaults, &auth) != errAuthorizationSuccess)
+        return NO;
+    AuthorizationItem right = { kAuthorizationRightExecute, 0, NULL, 0 };
+    AuthorizationRights rights = { 1, &right };
+    AuthorizationFlags flags = kAuthorizationFlagInteractionAllowed | kAuthorizationFlagExtendRights
+                             | kAuthorizationFlagPreAuthorize;
+    OSStatus err = AuthorizationCopyRights(auth, &rights, NULL, flags, NULL);
+    if (err == errAuthorizationSuccess) {
+        char *args[] = { "-c", (char *)[script UTF8String], "sh", (char *)[arg fileSystemRepresentation], NULL };
+        FILE *pipe = NULL;
+        err = AuthorizationExecuteWithPrivileges(auth, "/bin/sh", kAuthorizationFlagDefaults, args, &pipe);
+        if (pipe) {
+            char buf[256];
+            while (fgets(buf, sizeof buf, pipe)) {}
+            fclose(pipe);
+        }
+        int status;
+        while (wait(&status) > 0) {}
+    }
+    AuthorizationFree(auth, kAuthorizationFlagDefaults);
+    return err == errAuthorizationSuccess;
+}
+
+static BOOL ClockInstalled(void)
+{
+    return [[NSFileManager defaultManager] fileExistsAtPath:@CLOCK_PLIST];
+}
 
 static NSString *InstalledAgentPath(void)
 {
@@ -59,6 +97,7 @@ static void StopAgent(void)
     NSWindow *window;
     NSTextField *status;
     NSButton *removeButton;
+    NSButton *clockBox;
 }
 @end
 
@@ -80,25 +119,33 @@ static void StopAgent(void)
 - (void)refresh
 {
     BOOL installed = [[NSFileManager defaultManager] fileExistsAtPath:InstalledAgentPath()];
-    [removeButton setEnabled:installed];
+    [removeButton setEnabled:installed || ClockInstalled()];
     if (installed && [[status stringValue] length] == 0)
         [status setStringValue:@"PowerEmu Tools are installed. Installing again updates them."];
 }
 
 - (void)applicationDidFinishLaunching:(NSNotification *)n
 {
-    window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 460, 230)
+    window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 460, 240)
         styleMask:NSTitledWindowMask | NSClosableWindowMask backing:NSBackingStoreBuffered defer:NO];
     [window setTitle:@"PowerEmu Tools"];
-    NSImageView *icon = [[[NSImageView alloc] initWithFrame:NSMakeRect(20, 146, 64, 64)] autorelease];
+    NSImageView *icon = [[[NSImageView alloc] initWithFrame:NSMakeRect(20, 156, 64, 64)] autorelease];
     [icon setImage:[NSApp applicationIconImage]];
     [[window contentView] addSubview:icon];
-    [self label:@"PowerEmu Tools" frame:NSMakeRect(100, 180, 340, 24) size:16 bold:YES];
+    [self label:@"PowerEmu Tools" frame:NSMakeRect(100, 190, 340, 24) size:16 bold:YES];
     [self label:@"Lets this virtual Mac share the clipboard with your Mac, "
                  "open shared folders, and shut down cleanly when PowerEmu asks. "
                  "They are installed for your account and start when you log in."
-          frame:NSMakeRect(100, 110, 340, 64) size:12 bold:NO];
-    status = [[self label:@"" frame:NSMakeRect(100, 62, 340, 40) size:11 bold:NO] retain];
+          frame:NSMakeRect(100, 114, 340, 64) size:12 bold:NO];
+    status = [[self label:@"" frame:NSMakeRect(100, 52, 340, 34) size:11 bold:NO] retain];
+
+    clockBox = [[NSButton alloc] initWithFrame:NSMakeRect(98, 88, 350, 22)];
+    [clockBox setButtonType:NSSwitchButton];
+    [clockBox setTitle:@"Keep the clock in step with PowerEmu (needs an administrator)"];
+    [[clockBox cell] setControlSize:NSSmallControlSize];
+    [clockBox setFont:[NSFont systemFontOfSize:[NSFont smallSystemFontSize]]];
+    [clockBox setState:NSOnState];
+    [[window contentView] addSubview:clockBox];
 
     NSButton *install = [[[NSButton alloc] initWithFrame:NSMakeRect(340, 14, 106, 32)] autorelease];
     [install setTitle:@"Install"];
@@ -139,7 +186,20 @@ static void StopAgent(void)
         dst, @"Path", [NSNumber numberWithBool:YES], @"Hide", nil]];
     SetLoginItems(items);
     [[NSWorkspace sharedWorkspace] launchApplication:dst];
-    [status setStringValue:@"Installed. PowerEmu Tools are running and will start whenever you log in."];
+    NSString *msg = @"Installed. PowerEmu Tools are running and will start whenever you log in.";
+    if ([clockBox state] == NSOnState) {
+        NSString *script =
+            @"set -e; mkdir -p /Library/PowerEmu; "
+             "cp \"$1/PowerEmuClock\" /Library/PowerEmu/PowerEmuClock; "
+             "chown root:wheel /Library/PowerEmu/PowerEmuClock; chmod 755 /Library/PowerEmu/PowerEmuClock; "
+             "launchctl unload " CLOCK_PLIST " 2>/dev/null || true; "
+             "cp \"$1/com.spartan0285.poweremu.clock.plist\" " CLOCK_PLIST "; "
+             "chown root:wheel " CLOCK_PLIST "; chmod 644 " CLOCK_PLIST "; "
+             "launchctl load " CLOCK_PLIST;
+        if (!RunAsAdmin(script, [[NSBundle mainBundle] resourcePath]) || !ClockInstalled())
+            msg = @"Installed, but without clock syncing (no administrator's password was given).";
+    }
+    [status setStringValue:msg];
     [self refresh];
 }
 
@@ -148,7 +208,12 @@ static void StopAgent(void)
     StopAgent();
     SetLoginItems(LoginItemsWithoutAgent());
     [[NSFileManager defaultManager] removeFileAtPath:InstalledAgentPath() handler:nil];
-    [status setStringValue:@"PowerEmu Tools have been removed."];
+    NSString *msg = @"PowerEmu Tools have been removed.";
+    if (ClockInstalled()) {
+        RunAsAdmin(@"launchctl unload " CLOCK_PLIST "; rm -f " CLOCK_PLIST "; rm -rf /Library/PowerEmu", @"");
+        if (ClockInstalled()) msg = @"PowerEmu Tools have been removed, except clock syncing (no administrator's password was given).";
+    }
+    [status setStringValue:msg];
     [self refresh];
 }
 
