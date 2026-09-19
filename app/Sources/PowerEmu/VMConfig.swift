@@ -46,9 +46,11 @@ struct VMConfig: Codable, Equatable {
     /// Show the guest in PowerEmu's own window (poweremu-display); false
     /// uses QEMU's Cocoa window, a separate app in the Dock.
     var embeddedDisplay = true
-    /// Video memory of the emulated Radeon, in MB (the driver sees 4 MB less).
-    /// 128 needs poweremu-qemu's 512 MB uni-north PCI window.
-    var vramMB = 64
+    /// Video memory of the emulated Radeon, in MB: 64, 128 or 256 (the
+    /// driver sees 4 MB less).  More than 64 needs poweremu-qemu's wider
+    /// uni-north PCI window.
+    var vramMB = 128
+    static let vramChoices = [64, 128, 256]
     /// "seamless" (USB tablet: the pointer moves in and out freely) or
     /// "captured" (raw mouse movement for games).
     var mouseMode = "seamless"

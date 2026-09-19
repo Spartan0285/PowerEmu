@@ -158,8 +158,7 @@ struct MachineDetail: View {
                 Toggle("Offer resolutions shaped like this Mac’s screen", isOn: binding(\.extraDisplayModes))
                 Toggle("Hardware cursor", isOn: binding(\.hardwareCursor))
                 Picker("Video memory", selection: binding(\.vramMB)) {
-                    Text("64 MB").tag(64)
-                    Text("128 MB").tag(128)
+                    ForEach(VMConfig.vramChoices, id: \.self) { Text("\($0) MB").tag($0) }
                 }
             } header: {
                 Text("Display")
@@ -610,9 +609,10 @@ struct NewMachineSheet: View {
     @Environment(\.dismiss) private var dismiss
     var onDone: (VirtualMachine) -> Void
 
-    @State private var name = "Leopard"
-    @State private var osName = "Mac OS X 10.5 Leopard"
+    @State private var name = "Tiger"
+    @State private var osName = "Mac OS X 10.4 Tiger"
     @State private var memory = 2048
+    @State private var vram = 128
     @State private var diskGB = 40
     @State private var disc: URL?
     @State private var romSource: URL?
@@ -631,6 +631,9 @@ struct NewMachineSheet: View {
                 }
                 Picker("Memory", selection: $memory) {
                     ForEach([512, 1024, 1536, 2048], id: \.self) { Text($0 >= 1024 ? "\($0 / 1024) GB" : "\($0) MB").tag($0) }
+                }
+                Picker("Video memory", selection: $vram) {
+                    ForEach(VMConfig.vramChoices, id: \.self) { Text("\($0) MB").tag($0) }
                 }
                 Picker("Disk", selection: $diskGB) {
                     ForEach([10, 20, 40, 80, 120], id: \.self) { Text("\($0) GB").tag($0) }
@@ -671,8 +674,8 @@ struct NewMachineSheet: View {
     private func create() {
         do {
             let src = library.machines.first { $0.url == romSource }
-            let vm = try library.newMachine(name: name, osName: osName, memoryMB: memory, diskGB: diskGB,
-                                            installDisc: disc, romsFrom: src)
+            let vm = try library.newMachine(name: name, osName: osName, memoryMB: memory, vramMB: vram,
+                                            diskGB: diskGB, installDisc: disc, romsFrom: src)
             onDone(vm)
             dismiss()
         } catch {

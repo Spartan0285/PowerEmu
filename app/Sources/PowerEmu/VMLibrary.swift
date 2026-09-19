@@ -117,7 +117,7 @@ final class VMLibrary: ObservableObject {
     /// A new virtual Mac to install from a disc: a blank disk, the install
     /// disc in the drive, starting from the disc.  The ATI ROMs are copied
     /// from an existing machine.
-    func newMachine(name: String, osName: String, memoryMB: Int, diskGB: Int, installDisc: URL?,
+    func newMachine(name: String, osName: String, memoryMB: Int, vramMB: Int = 128, diskGB: Int, installDisc: URL?,
                     romsFrom source: VirtualMachine?) throws -> VirtualMachine {
         let pkg = folder.appendingPathComponent(name + ".poweremu", isDirectory: true)
         let fm = FileManager.default
@@ -128,6 +128,7 @@ final class VMLibrary: ObservableObject {
         var config = VMConfig(name: name)
         config.osName = osName
         config.memoryMB = memoryMB
+        config.vramMB = vramMB
         config.gpuOptionROM = nil
         config.gpuBIOSROM = nil
         do {
