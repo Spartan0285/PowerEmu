@@ -157,6 +157,10 @@ struct MachineDetail: View {
                 Toggle("Start in fullscreen", isOn: binding(\.startFullscreen))
                 Toggle("Offer resolutions shaped like this Mac’s screen", isOn: binding(\.extraDisplayModes))
                 Toggle("Hardware cursor", isOn: binding(\.hardwareCursor))
+                Picker("Video memory", selection: binding(\.vramMB)) {
+                    Text("64 MB").tag(64)
+                    Text("128 MB").tag(128)
+                }
             } header: {
                 Text("Display")
             } footer: {

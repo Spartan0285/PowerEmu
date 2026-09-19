@@ -12,7 +12,7 @@ import QuartzCore
 /// the same way.  Messages: { u32 type, u32 length } + payload; see the QEMU
 /// file for the list.
 final class DisplayChannel: @unchecked Sendable {
-    enum Kind: UInt32 { case surface = 1, damage = 2, cursor = 3, mouse = 4, key = 10, motion = 11, buttons = 12, wheel = 13 }
+    enum Kind: UInt32 { case surface = 1, damage = 2, cursor = 3, mouse = 4, key = 10, motion = 11, buttons = 12, wheel = 13, point = 14 }
 
     let socketPath: String
     /// Called on the main thread.
@@ -318,6 +318,7 @@ final class VMDisplayView: NSView {
         perf.frame = CGRect(x: sr.minX + 10, y: sr.maxY - 10 - 62, width: 330, height: 62)
         CATransaction.commit()
         placeCursor()
+        window?.invalidateCursorRects(for: self)
     }
 
     private func setCursor(_ img: CGImage?, _ hx: Int, _ hy: Int) {
@@ -391,8 +392,31 @@ final class VMDisplayView: NSView {
 
     // MARK: the mouse
 
+    /// Seamless: the pointer moves in and out of the virtual Mac freely (a
+    /// USB tablet in the guest takes absolute positions).  Captured: a click
+    /// takes the mouse and sends raw movement, for games that turn the view
+    /// with it; Control-Option-G gives it back.
+    enum MouseMode: String { case seamless, captured }
+
+    var mouseMode: MouseMode = .seamless {
+        didSet {
+            ungrab()
+            window?.invalidateCursorRects(for: self)
+            flashHint(false)
+        }
+    }
+
+    /// An invisible cursor over the guest's screen: the guest draws its own.
+    private static let blankCursor = NSCursor(image: NSImage(size: NSSize(width: 1, height: 1)), hotSpot: .zero)
+
+    override func resetCursorRects() {
+        if mouseMode == .seamless {
+            addCursorRect(screenRect, cursor: Self.blankCursor)
+        }
+    }
+
     func grab() {
-        guard !grabbed, window?.isKeyWindow == true else { return }
+        guard mouseMode == .captured, !grabbed, window?.isKeyWindow == true else { return }
         grabbed = true
         NSCursor.hide()
         CGAssociateMouseAndMouseCursorPosition(0)
@@ -400,15 +424,15 @@ final class VMDisplayView: NSView {
     }
 
     func ungrab() {
+        if buttons != 0 { buttons = 0; channel.send(.buttons, [0]) }
         guard grabbed else { return }
         grabbed = false
-        if buttons != 0 { buttons = 0; channel.send(.buttons, [0]) }
         CGAssociateMouseAndMouseCursorPosition(1)
         NSCursor.unhide()
     }
 
     private func flashHint(_ show: Bool) {
-        hint.isHidden = !show
+        hint.isHidden = !show || mouseMode != .captured
     }
 
     override func mouseEntered(with event: NSEvent) { if !grabbed { flashHint(true) } }
@@ -420,6 +444,26 @@ final class VMDisplayView: NSView {
         addTrackingArea(NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self))
     }
 
+    /// Where an event is on the guest's screen, in guest pixels (nil: off it).
+    private func guestPoint(_ e: NSEvent) -> (Int32, Int32)? {
+        let p = convert(e.locationInWindow, from: nil)
+        let r = screenRect
+        guard r.width > 0, r.height > 0, r.contains(p) else { return nil }
+        let x = (p.x - r.minX) / r.width * guestSize.width
+        let y = (r.maxY - p.y) / r.height * guestSize.height
+        return (Int32(max(0, min(guestSize.width - 1, x))), Int32(max(0, min(guestSize.height - 1, y))))
+    }
+
+    /// Seamless: point the guest at the event; false if it's off its screen.
+    @discardableResult
+    private func point(_ e: NSEvent) -> Bool {
+        guard mouseMode == .seamless, let (x, y) = guestPoint(e) else { return false }
+        channel.send(.point, [x, y])
+        return true
+    }
+
+    private var engaged: Bool { mouseMode == .seamless || grabbed }
+
     private func button(_ bit: Int32, _ down: Bool) {
         let b = down ? buttons | bit : buttons & ~bit
         guard b != buttons else { return }
@@ -428,16 +472,18 @@ final class VMDisplayView: NSView {
     }
 
     override func mouseDown(with e: NSEvent) {
-        if !grabbed { grab(); return }       // the click that captures isn't passed on
+        if mouseMode == .captured && !grabbed { grab(); return }   // the capturing click isn't passed on
+        if mouseMode == .seamless && !point(e) { return }
         button(1, true)
     }
-    override func mouseUp(with e: NSEvent) { if grabbed { button(1, false) } }
-    override func rightMouseDown(with e: NSEvent) { if grabbed { button(2, true) } }
-    override func rightMouseUp(with e: NSEvent) { if grabbed { button(2, false) } }
-    override func otherMouseDown(with e: NSEvent) { if grabbed { button(4, true) } }
-    override func otherMouseUp(with e: NSEvent) { if grabbed { button(4, false) } }
+    override func mouseUp(with e: NSEvent) { if engaged { point(e); button(1, false) } }
+    override func rightMouseDown(with e: NSEvent) { if grabbed || point(e) { button(2, true) } }
+    override func rightMouseUp(with e: NSEvent) { if engaged { point(e); button(2, false) } }
+    override func otherMouseDown(with e: NSEvent) { if grabbed || point(e) { button(4, true) } }
+    override func otherMouseUp(with e: NSEvent) { if engaged { point(e); button(4, false) } }
 
     private func move(_ e: NSEvent) {
+        if mouseMode == .seamless { point(e); return }
         guard grabbed else { return }
         motion.x += e.deltaX
         motion.y += e.deltaY
@@ -452,7 +498,7 @@ final class VMDisplayView: NSView {
     override func otherMouseDragged(with e: NSEvent) { move(e) }
 
     override func scrollWheel(with e: NSEvent) {
-        guard grabbed else { return }
+        guard grabbed || (mouseMode == .seamless && guestPoint(e) != nil) else { return }
         // Trackpads give pixels; the guest wants wheel clicks.
         scroll += e.hasPreciseScrollingDeltas ? e.scrollingDeltaY / 12 : e.scrollingDeltaY
         let lines = Int32(scroll.rounded(.towardZero))
@@ -525,6 +571,13 @@ final class VMDisplayView: NSView {
         }
     }
 
+    /// Press keys together (in order) and let go (in reverse): for the Keys
+    /// menu.  Mac virtual key codes.
+    func sendCombo(_ codes: [UInt16]) {
+        for c in codes { channel.send(.key, [Int32(c), 1]) }
+        for c in codes.reversed() { channel.send(.key, [Int32(c), 0]) }
+    }
+
     /// Let go of everything when the window loses focus, so nothing sticks.
     func releaseAll() {
         for k in pressed { channel.send(.key, [Int32(k), 0]) }
@@ -548,6 +601,7 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
     let vm: VirtualMachine
     let display: VMDisplayView
     private var sizedOnce = false
+    private var toolbar: VMToolbarController?
 
     init(vm: VirtualMachine, channel: DisplayChannel) {
         self.vm = vm
@@ -563,6 +617,8 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
         super.init(window: w)
         w.delegate = self
         display.onToggleFullScreen = { [weak w] in w?.toggleFullScreen(nil) }
+        display.mouseMode = VMDisplayView.MouseMode(rawValue: vm.config.mouseMode) ?? .seamless
+        toolbar = VMToolbarController(self)
         display.queryPerf = { [weak vm] done in
             guard let vm else { done(nil); return }
             MainActor.assumeIsolated { vm.queryPerf(done: done) }

@@ -47,9 +47,11 @@ struct VMConfig: Codable, Equatable {
     /// uses QEMU's Cocoa window, a separate app in the Dock.
     var embeddedDisplay = true
     /// Video memory of the emulated Radeon, in MB (the driver sees 4 MB less).
-    /// Not in the interface yet: with 128, Tiger 10.4.11 hangs at the grey
-    /// Apple screen as the ATI driver starts (the BAR itself maps fine).
+    /// 128 needs poweremu-qemu's 512 MB uni-north PCI window.
     var vramMB = 64
+    /// "seamless" (USB tablet: the pointer moves in and out freely) or
+    /// "captured" (raw mouse movement for games).
+    var mouseMode = "seamless"
 
     // Startup
     var bootChime = true
@@ -76,7 +78,7 @@ struct VMConfig: Codable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case name, osName, memoryMB, disks, startupDisk, discs, insertedDisc, bootFromDisc
-        case gpuOptionROM, gpuBIOSROM, hardwareCursor, extraDisplayModes, startFullscreen, embeddedDisplay, vramMB
+        case gpuOptionROM, gpuBIOSROM, hardwareCursor, extraDisplayModes, startFullscreen, embeddedDisplay, vramMB, mouseMode
         case bootChime, verboseBoot, safeBoot, singleUser, audio, network, sshPort, shareClipboard, sharedFolders
         case agpBridge, monitorPort, gpuTrace
     }
@@ -97,7 +99,7 @@ struct VMConfig: Codable, Equatable {
         if c.contains(.gpuBIOSROM) { d.gpuBIOSROM = try c.decodeIfPresent(String.self, forKey: .gpuBIOSROM) }
         try get(.hardwareCursor, &d.hardwareCursor); try get(.extraDisplayModes, &d.extraDisplayModes)
         try get(.startFullscreen, &d.startFullscreen); try get(.bootChime, &d.bootChime)
-        try get(.embeddedDisplay, &d.embeddedDisplay); try get(.vramMB, &d.vramMB)
+        try get(.embeddedDisplay, &d.embeddedDisplay); try get(.vramMB, &d.vramMB); try get(.mouseMode, &d.mouseMode)
         try get(.verboseBoot, &d.verboseBoot); try get(.safeBoot, &d.safeBoot)
         try get(.singleUser, &d.singleUser); try get(.audio, &d.audio); try get(.network, &d.network)
         if c.contains(.sshPort) { d.sshPort = try c.decodeIfPresent(Int.self, forKey: .sshPort) }

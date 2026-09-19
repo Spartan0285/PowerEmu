@@ -135,6 +135,33 @@ final class VirtualMachine: ObservableObject, Identifiable {
 
     var hasWindow: Bool { display != nil }
 
+    /// USB devices of this Mac given to the guest (id → name).
+    @Published private(set) var attachedUSB: [String: String] = [:]
+
+    func pressPowerKey() { runner?.pressPowerKey() }
+
+    func toggleUSB(_ d: HostUSBDevice) {
+        guard let runner, state == .running else { return }
+        lastError = nil
+        if attachedUSB[d.id] != nil {
+            runner.detachUSB(d.id) { err in
+                Task { @MainActor in
+                    if let err { self.lastError = err } else { self.attachedUSB[d.id] = nil }
+                }
+            }
+        } else {
+            runner.attachUSB(d) { err in
+                Task { @MainActor in
+                    if let err {
+                        self.lastError = "\(d.name) could not be connected: \(err). macOS may be using it (keyboards, mice and disks stay with the Mac)."
+                    } else {
+                        self.attachedUSB[d.id] = d.name
+                    }
+                }
+            }
+        }
+    }
+
     func queryPerf(done: @escaping @Sendable (String?) -> Void) {
         guard let runner, state == .running else { done(nil); return }
         runner.queryPerf(done: done)
@@ -350,6 +377,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
         display?.stop()
         display = nil
         VMWindowController.close(self)
+        attachedUSB = [:]
         hostDiscName = nil
         sshPortInUse = nil
         monitorPortInUse = nil

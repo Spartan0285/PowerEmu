@@ -43,7 +43,7 @@ echo "=== Launching Tiger with AGP bridge on main PCI bus ==="
 # normal. The ndrvloader still attaches qemu_vga.ndrv to drive the display
 # via the VBE DISPI interface. The ATY,Adagio@e path may or may not exist
 # depending on whether FCode partially sets the device name.
-BOOT_CMD='boot-command=" /pci@f2000000" find-device " uni-north" encode-string " compatible" property device-end " /pci@f2000000/ATY,Adagio@e" ['"'"'] find-device catch 0= if 7 encode-int " IOAGPFlags" property h# 104 encode-int " IOAGPCommandValue" property device-end then " /pci@f2000000/QEMU,VGA@e" ['"'"'] find-device catch 0= if h# 4000000 encode-int " VRAM,totalsize" property device-end then boot'
+BOOT_CMD='boot-command=" /pci@f2000000" find-device " uni-north" encode-string " compatible" property device-end " /pci@f2000000/ATY,Adagio@e" ['"'"'] find-device catch 0= if 7 encode-int " IOAGPFlags" property h# 104 encode-int " IOAGPCommandValue" property device-end then " /pci@f2000000/QEMU,VGA@e" ['"'"'] find-device catch 0= if h# '"$(printf %x $(( ${VGAMEM:-64} * 1048576 )))"' encode-int " VRAM,totalsize" property device-end then boot'
 
 # GPU placement.
 #   AGP=off (default): card on the plain PCI bus (pci.2, 0xf2000000) next to
@@ -97,6 +97,8 @@ if [ "${TRACE_GPU:-off}" = "on" ]; then GPUTRACE="-trace ppc_mac_gpu_*"; else GP
 # guest spinning on a config register grew the trace to 9 GB in ~60 s.
 if [ "${TRACE_UNIN:-off}" = "on" ]; then UNINTRACE="-trace unin_*"; else UNINTRACE=""; fi
 
+# VGAMEM=128 gives the Radeon 128 MB of VRAM instead of 64 (the driver sees
+#   4 MB less); needs the 512 MB uni-north PCI window in poweremu-qemu.
 # VERBOSE=on boots Tiger with -v, printing kernel and kext messages (and any
 # panic) on screen instead of the grey Apple.
 if [ "${VERBOSE:-off}" = "on" ]; then VERBOSEARGS="-prom-env boot-args=-v"; else VERBOSEARGS=""; fi
@@ -146,7 +148,7 @@ exec "$QEMU" \
     -device loader,addr=0x4000000,file="$FIRMWARE/ppc-ndrvloader" \
     -prom-env "$BOOT_CMD" \
     -m ${MEM:-2048} -audio ${AUDIO:-coreaudio} $MODEARGS $FSARGS \
-    -device ppc-mac-gpu,${GPU_BUS}vgamem_mb=64,romfile="$VM_DIR/ati_ndrv_joy.rom",biosrom="$VM_DIR/ati_ret_9200_201_pciagp_full.rom" \
+    -device ppc-mac-gpu,${GPU_BUS}vgamem_mb=${VGAMEM:-64},romfile="$VM_DIR/ati_ndrv_joy.rom",biosrom="$VM_DIR/ati_ret_9200_201_pciagp_full.rom" \
     $NETARGS \
     $BRIDGEARGS \
     $VERBOSEARGS \

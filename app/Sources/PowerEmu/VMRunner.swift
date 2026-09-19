@@ -126,7 +126,10 @@ final class VMRunner {
         if c.agpBridge { a += ["-global", "uni-north-pci.agp-capable=on"] }
         if !c.bootArgs.isEmpty { a += ["-prom-env", "boot-args=\(c.bootArgs)"] }
 
-        a += ["-usb", "-device", "usb-mouse,bus=usb-bus.0", "-device", "usb-kbd,bus=usb-bus.0"]
+        // Both pointing devices: the tablet takes absolute positions (seamless
+        // mouse), the mouse relative movement (captured, for games).
+        a += ["-usb", "-device", "usb-mouse,bus=usb-bus.0", "-device", "usb-tablet,bus=usb-bus.0",
+              "-device", "usb-kbd,bus=usb-bus.0"]
 
         // IDE: two buses with two units each.  The startup disk goes first on
         // ide.0; the CD/DVD drive (always present, so discs can be inserted
@@ -196,6 +199,22 @@ final class VMRunner {
     func pressPowerKey() {
         QMP.shared.send(qmpPath, ["execute": "send-key",
                                   "arguments": ["keys": [["type": "qcode", "data": "power"]]]])
+    }
+
+    /// Give a USB device of this Mac to the guest (QEMU usb-host), or take
+    /// it back.  `done` gets an error to show, or nil.
+    func attachUSB(_ d: HostUSBDevice, done: @escaping @Sendable (String?) -> Void) {
+        QMP.shared.send(qmpPath, ["execute": "device_add",
+                                  "arguments": ["driver": "usb-host", "id": d.id, "bus": "usb-bus.0",
+                                                "vendorid": d.vendor, "productid": d.product]]) { r in
+            done(QMP.errorText(r))
+        }
+    }
+
+    func detachUSB(_ id: String, done: @escaping @Sendable (String?) -> Void) {
+        QMP.shared.send(qmpPath, ["execute": "device_del", "arguments": ["id": id]]) { r in
+            done(QMP.errorText(r))
+        }
     }
 
     func terminate() {
