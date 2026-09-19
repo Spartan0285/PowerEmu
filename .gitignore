@@ -1,0 +1,12 @@
+.DS_Store
+__pycache__/
+tools/*.png
+tools/*.ppm
+tools/winid
+tools/hmove
+tools/listmodes
+tools/setmode
+*.qcow2
+*.iso
+*.img
+*.rom
