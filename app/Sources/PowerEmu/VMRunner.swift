@@ -97,7 +97,7 @@ final class VMRunner {
             if c.startFullscreen { a.append("-full-screen") }
         }
 
-        var gpu = "ppc-mac-gpu,vgamem_mb=\(c.vramMB)"
+        var gpu = "ppc-mac-gpu,id=gpu0,vgamem_mb=\(c.vramMB)"
         if let r = c.gpuOptionROM { gpu += ",romfile=\(vm.romsURL.appendingPathComponent(r).path)" }
         if let r = c.gpuBIOSROM { gpu += ",biosrom=\(vm.romsURL.appendingPathComponent(r).path)" }
         a += ["-device", gpu]
@@ -318,6 +318,15 @@ final class VMRunner {
             if cd?["tray_open"] as? Bool == true || cd?["inserted"] == nil { done(true); return }
             if tries <= 0 { done(false); return }
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) { waitForTray(path, tries: tries - 1, done: done) }
+        }
+    }
+
+    /// The GPU model's running totals ("frames=… draws=… …"), for the
+    /// performance overlay.
+    func queryPerf(done: @escaping @Sendable (String?) -> Void) {
+        QMP.shared.send(qmpPath, ["execute": "qom-get",
+                                  "arguments": ["path": "/machine/peripheral/gpu0", "property": "perf"]]) { reply in
+            done(reply?["return"] as? String)
         }
     }
 

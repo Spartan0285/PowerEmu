@@ -21,6 +21,7 @@ struct PowerEmuApp: App {
             CommandMenu("Machine") {
                 Button("Release Mouse  (⌃⌥G)") { VMWindowController.key?.display.ungrab() }
                 Button("Full Screen  (⌃⌥F)") { VMWindowController.key?.window?.toggleFullScreen(nil) }
+                Button("Show Performance  (⌃⌥P)") { VMWindowController.key?.display.togglePerformance() }
                 Divider()
                 Button("Shut Down") { VMWindowController.key?.vm.requestShutDown() }
                 Button("Restart") { VMWindowController.key?.vm.requestRestart() }

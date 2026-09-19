@@ -135,6 +135,11 @@ final class VirtualMachine: ObservableObject, Identifiable {
 
     var hasWindow: Bool { display != nil }
 
+    func queryPerf(done: @escaping @Sendable (String?) -> Void) {
+        guard let runner, state == .running else { done(nil); return }
+        runner.queryPerf(done: done)
+    }
+
     /// Restart through PowerEmu Tools (there is no key for it otherwise).
     func requestRestart() {
         guard state == .running, let agent, agent.connected else { return }

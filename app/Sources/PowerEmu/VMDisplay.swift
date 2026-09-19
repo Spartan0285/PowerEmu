@@ -33,6 +33,8 @@ final class DisplayChannel: @unchecked Sendable {
     private var back = 0
     private let pendingLock = NSLock()
     private var pending = false            // a frame is waiting for the main thread
+    /// Frames put on screen since the start (for the overlay).
+    private(set) var framesShown = 0
 
     init(socketPath: String) { self.socketPath = socketPath }
 
@@ -198,6 +200,7 @@ final class DisplayChannel: @unchecked Sendable {
         let w = width, h = height
         DispatchQueue.main.async {
             self.pendingLock.lock(); self.pending = false; self.pendingLock.unlock()
+            self.framesShown += 1
             self.onFrame?(s, w, h)
         }
     }
@@ -211,6 +214,13 @@ final class VMDisplayView: NSView {
     private let screen = CALayer()
     private let cursor = CALayer()
     private let hint = CATextLayer()
+    private let perf = CATextLayer()
+    private var perfTimer: Timer?
+    private var lastPerf: (time: TimeInterval, frames: Double, draws: Double, shown: Int,
+                           texVRAM: Double, texAGP: Double, agpBytes: Double)?
+    /// Asks the GPU model for its totals ("frames=… draws=…").
+    var queryPerf: ((@escaping @Sendable (String?) -> Void) -> Void)?
+    var showsPerformance: Bool { perfTimer != nil }
     private(set) var guestSize = CGSize(width: 1024, height: 768)
     private var cursorHot = CGPoint.zero
     private var cursorPos = CGPoint.zero
@@ -246,6 +256,16 @@ final class VMDisplayView: NSView {
         hint.cornerRadius = 6
         hint.isHidden = true
         layer?.addSublayer(hint)
+        perf.fontSize = 11
+        perf.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .medium)
+        perf.foregroundColor = NSColor.white.cgColor
+        perf.backgroundColor = NSColor.black.withAlphaComponent(0.6).cgColor
+        perf.cornerRadius = 6
+        perf.isWrapped = true
+        perf.isHidden = true
+        perf.contentsScale = 2
+        perf.actions = ["contents": NSNull(), "bounds": NSNull(), "position": NSNull(), "hidden": NSNull()]
+        layer?.addSublayer(perf)
 
         channel.onFrame = { [weak self] s, w, h in self?.show(s, w, h) }
         channel.onCursor = { [weak self] img, hx, hy in self?.setCursor(img, hx, hy) }
@@ -294,6 +314,8 @@ final class VMDisplayView: NSView {
         screen.minificationFilter = .linear
         let hs = CGSize(width: 480, height: 22)
         hint.frame = CGRect(x: bounds.midX - hs.width / 2, y: 16, width: hs.width, height: hs.height)
+        let sr = screenRect
+        perf.frame = CGRect(x: sr.minX + 10, y: sr.maxY - 10 - 62, width: 330, height: 62)
         CATransaction.commit()
         placeCursor()
     }
@@ -315,6 +337,56 @@ final class VMDisplayView: NSView {
         cursor.position = CGPoint(x: x, y: screen.bounds.height - top - cursorSize.height * scale)
         cursor.isHidden = !cursorOn || cursor.contents == nil
         CATransaction.commit()
+    }
+
+    // MARK: the performance overlay
+
+    func togglePerformance() {
+        if let t = perfTimer {
+            t.invalidate(); perfTimer = nil; perf.isHidden = true; lastPerf = nil
+            return
+        }
+        perf.string = " Measuring…"
+        perf.isHidden = false
+        needsLayout = true
+        samplePerformance()
+        perfTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.samplePerformance() }
+        }
+    }
+
+    private func samplePerformance() {
+        let shown = channel.framesShown
+        queryPerf? { [weak self] text in
+            DispatchQueue.main.async { self?.updatePerformance(text, shown: shown) }
+        }
+    }
+
+    private func updatePerformance(_ text: String?, shown: Int) {
+        guard perfTimer != nil, let text else { return }
+        var v: [String: Double] = [:]
+        for kv in text.split(separator: " ") {
+            let p = kv.split(separator: "=")
+            if p.count == 2, let d = Double(p[1]) { v[String(p[0])] = d }
+        }
+        let now = ProcessInfo.processInfo.systemUptime
+        let cur = (time: now, frames: v["frames"] ?? 0, draws: v["draws"] ?? 0, shown: shown,
+                   texVRAM: v["tex_vram"] ?? 0, texAGP: v["tex_agp"] ?? 0, agpBytes: v["agp_bytes"] ?? 0)
+        defer { lastPerf = cur }
+        guard let last = lastPerf, now > last.time else { return }
+        let dt = now - last.time
+        let fps = (cur.frames - last.frames) / dt
+        let draws = (cur.draws - last.draws) / dt
+        let shownRate = Double(cur.shown - last.shown) / dt
+        let tv = cur.texVRAM - last.texVRAM, ta = cur.texAGP - last.texAGP
+        let agpShare = tv + ta > 0 ? 100 * ta / (tv + ta) : 0
+        let agpMB = (cur.agpBytes - last.agpBytes) / dt / 1_048_576
+        let mb = 1_048_576.0
+        perf.string = String(format: " Guest %4.0f fps   window %3.0f fps   %5.0f draws/s\n"
+                                   + " VRAM peak %5.1f of %.0f MB\n"
+                                   + " Textures from AGP %3.0f%%   (%.1f MB/s copied)",
+                             fps, shownRate, draws, (v["vram_high"] ?? 0) / mb, (v["vram_usable"] ?? 0) / mb,
+                             agpShare, agpMB)
     }
 
     // MARK: the mouse
@@ -399,6 +471,7 @@ final class VMDisplayView: NSView {
         switch e.keyCode {
         case 5: ungrab(); return true                                  // G
         case 3: onToggleFullScreen?(); return true                     // F
+        case 35: togglePerformance(); return true                      // P
         default: return false
         }
     }
@@ -464,8 +537,13 @@ final class VMDisplayView: NSView {
 /// virtual Mac keeps running (Show Window brings it back).
 final class VMWindowController: NSWindowController, NSWindowDelegate {
     static var open: [URL: VMWindowController] = [:]
-    /// The one in front, for the Machine menu.
-    static var key: VMWindowController? { open.values.first { $0.window?.isKeyWindow == true } }
+    /// The one the Machine menu acts on: the key window's, else the main
+    /// window's, else the only one open.
+    static var key: VMWindowController? {
+        open.values.first { $0.window?.isKeyWindow == true }
+            ?? open.values.first { $0.window?.isMainWindow == true }
+            ?? (open.count == 1 ? open.values.first : nil)
+    }
 
     let vm: VirtualMachine
     let display: VMDisplayView
@@ -485,6 +563,10 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
         super.init(window: w)
         w.delegate = self
         display.onToggleFullScreen = { [weak w] in w?.toggleFullScreen(nil) }
+        display.queryPerf = { [weak vm] done in
+            guard let vm else { done(nil); return }
+            MainActor.assumeIsolated { vm.queryPerf(done: done) }
+        }
         if w.frameAutosaveName.isEmpty || !w.setFrameUsingName(w.frameAutosaveName) { w.center() }
     }
 
