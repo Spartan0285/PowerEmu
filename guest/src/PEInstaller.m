@@ -16,6 +16,11 @@
 
 #define AGENT_NAME @"PowerEmu Agent.app"
 #define CLOCK_PLIST "/Library/LaunchDaemons/com.spartan0285.poweremu.clock.plist"
+/* AuthorizationExecuteWithPrivileges gives root's rights but keeps the
+ * user's real ID, and launchctl on 10.4 goes by the real ID: it would start
+ * a launchd of the user's own and load the daemon there, as the user.  Make
+ * the real ID root first (Perl ships with Mac OS X). */
+#define LAUNCHCTL "/usr/bin/perl -e '$< = $>; exec @ARGV' /bin/launchctl"
 
 /* Run a shell script as root after Mac OS X asks for an administrator's
  * name and password.  Returns NO if the user cancelled or it failed. */
@@ -30,7 +35,10 @@ static BOOL RunAsAdmin(NSString *script, NSString *arg)
                              | kAuthorizationFlagPreAuthorize;
     OSStatus err = AuthorizationCopyRights(auth, &rights, NULL, flags, NULL);
     if (err == errAuthorizationSuccess) {
-        char *args[] = { "-c", (char *)[script UTF8String], "sh", (char *)[arg fileSystemRepresentation], NULL };
+        /* Nothing the script starts may keep our pipe open (a launchd it
+         * spawns would, and we'd wait for the end of the output forever). */
+        NSString *quiet = [@"exec </dev/null >/dev/null 2>&1; " stringByAppendingString:script];
+        char *args[] = { "-c", (char *)[quiet UTF8String], "sh", (char *)[arg fileSystemRepresentation], NULL };
         FILE *pipe = NULL;
         err = AuthorizationExecuteWithPrivileges(auth, "/bin/sh", kAuthorizationFlagDefaults, args, &pipe);
         /* The script is done when its output closes. */
@@ -200,10 +208,10 @@ static void StopAgent(void)
             @"set -e; mkdir -p /Library/PowerEmu; "
              "cp \"$1/PowerEmuClock\" /Library/PowerEmu/PowerEmuClock; "
              "chown root:wheel /Library/PowerEmu/PowerEmuClock; chmod 755 /Library/PowerEmu/PowerEmuClock; "
-             "launchctl unload " CLOCK_PLIST " 2>/dev/null || true; "
+             LAUNCHCTL " unload " CLOCK_PLIST " || true; "
              "cp \"$1/com.spartan0285.poweremu.clock.plist\" " CLOCK_PLIST "; "
              "chown root:wheel " CLOCK_PLIST "; chmod 644 " CLOCK_PLIST "; "
-             "launchctl load " CLOCK_PLIST;
+             LAUNCHCTL " load " CLOCK_PLIST;
         if (!RunAsAdmin(script, [[NSBundle mainBundle] resourcePath]) || !ClockInstalled())
             msg = @"Installed, but without clock syncing (no administrator's password was given).";
     }
@@ -218,7 +226,7 @@ static void StopAgent(void)
     [[NSFileManager defaultManager] removeFileAtPath:InstalledAgentPath() handler:nil];
     NSString *msg = @"PowerEmu Tools have been removed.";
     if (ClockInstalled()) {
-        RunAsAdmin(@"launchctl unload " CLOCK_PLIST "; rm -f " CLOCK_PLIST "; rm -rf /Library/PowerEmu", @"");
+        RunAsAdmin(@LAUNCHCTL " unload " CLOCK_PLIST "; rm -f " CLOCK_PLIST "; rm -rf /Library/PowerEmu", @"");
         if (ClockInstalled()) msg = @"PowerEmu Tools have been removed, except clock syncing (no administrator's password was given).";
     }
     [status setStringValue:msg];
