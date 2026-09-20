@@ -211,6 +211,8 @@ final class DisplayChannel: @unchecked Sendable {
 final class VMDisplayView: NSView {
     let channel: DisplayChannel
     var onToggleFullScreen: (() -> Void)?
+    /// The control bar floating over the top of the screen.
+    weak var controls: VMToolbarController?
     private let screen = CALayer()
     private let cursor = CALayer()
     private let hint = CATextLayer()
@@ -220,6 +222,9 @@ final class VMDisplayView: NSView {
                            texVRAM: Double, texAGP: Double, agpBytes: Double)?
     /// Asks the GPU model for its totals ("frames=… draws=…").
     var queryPerf: ((@escaping @Sendable (String?) -> Void) -> Void)?
+    /// The emulator's pid, for the overlay's host-side figures.
+    var qemuPID: (() -> pid_t?)?
+    private let hostStats = HostStats()
     var showsPerformance: Bool { perfTimer != nil }
     private(set) var guestSize = CGSize(width: 1024, height: 768)
     private var cursorHot = CGPoint.zero
@@ -282,6 +287,12 @@ final class VMDisplayView: NSView {
 
     // MARK: drawing
 
+    /// The size to lay out for before the first frame arrives.
+    func setGuestSize(_ size: CGSize) {
+        guestSize = size
+        needsLayout = true
+    }
+
     private func show(_ s: IOSurfaceRef, _ w: Int, _ h: Int) {
         let size = CGSize(width: w, height: h)
         if size != guestSize {
@@ -316,6 +327,14 @@ final class VMDisplayView: NSView {
         hint.frame = CGRect(x: bounds.midX - hs.width / 2, y: 16, width: hs.width, height: hs.height)
         let sr = screenRect
         perf.frame = CGRect(x: sr.minX + 10, y: sr.maxY - 10 - 62, width: 330, height: 62)
+        if let bar = controls?.bar {
+            // Over the screen, never beside it; below the menu bar in full screen.
+            let size = bar.fittingBarSize
+            let menuBar = window?.styleMask.contains(.fullScreen) == true ? (NSApp.mainMenu?.menuBarHeight ?? 24) : 0
+            bar.frame = CGRect(x: (bounds.midX - size.width / 2).rounded(),
+                               y: (bounds.maxY - size.height - 8 - menuBar).rounded(),
+                               width: size.width, height: size.height)
+        }
         CATransaction.commit()
         placeCursor()
         window?.invalidateCursorRects(for: self)
@@ -383,11 +402,24 @@ final class VMDisplayView: NSView {
         let agpShare = tv + ta > 0 ? 100 * ta / (tv + ta) : 0
         let agpMB = (cur.agpBytes - last.agpBytes) / dt / 1_048_576
         let mb = 1_048_576.0
+        /*
+         * The host line is the reason this overlay grew. Guest figures alone
+         * cannot tell a slow build from a busy Mac, and more than once a
+         * perfectly good build has been judged while something else was
+         * eating the cores or the machine was throttling.
+         */
+        let h = hostStats.sample(qemuPID: qemuPID?())
+        let warn = h.contended ? "  << HOST BUSY" :
+            (h.thermal == .nominal ? "" : "  << THERMAL \(h.thermalText)")
+
         perf.string = String(format: " Guest %4.0f fps   window %3.0f fps   %5.0f draws/s\n"
                                    + " VRAM peak %5.1f of %.0f MB\n"
-                                   + " Textures from AGP %3.0f%%   (%.1f MB/s copied)",
+                                   + " Textures from AGP %3.0f%%   (%.1f MB/s copied)\n"
+                                   + " Host %3.0f%% busy   emulator %3.0f%%   load %.1f/%d   thermal %@%@",
                              fps, shownRate, draws, (v["vram_high"] ?? 0) / mb, (v["vram_usable"] ?? 0) / mb,
-                             agpShare, agpMB)
+                             agpShare, agpMB,
+                             h.hostBusy, h.qemuCPU, h.load1, h.cores,
+                             h.thermalText as NSString, warn as NSString)
     }
 
     // MARK: the mouse
@@ -483,6 +515,11 @@ final class VMDisplayView: NSView {
     override func otherMouseUp(with e: NSEvent) { if engaged { point(e); button(4, false) } }
 
     private func move(_ e: NSEvent) {
+        if !grabbed, let c = controls {
+            let p = convert(e.locationInWindow, from: nil)
+            c.pointerMoved(p, in: self)
+            if c.shown && c.bar.frame.contains(p) { return }     // on the bar, not the guest
+        }
         if mouseMode == .seamless { point(e); return }
         guard grabbed else { return }
         motion.x += e.deltaX
@@ -619,11 +656,20 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
         display.onToggleFullScreen = { [weak w] in w?.toggleFullScreen(nil) }
         display.mouseMode = VMDisplayView.MouseMode(rawValue: vm.config.mouseMode) ?? .seamless
         toolbar = VMToolbarController(self)
+        display.controls = toolbar
+        display.addSubview(toolbar!.bar)
         display.queryPerf = { [weak vm] done in
             guard let vm else { done(nil); return }
             MainActor.assumeIsolated { vm.queryPerf(done: done) }
         }
+        display.qemuPID = { [weak vm] in
+            MainActor.assumeIsolated { vm?.qemuPID }
+        }
         if w.frameAutosaveName.isEmpty || !w.setFrameUsingName(w.frameAutosaveName) { w.center() }
+        // Open at the size the guest last had (it boots at it too).
+        let boot = CGSize(width: max(640, vm.config.bootWidth), height: max(480, vm.config.bootHeight))
+        display.setGuestSize(boot)
+        fitWindow(boot)
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -643,8 +689,19 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
         c.window?.close()
     }
 
-    /// The guest changed resolution: fit the window to it (1:1 when there's room).
+    /// The guest changed resolution: fit the window to it (1:1 when there's
+    /// room), and remember it so the next boot starts at this size.
     func guestResized(_ size: CGSize) {
+        let w = Int(size.width), h = Int(size.height)
+        if w >= 800 && h >= 600 && (w != vm.config.bootWidth || h != vm.config.bootHeight) {
+            vm.config.bootWidth = w
+            vm.config.bootHeight = h
+            try? vm.save()
+        }
+        fitWindow(size)
+    }
+
+    private func fitWindow(_ size: CGSize) {
         guard let w = window, !w.styleMask.contains(.fullScreen), let screen = w.screen ?? NSScreen.main else { return }
         let avail = screen.visibleFrame.size
         let chrome = w.frame.height - w.contentLayoutRect.height

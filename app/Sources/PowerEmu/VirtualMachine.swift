@@ -36,6 +36,10 @@ final class VirtualMachine: ObservableObject, Identifiable {
     var configURL: URL { url.appendingPathComponent("config.plist") }
 
     private var runner: VMRunner?
+
+    /// The emulator's pid while it is running, for the overlay's host-side
+    /// figures. Deliberately the only thing exposed about the runner.
+    var qemuPID: pid_t? { runner?.qemuPID }
     /// PowerEmu Tools in the guest, while running.
     @Published private(set) var agent: GuestAgent?
     private var dav: WebDAVServer?
@@ -90,7 +94,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
             }
             // Views watch the machine; pass the agent's changes on.
             agentWatch = a.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
-            if config.bootChime { Chime.play() }
+            if config.bootChime { Chime.play(config.chimeSound, file: config.chimeFile) }
             try r.launch { [weak self] status in
                 Task { @MainActor in self?.processEnded(status: status) }
             }

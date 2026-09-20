@@ -356,6 +356,14 @@ final class VMRunner {
         }
     }
 
+    /// The emulator process, for the overlay's host-side sampling. nil when
+    /// no VM is running, which the overlay shows as no host figures rather
+    /// than as zeroes -- a zero reads as "idle", which is a different claim.
+    var qemuPID: pid_t? {
+        guard let p = process, p.isRunning else { return nil }
+        return p.processIdentifier
+    }
+
     /// The GPU model's running totals ("frames=… draws=… …"), for the
     /// performance overlay.
     func queryPerf(done: @escaping @Sendable (String?) -> Void) {
