@@ -32,14 +32,27 @@ have=$(ssh -p "$port" "${S[@]}" adam@127.0.0.1 \
         sed "s/.*= //"' 2>/dev/null)
 if [ "$want" = "$have" ]; then
     echo "kext already in the guest and identical, leaving it alone"
-else
+elif ssh -p "$port" "${S[@]}" adam@127.0.0.1 \
+        '[ ! -e /tmp/PowerEmuGPU.kext ] || [ -w /tmp/PowerEmuGPU.kext ]'; then
     tar -cf - -C guest/gpu/build PowerEmuGPU.kext |
         ssh -p "$port" "${S[@]}" adam@127.0.0.1 \
             'cd /tmp && rm -rf PowerEmuGPU.kext && tar -xf -'
+else
+    # Already chowned to root for a previous kextload, so this user cannot
+    # replace it. Stage the new one beside it and let the user swap it in;
+    # that swap is theirs to type, like every other sudo in the guest.
+    tar -cf - -C guest/gpu/build PowerEmuGPU.kext |
+        ssh -p "$port" "${S[@]}" adam@127.0.0.1 \
+            'rm -rf /tmp/pegpu-new && mkdir -p /tmp/pegpu-new &&
+             cd /tmp/pegpu-new && tar -xf -'
+    staged=/tmp/pegpu-new/PowerEmuGPU.kext
 fi
 ssh -p "$port" "${S[@]}" adam@127.0.0.1 'chmod +x /tmp/petest; ls -d /tmp/petest /tmp/PowerEmuGPU.kext'
 echo
 echo "In the guest, as yourself (these need your password, so type them there):"
+if [ -n "${staged:-}" ]; then
+    echo "  sudo rm -rf /tmp/PowerEmuGPU.kext && sudo mv $staged /tmp/PowerEmuGPU.kext"
+fi
 echo "  sudo chown -R root:wheel /tmp/PowerEmuGPU.kext"
 echo "  sudo kextload -t -v 6 /tmp/PowerEmuGPU.kext"
 echo "  sudo kextload -v /tmp/PowerEmuGPU.kext"

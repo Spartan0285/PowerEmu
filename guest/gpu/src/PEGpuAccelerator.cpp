@@ -52,8 +52,14 @@ bool PEGpuAccelerator::start(IOService *provider)
      */
     fPci->setMemoryEnable(true);
 
-    fBar = OSDynamicCast(IODeviceMemory,
-                         fPci->getDeviceMemoryWithRegister(kIOPCIConfigBaseAddress0));
+    /*
+     * Not OSDynamicCast: that needs IODeviceMemory::metaClass, which the
+     * modern KPI (com.apple.kpi.iokit) does not export -- only the legacy
+     * com.apple.kernel.iokit does, and a kext cannot depend on both. The
+     * cast bought nothing anyway, because getDeviceMemoryWithRegister()
+     * already returns an IODeviceMemory *.
+     */
+    fBar = fPci->getDeviceMemoryWithRegister(kIOPCIConfigBaseAddress0);
     if (!fBar) {
         IOLog("PEGpu: no BAR 0\n");
         return false;
