@@ -60,6 +60,9 @@ void pe_ring_present(PERing *r, unsigned int offset, unsigned int pitch,
                      unsigned short w, unsigned short h);
 int pe_ring_capture(PERing *r, const char *path);
 void pe_ring_state(PERing *r, const PEGpuStateHost *st);
+void pe_ring_fill(PERing *r, unsigned int dst_offset, unsigned int dst_pitch,
+                  unsigned short x, unsigned short y,
+                  unsigned short w, unsigned short h, unsigned int colour);
 int pe_ring_draw(PERing *r, unsigned int prim, const PEGpuVertexHost *verts,
                  unsigned int count);
 

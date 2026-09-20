@@ -162,6 +162,32 @@ void pe_ring_state(PERing *r, const PEGpuStateHost *st)
     p->scissor_h = PE_BE16((unsigned short)st->scissor_h);
 }
 
+/*
+ * A solid fill, which is a blit with no source.  Worth having separately
+ * from anything the renderer needs: the host executes it into the shared
+ * mapping with ordinary stores, so the guest can read the result straight
+ * back and prove the whole transport -- packet out, work done, data back --
+ * without OpenGL, a render target, or a single triangle.
+ */
+void pe_ring_fill(PERing *r, unsigned int dst_offset, unsigned int dst_pitch,
+                  unsigned short x, unsigned short y,
+                  unsigned short w, unsigned short h, unsigned int colour)
+{
+    PEGpuBlit *b = pe_ring_packet(r, PE_GPU_PKT_BLIT, sizeof(*b));
+
+    if (!b) {
+        return;
+    }
+    b->dst_offset = PE_BE32(dst_offset);
+    b->dst_pitch = PE_BE32(dst_pitch);
+    b->dst_x = PE_BE16(x);
+    b->dst_y = PE_BE16(y);
+    b->width = PE_BE16(w);
+    b->height = PE_BE16(h);
+    b->colour = PE_BE32(colour);
+    /* src_pitch stays zero: that is what makes it a fill. */
+}
+
 int pe_ring_draw(PERing *r, unsigned int prim, const PEGpuVertexHost *verts,
                  unsigned int count)
 {
