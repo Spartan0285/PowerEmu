@@ -12,7 +12,10 @@ set -e
 VM="${2:-Tiger}"
 CFG="$HOME/Library/Application Support/PowerEmu/Virtual Machines/$VM.poweremu/config.plist"
 QEMU="${POWEREMU_QEMU:-$HOME/Developer/poweremu-qemu}"
-PLUGIN="$QEMU/build/contrib/plugins/libpehot.dylib"
+# The plugin lives in whichever build has plugins enabled -- deliberately not
+# the one the app ships, because plugin instrumentation taxes TCG and the
+# shipped build is the one whose speed is measured.
+PLUGIN="${POWEREMU_PLUGIN:-$QEMU/build/contrib/plugins/libpehot.dylib}"
 CTL="$HOME/Library/Application Support/PowerEmu/pehot"
 
 case "$1" in
