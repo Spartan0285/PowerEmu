@@ -14,6 +14,35 @@ trap 'rm -rf "$WORK"' EXIT
 
 [ -d "$SRC" ] || { echo "no icon document at $SRC" >&2; exit 1; }
 
+# Prefer Apple's own compiler when Xcode is present.
+#
+# This matters for more than fidelity. On macOS 26 an Icon Composer document
+# compiles to an Assets.car holding the real icon; the .icns it also emits
+# stops at 256px and is only a fallback. An app that ships the .icns alone
+# gets the legacy treatment -- the system draws it inset inside its own
+# rounded container, which is why a correctly sized icon came out looking
+# tiny in the middle of a squircle. Hand-flattening the layers, which is what
+# the fallback below does, can never produce the Assets.car and so can never
+# fix that.
+ACTOOL="$(xcode-select -p 2>/dev/null)/usr/bin/actool"
+if [ -x "$ACTOOL" ]; then
+    CAR_DIR="${ICON_CAR_DIR:-$(dirname "$OUT")}"
+    mkdir -p "$CAR_DIR" "$WORK/acout"
+    # The document is passed directly: actool ignores a .icon sitting inside
+    # an .xcassets and silently compiles nothing.
+    "$ACTOOL" --compile "$WORK/acout" --platform macosx \
+        --minimum-deployment-target 26.0 --app-icon "$(basename "$SRC" .icon)" \
+        --output-partial-info-plist "$WORK/acout/partial.plist" "$SRC" \
+        >/dev/null 2>&1 || true
+    if [ -f "$WORK/acout/Assets.car" ]; then
+        cp "$WORK/acout/Assets.car" "$CAR_DIR/Assets.car"
+        cp "$WORK/acout/$(basename "$SRC" .icon).icns" "$OUT" 2>/dev/null || true
+        echo "built $OUT and $CAR_DIR/Assets.car (actool)"
+        exit 0
+    fi
+    echo "actool produced no Assets.car; falling back to flattening" >&2
+fi
+
 # Layer file names, in the order icon.json lists them (top layer first).
 LAYERS=$(python3 - "$SRC/icon.json" <<'EOF'
 import json, sys

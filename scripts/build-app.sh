@@ -25,7 +25,8 @@ cp "$BIN" "$OUT/Contents/MacOS/PowerEmu"
 ditto "$ROOT/build/PowerEmu VM.app" "$OUT/Contents/Helpers/PowerEmu VM.app"
 cp "$ROOT/LICENSE" "$ROOT/COPYING" "$ROOT/THIRD-PARTY-NOTICES.md" "$OUT/Contents/Resources/"
 # The app icon, flattened from assets/poweremu.icon.
-"$ROOT/scripts/make-icon.sh" "$OUT/Contents/Resources/PowerEmu.icns" >/dev/null
+ICON_CAR_DIR="$OUT/Contents/Resources" \
+    "$ROOT/scripts/make-icon.sh" "$OUT/Contents/Resources/PowerEmu.icns" >/dev/null
 # The PowerEmu Tools disc (guest/scripts/build.sh builds its apps on a PowerPC Mac).
 if [ -d "$ROOT/guest/build/Install PowerEmu Tools.app" ]; then
     "$ROOT/scripts/make-tools-disc.sh" "$OUT/Contents/Resources/PowerEmu Tools.iso" >/dev/null
@@ -42,6 +43,11 @@ cat > "$OUT/Contents/Info.plist" <<EOF
 	<string>PowerEmu</string>
 	<key>CFBundleIconFile</key>
 	<string>PowerEmu</string>
+	<!-- Names the icon inside Assets.car. Without this macOS 26 falls back to
+	     CFBundleIconFile and draws the .icns inset in its own container,
+	     which makes a full-bleed icon look small. -->
+	<key>CFBundleIconName</key>
+	<string>poweremu</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.spartan0285.poweremu</string>
 	<key>CFBundleName</key>
