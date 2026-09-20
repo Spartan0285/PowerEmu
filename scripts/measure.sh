@@ -1,0 +1,57 @@
+#!/bin/bash
+# measure.sh LABEL QEMU_BIN=... : boot, start Warcraft, report menu fps.
+S="$(cd "$(dirname "$0")" && pwd)"
+W="${PE_BENCH_DIR:-$TMPDIR/poweremu-bench}"; mkdir -p "$W"
+LABEL="$1"; shift
+pkill -f TigerTest 2>/dev/null; sleep 3
+rm -f "$W/tigertest.qcow2"
+"$HOME/Developer/PowerEmu/build/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/MacOS/qemu-img" \
+    create -f qcow2 -F qcow2 \
+    -b "$HOME/Library/Application Support/PowerEmu/Virtual Machines/Tiger.poweremu/Disks/tiger-fresh.qcow2" \
+    "$W/tigertest.qcow2" >/dev/null
+env "$@" "$S/smoketest.sh" >/dev/null 2>&1 &
+echo "[$LABEL] booting"
+for i in $(seq 60); do sleep 4; nc -z -G 2 127.0.0.1 2299 >/dev/null 2>&1 && break; done
+echo "[$LABEL] sshd up, waiting for the desktop"
+for i in $(seq 60); do
+    "$S/gsh.sh" "ps -axo command | grep -v grep | grep -q MacOS/Finder && echo yes" 2>/dev/null | grep -q yes && break
+    sleep 5
+done
+echo "[$LABEL] desktop up, starting Warcraft"
+for try in 1 2 3; do
+    "$S/gsh.sh" "open '/Users/adam/Desktop/Warcraft III ROC [NoCD].app'" >/dev/null 2>&1
+    for i in $(seq 24); do
+        "$S/gsh.sh" "ps -axo command | grep -v grep | grep -q 'Warcraft III Folder' && echo yes" 2>/dev/null | grep -q yes && break 2
+        sleep 5
+    done
+    echo "[$LABEL] launch attempt $try did not take"
+done
+"$S/gsh.sh" "ps -axo command | grep -v grep | grep -q 'Warcraft III Folder' && echo yes" 2>/dev/null | grep -q yes || {
+    echo "[$LABEL] game never started"; pkill -f TigerTest; exit 1; }
+echo "[$LABEL] running, settling"
+python3 -u - "$LABEL" <<'PY'
+import socket, json, os, sys, time
+s = socket.socket(socket.AF_UNIX); s.connect(os.path.expandvars("$TMPDIR/pe-test.qmp"))
+f = s.makefile('rwb'); f.readline()
+def cmd(c):
+    f.write((json.dumps(c) + "\n").encode()); f.flush()
+    while True:
+        r = json.loads(f.readline())
+        if 'return' in r or 'error' in r: return r
+cmd({"execute": "qmp_capabilities"})
+def perf():
+    r = cmd({"execute": "qom-get", "arguments": {
+        "path": "/machine/peripheral/gpu0", "property": "perf"}})
+    return dict(kv.split('=') for kv in r['return'].split())
+time.sleep(60)
+print("== %s" % sys.argv[1])
+p0, t0 = perf(), time.time()
+for i in range(4):
+    time.sleep(15)
+    p1, t1 = perf(), time.time()
+    fr = int(p1['frames']) - int(p0['frames'])
+    print("  window %d: %.1f fps  (%.0f draws/frame)" % (
+        i + 1, fr / (t1 - t0), (int(p1['draws']) - int(p0['draws'])) / max(fr, 1)))
+    p0, t0 = p1, t1
+PY
+pkill -f TigerTest
