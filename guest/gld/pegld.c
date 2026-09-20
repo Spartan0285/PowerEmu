@@ -132,11 +132,33 @@ static void pe_dump(const char *what, const void *p, int bytes)
     }
 }
 
-#define PE_STUB(name)                       \
-    long name(void)                         \
-    {                                       \
-        pe_note(#name);                     \
-        return 0;                           \
+/*
+ * Every entry point we have not implemented yet.
+ *
+ * With PEGLD_PROXY set these forward to a real driver, which makes this
+ * bundle a complete tracing shim: OpenGL works normally, through Apple's
+ * renderer, while we record the exact call sequence a real workload
+ * produces.  That trace is what tells us which of the 63 entry points
+ * actually matter and in what order -- far better evidence than reasoning
+ * about which ones ought to.
+ *
+ * The uniform seven arguments are deliberate.  PowerPC passes the first
+ * eight integer/pointer arguments in r3..r10 and the callee simply ignores
+ * registers it does not read, so forwarding seven works for any of these
+ * functions without knowing its true arity.
+ */
+#define PE_STUB(name)                                                   \
+    long name(void *a1, void *a2, void *a3, void *a4,                   \
+              void *a5, void *a6, void *a7)                             \
+    {                                                                   \
+        long (*real)(void *, void *, void *, void *, void *, void *,    \
+                     void *) = pe_proxy_sym(#name);                     \
+                                                                        \
+        pe_note(#name);                                                 \
+        if (real) {                                                     \
+            return real(a1, a2, a3, a4, a5, a6, a7);                    \
+        }                                                               \
+        return 0;                                                       \
     }
 
 /*
@@ -277,7 +299,12 @@ long gldChoosePixelFormat(void **out_list, const int *attribs)
 
 long gldDestroyPixelFormat(void *pf)
 {
+    long (*real)(void *) = pe_proxy_sym("gldDestroyPixelFormat");
+
     pe_note("gldDestroyPixelFormat");
+    if (real) {
+        return real(pf);
+    }
     free(pf);
     return 0;
 }
@@ -363,7 +390,19 @@ PE_STUB(gldDestroyShared)
 long gldCreateContext(void **ctx_out, void *pf, void *shared, void *a4,
                       void *a5, void *gl_state, void *a7)
 {
+    long (*real)(void **, void *, void *, void *, void *, void *, void *) =
+        pe_proxy_sym("gldCreateContext");
+
     pe_note("gldCreateContext");
+    if (real) {
+        long r = real(ctx_out, pf, shared, a4, a5, gl_state, a7);
+
+        if (pe_log) {
+            fprintf(pe_log, "    proxy gldCreateContext -> %ld ctx=%p\n",
+                    r, ctx_out ? *ctx_out : NULL);
+        }
+        return r;
+    }
     if (!ctx_out) {
         return 10000;                   /* kGLDBadAddress */
     }
@@ -373,7 +412,12 @@ long gldCreateContext(void **ctx_out, void *pf, void *shared, void *a4,
 
 long gldDestroyContext(void *ctx)
 {
+    long (*real)(void *) = pe_proxy_sym("gldDestroyContext");
+
     pe_note("gldDestroyContext");
+    if (real) {
+        return real(ctx);
+    }
     free(ctx);
     return 0;
 }
