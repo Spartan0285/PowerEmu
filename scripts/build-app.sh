@@ -10,13 +10,22 @@ VERSION=0.1
 (cd "$ROOT/app" && swift build -c release)
 BIN="$(cd "$ROOT/app" && swift build -c release --show-bin-path)/PowerEmu"
 
-[ -d "$ROOT/build/PowerEmu VM.app" ] || "$ROOT/scripts/bundle-qemu.sh" "$ROOT/build/PowerEmu VM.app"
+# Restage the helper (QEMU + its libraries) whenever the emulator has been
+# rebuilt since; otherwise the app would keep shipping the QEMU it was first
+# packaged with, and changes to the emulator would silently never appear.
+QEMU_BIN="${POWEREMU_QEMU:-$HOME/Developer/poweremu-qemu}/build/qemu-system-ppc-unsigned"
+STAGED="$ROOT/build/PowerEmu VM.app/Contents/MacOS/qemu-system-ppc"
+if [ ! -d "$ROOT/build/PowerEmu VM.app" ] || [ "$QEMU_BIN" -nt "$STAGED" ]; then
+    "$ROOT/scripts/bundle-qemu.sh" "$ROOT/build/PowerEmu VM.app"
+fi
 
 rm -rf "$OUT"
 mkdir -p "$OUT/Contents/MacOS" "$OUT/Contents/Helpers" "$OUT/Contents/Resources"
 cp "$BIN" "$OUT/Contents/MacOS/PowerEmu"
 ditto "$ROOT/build/PowerEmu VM.app" "$OUT/Contents/Helpers/PowerEmu VM.app"
 cp "$ROOT/LICENSE" "$ROOT/COPYING" "$ROOT/THIRD-PARTY-NOTICES.md" "$OUT/Contents/Resources/"
+# The app icon, flattened from assets/poweremu.icon.
+"$ROOT/scripts/make-icon.sh" "$OUT/Contents/Resources/PowerEmu.icns" >/dev/null
 # The PowerEmu Tools disc (guest/scripts/build.sh builds its apps on a PowerPC Mac).
 if [ -d "$ROOT/guest/build/Install PowerEmu Tools.app" ]; then
     "$ROOT/scripts/make-tools-disc.sh" "$OUT/Contents/Resources/PowerEmu Tools.iso" >/dev/null
@@ -30,6 +39,8 @@ cat > "$OUT/Contents/Info.plist" <<EOF
 <plist version="1.0">
 <dict>
 	<key>CFBundleExecutable</key>
+	<string>PowerEmu</string>
+	<key>CFBundleIconFile</key>
 	<string>PowerEmu</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.spartan0285.poweremu</string>
