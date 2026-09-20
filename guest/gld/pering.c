@@ -25,6 +25,7 @@
 
 #include "pering.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -134,6 +135,33 @@ void pe_ring_present(PERing *r, unsigned int offset, unsigned int pitch,
     p->height = PE_BE16(h);
 }
 
+/*
+ * The host keeps no state across batches it did not see set, and rejects a
+ * draw that no state packet precedes.  Emitting this is therefore not
+ * optional bookkeeping: it is what makes the draws that follow legal.
+ */
+void pe_ring_state(PERing *r, const PEGpuStateHost *st)
+{
+    PEGpuState *p = pe_ring_packet(r, PE_GPU_PKT_STATE, sizeof(*p));
+
+    if (!p) {
+        return;
+    }
+    p->target_offset = PE_BE32(st->target_offset);
+    p->target_pitch = PE_BE32(st->target_pitch);
+    p->target_width = PE_BE16(st->target_width);
+    p->target_height = PE_BE16(st->target_height);
+    p->depth_offset = PE_BE32(st->depth_offset);
+    p->depth_pitch = PE_BE32(st->depth_pitch);
+    p->depth_bits = PE_BE16(st->depth_bits);
+    p->flags = PE_BE16(st->flags);
+    p->blend = PE_BE32(st->blend_src | ((unsigned int)st->blend_dst << 16));
+    p->scissor_x = PE_BE16((unsigned short)st->scissor_x);
+    p->scissor_y = PE_BE16((unsigned short)st->scissor_y);
+    p->scissor_w = PE_BE16((unsigned short)st->scissor_w);
+    p->scissor_h = PE_BE16((unsigned short)st->scissor_h);
+}
+
 int pe_ring_draw(PERing *r, unsigned int prim, const PEGpuVertexHost *verts,
                  unsigned int count)
 {
@@ -184,5 +212,47 @@ int pe_ring_draw(PERing *r, unsigned int prim, const PEGpuVertexHost *verts,
     d->vertex_stride = PE_BE16((unsigned short)sizeof(*dst));
     d->prim = PE_BE16((unsigned short)prim);
     r->draws++;
+    return 0;
+}
+
+/*
+ * Capture transport.
+ *
+ * Until the kext exists there is no mapping to write into, but the packets
+ * themselves are the interesting part: written to a file here and replayed
+ * into the device on the host, they prove the encoder and the device agree
+ * about the protocol -- the half of the pipeline that is easiest to get
+ * subtly wrong and hardest to debug once a kernel and a guest are in the
+ * way.
+ */
+static void pe_capture_doorbell(void *arg, unsigned int head)
+{
+    PERing *r = arg;
+    FILE *f = (FILE *)r->capture;
+    unsigned char hdr[8];
+
+    if (!f) {
+        return;
+    }
+    /* Each batch: its ring length, then the data-area high-water mark, so
+     * the replayer knows how much of the shared area to hand over. */
+    hdr[0] = head >> 24; hdr[1] = head >> 16; hdr[2] = head >> 8; hdr[3] = head;
+    hdr[4] = r->data_next >> 24; hdr[5] = r->data_next >> 16;
+    hdr[6] = r->data_next >> 8;  hdr[7] = r->data_next;
+    fwrite(hdr, 1, sizeof(hdr), f);
+    fwrite(r->base, 1, head, f);                        /* the ring */
+    fwrite(r->base + PE_GPU_DATA_BASE, 1,
+           r->data_next - PE_GPU_DATA_BASE, f);         /* its data */
+    fflush(f);
+}
+
+int pe_ring_capture(PERing *r, const char *path)
+{
+    r->capture = fopen(path, "wb");
+    if (!r->capture) {
+        return -1;
+    }
+    r->doorbell = pe_capture_doorbell;
+    r->doorbell_arg = r;
     return 0;
 }

@@ -11,7 +11,23 @@
 #define PERING_H
 
 #include <stdint.h>
+#include <stdio.h>
 #include "poweremu_gpu_ring.h"
+
+/*
+ * Render state as the renderer has it, in host byte order.  The host
+ * rejects a draw that no state packet precedes, so a batch that draws must
+ * open with pe_ring_state(); the target fields are the minimum it needs.
+ */
+typedef struct PEGpuStateHost {
+    unsigned int target_offset, target_pitch;
+    unsigned short target_width, target_height;
+    unsigned int depth_offset, depth_pitch;
+    unsigned short depth_bits;      /* 16, or 24/32 */
+    unsigned short flags;           /* PE_GPU_ST_* */
+    unsigned short blend_src, blend_dst;    /* PE_GPU_BLEND_* */
+    short scissor_x, scissor_y, scissor_w, scissor_h;
+} PEGpuStateHost;
 
 /* Vertices as the renderer has them: host floats, not yet byte-ordered. */
 typedef struct PEGpuVertexHost {
@@ -31,6 +47,8 @@ typedef struct PERing {
     void *doorbell_arg;
 
     unsigned long packets, batches, draws;
+
+    void *capture;                  /* FILE *, when capturing to a file */
 } PERing;
 
 void pe_ring_init(PERing *r, void *shared, unsigned int shared_bytes);
@@ -40,6 +58,8 @@ void pe_ring_flush(PERing *r);
 unsigned int pe_ring_fence(PERing *r);
 void pe_ring_present(PERing *r, unsigned int offset, unsigned int pitch,
                      unsigned short w, unsigned short h);
+int pe_ring_capture(PERing *r, const char *path);
+void pe_ring_state(PERing *r, const PEGpuStateHost *st);
 int pe_ring_draw(PERing *r, unsigned int prim, const PEGpuVertexHost *verts,
                  unsigned int count);
 

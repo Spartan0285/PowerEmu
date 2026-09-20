@@ -48,6 +48,47 @@ int main(void)
         printf("FAIL: fence size %u\n", be32(shared + 4)); fails++;
     }
 
+    /*
+     * A state packet, which the host demands before it will accept any
+     * draw.  Checked on the wire because the blend factors are packed two
+     * to a word and the scissor is signed: both are easy to get wrong in a
+     * way only the host would notice.
+     */
+    {
+        PEGpuStateHost st;
+        unsigned int at = r.head;
+
+        memset(&st, 0, sizeof(st));
+        st.target_offset = PE_GPU_DATA_BASE;
+        st.target_pitch = 640 * 4;
+        st.target_width = 640;
+        st.target_height = 480;
+        st.blend_src = PE_GPU_BLEND_SRC_ALPHA;
+        st.blend_dst = PE_GPU_BLEND_INV_SRC_ALPHA;
+        st.scissor_x = -8;
+        st.scissor_w = 640;
+        st.scissor_h = 480;
+        pe_ring_state(&r, &st);
+
+        if (be32(shared + at) >> 16 != PE_GPU_PKT_STATE) {
+            printf("FAIL: state type not big-endian\n"); fails++;
+        }
+        if (be32(shared + at + 4) != ((sizeof(PEGpuState) + 7u) & ~7u)) {
+            printf("FAIL: state size %u\n", be32(shared + at + 4)); fails++;
+        }
+        if (be32(shared + at + 8) != PE_GPU_DATA_BASE) {
+            printf("FAIL: state target offset\n"); fails++;
+        }
+        if (be32(shared + at + 32) !=
+            (PE_GPU_BLEND_SRC_ALPHA | (PE_GPU_BLEND_INV_SRC_ALPHA << 16))) {
+            printf("FAIL: blend packed as %u\n", be32(shared + at + 32));
+            fails++;
+        }
+        if ((short)(be32(shared + at + 36) >> 16) != -8) {
+            printf("FAIL: negative scissor x mangled\n"); fails++;
+        }
+    }
+
     /* a draw lands its vertices in the data area, 256-byte aligned */
     memset(v, 0, sizeof(v));
     for (i = 0; i < 3; i++) { v[i].pos[0] = (float)i; v[i].pos[3] = 1.0f; }
