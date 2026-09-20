@@ -4,6 +4,12 @@ S="$(cd "$(dirname "$0")" && pwd)"
 W="${PE_BENCH_DIR:-$TMPDIR/poweremu-bench}"; mkdir -p "$W"
 H="$HOME/Developer/PowerEmu/build/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents"
 R="$HOME/Library/Application Support/PowerEmu/Virtual Machines/Tiger.poweremu/ROMs"
+# A leftover VM holding the SSH port silently turns every measurement into a
+# measurement of the *old* guest.  Refuse to start instead.
+if lsof -nP -iTCP:2299 -sTCP:LISTEN >/dev/null 2>&1; then
+    echo "smoketest: port 2299 is already in use - stale test VM?" >&2
+    exit 1
+fi
 rm -f "$W/testconsole.log" "$S/test.qmp"
 "${QEMU_BIN:-$H/MacOS/qemu-system-ppc}" -name TigerTest -L "$H/Resources/firmware" -nodefaults -vga none -audio none \
   -smp 1 -machine mac99,via=pmu -accel tcg,tb-size=512 -g 1024x768x32 -m 2048 \
