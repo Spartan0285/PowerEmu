@@ -40,6 +40,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
+#include <unistd.h>
+
+#include "peconn.h"
 
 static FILE *pe_log;
 static int pe_calls;
@@ -165,12 +168,40 @@ static void pe_dump(const char *what, const void *p, int bytes)
  * The two GLEngine looks up by name before anything else.  A renderer that
  * fails initialisation is dropped, so this one succeeds and does nothing.
  */
+/*
+ * The connection to the paravirtual device, opened once for the process.
+ *
+ * Failing to open it is not an error here.  Without the kext there is no
+ * service to find, and this renderer is deliberately loadable that way --
+ * through GL_RESOURCES, with nothing installed -- so that the load path and
+ * the entry points can be worked on separately from the kernel half.  What
+ * it must not do is pretend: pe_attached says which of the two it is, and
+ * nothing may put work in the ring unless it is set.
+ */
+static PEConn pe_conn;
+static int pe_attached;
+
+static void pe_attach(void)
+{
+    int rc = pe_conn_open(&pe_conn);
+
+    pe_attached = (rc == PE_CONN_OK);
+    if (pe_log) {
+        fprintf(pe_log, "    device: %s\n", pe_conn_strerror(rc));
+        if (pe_attached) {
+            fprintf(pe_log, "    features %08x, shared %p, ctrl %p\n",
+                    pe_conn.features, pe_conn.shared, pe_conn.ctrl);
+        }
+    }
+}
+
 long gldInitializeLibrary(void *services, void *a2, unsigned int display_mask,
                           void *a4, void *callback)
 {
     long (*real)(void *, void *, unsigned int, void *, void *);
 
     pe_note("gldInitializeLibrary");
+    pe_attach();
     real = pe_proxy_sym("gldInitializeLibrary");
     if (real) {
         long r = real(services, a2, display_mask, a4, callback);
