@@ -2,16 +2,69 @@
 
 ## The headline
 
-Tiger's OpenGL now loads a renderer we wrote, and **builds a full GL context
-on it**, with no kernel extension and nothing installed in the guest.
+**The paravirtual GPU is live in a real Tiger guest.** 10.4.11 boots to
+userspace with the device on the bus and enumerates it:
 
-    gldInitializeLibrary -> gldGetVersion -> gldChoosePixelFormat ->
-    gldDestroyPixelFormat -> gldCreateShared -> gldCreateContext ->
-    gldCreateTexture x32 -> gldCreatePipelineProgram x2 ->
-    gldCreateVertexArray
+    pci1b36,5047@F  <class IOPCIDevice, registered, matched, active>
+    compatible = "pci1af4,1100", "pci1b36,5047", "pciclass,038000"
 
-That is OpenGL allocating a context's texture units, program objects and
-vertex array through our code, on the real 10.4.11 guest.
+The kext's IOPCIMatch (0x50471b36) is exactly what that node matches, so
+the kernel half has something real to bind to the moment it is loaded.
+
+And the emulator got faster: a paired A/B on the Mac Studio, repeated
+independently, measured **+5.7%** (52.0 -> 55.0 fps) for the night's
+changes over the build that was in your app. **That build is now in your
+app** -- I quit it, restaged QEMU, and reopened it as you left it.
+
+## Two bugs this night's testing found
+
+Both were found by making something *actually run* rather than by reading
+code, and both would have stopped you dead this morning.
+
+- **The device could never have been instantiated.** Putting it on a PCI
+  bus tripped `assert(is_power_of_2(size))` in `pci_register_bar()`:
+  control page plus ring plus data is 0x2101000, and a BAR's size must be a
+  power of two. The self-test and the replay harness both drive the ring
+  directly and never reach `realize()`, so neither had ever noticed. The
+  BAR is now 64 MB with the tail unmapped; `PE_GPU_SHARED_BYTES`
+  deliberately did *not* follow the rounding, because that is what the host
+  validates guest offsets against and widening it would have the host
+  accept offsets past the end of the memory it allocated.
+- **The guest encoder could not emit a legal batch.** The host rejects any
+  draw that no state packet precedes, and `pering.c` had no way to send
+  one -- so every batch it could build was invalid by construction. Caught
+  by replaying a capture from the guest encoder through the real device
+  model, which accepted exactly one packet per batch and rejected the rest.
+
+The replay harness (`POWEREMU_GPU_REPLAY=<file>`) is what caught the
+second, on its first run. It is worth keeping for that reason: the
+self-test proves the device against packets the device's own test code
+built, which is a weaker claim than it looks.
+
+## Where the paravirtual work stands
+
+| piece | state |
+|---|---|
+| host device `poweremu-gpu` | ring, doorbell, fences, validation, Metal; **enumerates in Tiger** |
+| guest ring encoder | state/draw/present/fence; native test passes, replays clean through the host |
+| guest connector `peconn.c` | finds the service, maps both regions, checks magic/version, hands the mapping to the ring |
+| guest renderer `guest/gld/` | 63 entry points, loaded by Tiger, context created on it; reports the device at init |
+| guest kext `guest/gpu/` | compiles; **not loaded** -- needs your admin password |
+
+End-to-end, guest encoder through the real device:
+
+    replayed 3 batches: 21 packets, 12 draws, 36 vertices,
+                        3 presents, 0 rejected, fence 3, error 0
+
+## What needs you
+
+1. **Loading the kext** is the one thing I cannot do: it needs admin in the
+   guest, and that password is yours to type. Until it is loaded the
+   renderer has no way to reach the ring -- userspace cannot map a PCI BAR
+   without it -- so this is the gate on everything that follows.
+2. The device is opt-in in the app (`POWEREMU_PARAVIRT_GPU=1`) so the
+   build you are running cannot be affected by a device nothing is asking
+   for yet.
 
 ## And the finding that should govern what happens next
 
@@ -92,13 +145,17 @@ not. Every one was caught by a control run rather than by reasoning.
 
 ## Next
 
-1. Capture a real GL trace through the shim (`PEGLD_PROXY`) from an actual
+1. **Load the kext** (yours to do -- admin in the guest). Then
+   `gldInitializeLibrary` will log either `device: ok` with the host's
+   feature bits, or exactly why it could not attach.
+2. Capture a real GL trace through the shim (`PEGLD_PROXY`) from an actual
    application, to see which entry points matter before implementing
    `gldInitDispatch` -- it writes 17 function pointers and two mask sets,
    and a wrong guess there crashes rather than warns.
-2. Then route those calls into the ring, which already exists on both sides.
-3. The kext only when hardware-class acceleration or Quartz Extreme is
-   wanted; it needs admin in the guest, which is yours to type.
+3. Then route those calls into the ring. Both halves of the transport now
+   exist and agree; what is missing is the translation from GL state to
+   PEGpuState and from GL primitives to PEGpuDraw.
 4. Independently of all of this: the million type-0 register writes a second
    are decoded through the full MMIO switch. That is a contained
-   optimisation needing no guest driver at all.
+   optimisation needing no guest driver at all, and given that 99.5% of GPU
+   register traffic never traps, it is where the remaining emulator win is.
