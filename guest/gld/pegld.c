@@ -78,6 +78,60 @@ static void pe_note(const char *fn)
             (int)tv.tv_usec, fn);
 }
 
+/*
+ * Tracing proxy.
+ *
+ * Guessing at undocumented struct fields one rebuild at a time is slow and
+ * wrong more often than right.  With PEGLD_PROXY=<path to a real GLD> we
+ * load Apple's driver alongside ours, forward the calls we are unsure about,
+ * and dump exactly what it produces.  That turns "what does CGL want in a
+ * pixel format" from inference into a hexdump.
+ */
+#include <dlfcn.h>
+
+static void *pe_proxy;
+
+static void *pe_proxy_sym(const char *name)
+{
+    const char *path = getenv("PEGLD_PROXY");
+
+    if (!path) {
+        return NULL;
+    }
+    if (!pe_proxy) {
+        pe_proxy = dlopen(path, RTLD_LAZY | RTLD_LOCAL);
+        if (!pe_proxy) {
+            pe_note("proxy: dlopen failed");
+            return NULL;
+        }
+    }
+    return dlsym(pe_proxy, name);
+}
+
+static void pe_dump(const char *what, const void *p, int bytes)
+{
+    const unsigned char *b = p;
+    char line[128];
+    int i, n = 0;
+
+    if (!pe_log || !b) {
+        return;
+    }
+    fprintf(pe_log, "    %s %d bytes:\n", what, bytes);
+    for (i = 0; i < bytes; i++) {
+        n += snprintf(line + n, sizeof(line) - n, "%02x", b[i]);
+        if ((i & 15) == 15) {
+            fprintf(pe_log, "      +%02x %s\n", i & ~15, line);
+            n = 0;
+        } else if ((i & 3) == 3) {
+            n += snprintf(line + n, sizeof(line) - n, " ");
+        }
+    }
+    if (n) {
+        fprintf(pe_log, "      +%02x %s\n", i & ~15, line);
+    }
+}
+
 #define PE_STUB(name)                       \
     long name(void)                         \
     {                                       \
@@ -89,9 +143,22 @@ static void pe_note(const char *fn)
  * The two GLEngine looks up by name before anything else.  A renderer that
  * fails initialisation is dropped, so this one succeeds and does nothing.
  */
-long gldInitializeLibrary(void)
+long gldInitializeLibrary(void *services, void *a2, unsigned int display_mask,
+                          void *a4, void *callback)
 {
+    long (*real)(void *, void *, unsigned int, void *, void *);
+
     pe_note("gldInitializeLibrary");
+    real = pe_proxy_sym("gldInitializeLibrary");
+    if (real) {
+        long r = real(services, a2, display_mask, a4, callback);
+
+        if (pe_log) {
+            fprintf(pe_log, "    proxy gldInitializeLibrary -> %ld (mask %08x)\n",
+                    r, display_mask);
+        }
+        return r;
+    }
     return 1;
 }
 
@@ -134,13 +201,182 @@ long gldGetVersion(unsigned int *iface_major, unsigned int *iface_minor,
     return 1;
 }
 
-PE_STUB(gldChoosePixelFormat)
-PE_STUB(gldDestroyPixelFormat)
-PE_STUB(gldGetRendererInfo)
+/*
+ * CGL asks which pixel formats we can offer for a set of attributes, and
+ * takes a malloc'd singly-linked list back: 0x34 bytes per entry, chained
+ * through the word at +0x00, with the display mask at +0x30 (both recovered
+ * from Apple's driver -- see abi/gld_abi.h).  One format is enough to get a
+ * context created, which is what we are after; refusing everything here is
+ * how Apple's own driver implements GL_REJECT_HW.
+ */
+long gldChoosePixelFormat(void **out_list, const int *attribs)
+{
+    unsigned char *pf;
+
+    pe_note("gldChoosePixelFormat");
+    if (!out_list) {
+        return 0;
+    }
+    {
+        long (*real)(void **, const int *) = pe_proxy_sym("gldChoosePixelFormat");
+
+        if (real) {
+            void *list = NULL;
+            long r = real(&list, attribs);
+
+            if (pe_log) {
+                fprintf(pe_log, "    proxy gldChoosePixelFormat -> %ld list=%p\n",
+                        r, list);
+            }
+            if (list) {
+                pe_dump("pixelformat", list, 0x34);
+                *out_list = list;       /* hand the real one straight through */
+                return r;
+            }
+        }
+    }
+    if (getenv("PEGLD_NOFORMATS")) {
+        *out_list = NULL;               /* offer nothing, like GL_REJECT_HW */
+        return 0;
+    }
+    /*
+     * Shape copied from what Apple's driver actually returns (captured with
+     * PEGLD_PROXY -- see abi/NOTES.md and the log dump):
+     *
+     *   +00 next  +04 rendererID  +08 buffer modes  +10 colour mode
+     *   +18 depth mode  +1c stencil mode  +30 display mask
+     *
+     * The important correction over the earlier guess: each entry describes
+     * ONE concrete configuration and they are chained, rather than one entry
+     * advertising every capability mask at once.  CGL hands an application a
+     * single entry, so a format claiming everything is not usable and gets
+     * dropped.
+     */
+    pf = calloc(1, 0x34);
+    if (!pf) {
+        *out_list = NULL;
+        return 0;
+    }
+    {
+        const char *env = getenv("PEGLD_ID");
+        unsigned int id = env ? (unsigned int)strtoul(env, NULL, 0) : 0x2000;
+
+        *(void **)(pf + 0x00) = NULL;                 /* single entry      */
+        *(unsigned int *)(pf + 0x04) = id;            /* renderer ID       */
+        *(unsigned int *)(pf + 0x08) = 0x511;         /* buffer modes      */
+        *(unsigned int *)(pf + 0x0c) = 0;
+        *(unsigned int *)(pf + 0x10) = 0x400;         /* one colour mode   */
+        *(unsigned int *)(pf + 0x14) = 0;             /* no accum          */
+        *(unsigned int *)(pf + 0x18) = 1;             /* one depth mode    */
+        *(unsigned int *)(pf + 0x1c) = 1;             /* one stencil mode  */
+        *(unsigned int *)(pf + 0x30) = 1;             /* display 1         */
+    }
+    *out_list = pf;
+    return 0;
+}
+
+long gldDestroyPixelFormat(void *pf)
+{
+    pe_note("gldDestroyPixelFormat");
+    free(pf);
+    return 0;
+}
+
+/*
+ * GLEngine hands us a caller-allocated block (at least 0x38 bytes per the
+ * disassembly of Apple's driver) and publishes what we put in it through
+ * CGLDescribeRenderer.  The field layout is not documented and Apple's
+ * driver fills it from a kext selector we do not have, so recover the
+ * mapping the direct way: write a distinct marker into every word and see
+ * which CGL property reports which marker back.  PEGLD_PROBE=1 turns that
+ * on; otherwise report something honest and modest.
+ */
+long gldGetRendererInfo(void *out, unsigned int display_mask)
+{
+    unsigned int *w = out;
+    int i;
+
+    pe_note("gldGetRendererInfo");
+    if (!w) {
+        return 0;
+    }
+    {
+        long (*real)(void *, unsigned int) = pe_proxy_sym("gldGetRendererInfo");
+
+        if (real) {
+            long r = real(out, display_mask);
+
+            if (pe_log) {
+                fprintf(pe_log, "    proxy gldGetRendererInfo -> %ld\n", r);
+            }
+            pe_dump("rendererinfo", out, 0x38);
+            return r;
+        }
+    }
+    if (getenv("PEGLD_PROBE")) {
+        for (i = 0; i < 16; i++) {
+            w[i] = 0xA0000000u | i;     /* word index, recoverable in CGL */
+        }
+        return 0;
+    }
+    /*
+     * Field offsets recovered by probing: each word was filled with its own
+     * index and read back through CGLDescribeRenderer (PEGLD_PROBE=1 still
+     * does this).  Words 8-10 pack two 16-bit counts each, which is why the
+     * probe made them look like nonsense.
+     */
+    for (i = 0; i < 16; i++) {
+        w[i] = 0;
+    }
+    /*
+     * Word 1 is what CGL reports as the renderer ID (probe: it echoed the
+     * marker there straight back through kCGLRPRendererID).  Give ourselves
+     * a distinct one so an application can ask for this renderer by name
+     * rather than being handed whichever CGL ranks highest.
+     */
+    {
+        const char *env = getenv("PEGLD_ID");
+        w[1] = env ? (unsigned int)strtoul(env, NULL, 0) : 0x2000;
+    }
+    w[3]  = 0x0d;               /* BufferModes: double | accelerated bits   */
+    w[4]  = 0xca00;             /* ColorModes: the modes the R200 path has  */
+    w[5]  = 0x00c0c000;         /* AccumModes                               */
+    w[6]  = 0x1401;             /* DepthModes: 16 and 24/32 bit             */
+    w[7]  = 0x81;               /* StencilModes: none and 8 bit             */
+    w[12] = 128u << 20;         /* VideoMemory                              */
+    w[13] = 128u << 20;         /* TextureMemory                            */
+    return 0;
+}
 PE_STUB(gldCreateShared)
 PE_STUB(gldDestroyShared)
-PE_STUB(gldCreateContext)
-PE_STUB(gldDestroyContext)
+/*
+ * Seven arguments, per the disassembly of Apple's driver: the context out
+ * parameter, the pixel format, the shared object, two we have not yet
+ * identified, the GL object state block, and one more.  Apple's context is
+ * malloc(0xFB8); ours only has to be something CGL can hold onto and hand
+ * back to us, but keeping the same size costs nothing and leaves room to
+ * grow into the same layout if that turns out to matter.
+ *
+ * Returning success without storing a context is what made CGL dereference
+ * garbage before this existed.
+ */
+long gldCreateContext(void **ctx_out, void *pf, void *shared, void *a4,
+                      void *a5, void *gl_state, void *a7)
+{
+    pe_note("gldCreateContext");
+    if (!ctx_out) {
+        return 10000;                   /* kGLDBadAddress */
+    }
+    *ctx_out = calloc(1, 0xFB8);
+    return *ctx_out ? 0 : 10004;        /* kGLDBadAlloc */
+}
+
+long gldDestroyContext(void *ctx)
+{
+    pe_note("gldDestroyContext");
+    free(ctx);
+    return 0;
+}
 PE_STUB(gldReclaimContext)
 PE_STUB(gldAttachDrawable)
 PE_STUB(gldGetInteger)
