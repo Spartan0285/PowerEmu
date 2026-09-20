@@ -326,7 +326,7 @@ final class VMDisplayView: NSView {
         let hs = CGSize(width: 480, height: 22)
         hint.frame = CGRect(x: bounds.midX - hs.width / 2, y: 16, width: hs.width, height: hs.height)
         let sr = screenRect
-        perf.frame = CGRect(x: sr.minX + 10, y: sr.maxY - 10 - 62, width: 330, height: 62)
+        layoutPerf()
         if let bar = controls?.bar {
             // Over the screen, never beside it; below the menu bar in full screen.
             let size = bar.fittingBarSize
@@ -375,6 +375,25 @@ final class VMDisplayView: NSView {
         }
     }
 
+    /// Size the overlay to whatever it currently says.
+    ///
+    /// It used to be a fixed 330x62, which fitted the three lines it had at
+    /// the time and silently clipped the fourth when one was added. Measuring
+    /// the text means a line can be added or reworded without anyone having to
+    /// remember to re-measure a constant.
+    private func layoutPerf() {
+        let text = (perf.string as? String) ?? ""
+        let font = NSFont.monospacedSystemFont(ofSize: 11, weight: .medium)
+        let measured = (text as NSString).boundingRect(
+            with: CGSize(width: 4000, height: 4000),
+            options: [.usesLineFragmentOrigin],
+            attributes: [.font: font])
+        let w = max(330, ceil(measured.width) + 18)
+        let h = max(24, ceil(measured.height) + 10)
+        let sr = screenRect
+        perf.frame = CGRect(x: sr.minX + 10, y: sr.maxY - 10 - h, width: w, height: h)
+    }
+
     private func samplePerformance() {
         let shown = channel.framesShown
         queryPerf? { [weak self] text in
@@ -420,6 +439,7 @@ final class VMDisplayView: NSView {
                              agpShare, agpMB,
                              h.hostBusy, h.qemuCPU, h.load1, h.cores,
                              h.thermalText as NSString, warn as NSString)
+        layoutPerf()
     }
 
     // MARK: the mouse
