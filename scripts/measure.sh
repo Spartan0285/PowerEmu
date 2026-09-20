@@ -3,11 +3,24 @@
 S="$(cd "$(dirname "$0")" && pwd)"
 W="${PE_BENCH_DIR:-$TMPDIR/poweremu-bench}"; mkdir -p "$W"
 LABEL="$1"; shift
+
+# Only one measurement at a time, per machine.  Three times in one session a
+# result was quietly wrong because something else was running: a leftover VM
+# holding the guest's SSH port, a compile competing for the CPU, and two
+# measurement loops killing each other's VMs.  A stale lock is ignored only
+# when its process is gone.
+LOCK="$W/measure.lock"
+if [ -e "$LOCK" ] && kill -0 "$(cat "$LOCK" 2>/dev/null)" 2>/dev/null; then
+    echo "measure: another run is live (pid $(cat "$LOCK")) -- refusing" >&2
+    exit 1
+fi
+echo $$ > "$LOCK"
+trap 'rm -f "$LOCK"' EXIT
 pkill -f TigerTest 2>/dev/null; sleep 3
 rm -f "$W/tigertest.qcow2"
-"$HOME/Developer/PowerEmu/build/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/MacOS/qemu-img" \
+"${PE_HELPER:-$HOME/Developer/PowerEmu/build/PowerEmu.app/Contents/Helpers/PowerEmu VM.app}/Contents/MacOS/qemu-img" \
     create -f qcow2 -F qcow2 \
-    -b "$HOME/Library/Application Support/PowerEmu/Virtual Machines/Tiger.poweremu/Disks/tiger-fresh.qcow2" \
+    -b "${PE_DISK:-$HOME/Library/Application Support/PowerEmu/Virtual Machines/Tiger.poweremu/Disks/tiger-fresh.qcow2}" \
     "$W/tigertest.qcow2" >/dev/null
 env "$@" "$S/smoketest.sh" >/dev/null 2>&1 &
 echo "[$LABEL] booting"
