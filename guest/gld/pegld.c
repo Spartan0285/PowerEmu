@@ -314,14 +314,55 @@ long gldChoosePixelFormat(void **out_list, const int *attribs)
         const char *env = getenv("PEGLD_ID");
         unsigned int id = env ? (unsigned int)strtoul(env, NULL, 0) : 0x2000;
 
+        /*
+         * These are not guesses. They are what Apple's *software* renderer
+         * returns for the same request, captured through PEGLD_PROXY:
+         *
+         *   +08 bufferModes 0x45d   +10 colourModes 0x200
+         *   +18 depth 0x400         +1c stencil 1        +20 4
+         *
+         * The previous values came from the *hardware* ATI driver, and CGL
+         * would not select this renderer with them -- asking for it by ID
+         * returned no formats at all. The hardware driver never has to
+         * satisfy an off-screen request; the software one does, which is
+         * why it is the right thing to copy.
+         *
+         * Note +0x18: depth is a mask of available sizes, not a count. It
+         * was 1 here, which claims one depth mode of the smallest kind
+         * rather than "the usual set".
+         */
         *(void **)(pf + 0x00) = NULL;                 /* single entry      */
-        *(unsigned int *)(pf + 0x04) = id;            /* renderer ID       */
-        *(unsigned int *)(pf + 0x08) = 0x511;         /* buffer modes      */
+        /*
+         * The low bits of this word are capability flags, not part of the
+         * ID: Apple's software renderer reports 0x241 here and CGL shows it
+         * as 0x200, masking 0x41 off. With a bare ID and no flags, CGL
+         * reported our renderer as offscreen=0, window=0, compliant=0 --
+         * and then excluded it from every request that asked for any of
+         * them. Tunable while the individual bits are still being mapped.
+         */
+        {
+            const char *fenv = getenv("PEGLD_PFFLAGS");
+            unsigned int flags = fenv ? (unsigned int)strtoul(fenv, NULL, 0)
+                                      : 0x41;
+            *(unsigned int *)(pf + 0x04) = id | flags;
+        }
+        *(unsigned int *)(pf + 0x08) = 0x45d;         /* buffer modes      */
         *(unsigned int *)(pf + 0x0c) = 0;
-        *(unsigned int *)(pf + 0x10) = 0x400;         /* one colour mode   */
+        /*
+         * kCGLARGB8888Bit: one concrete 32-bit mode.
+         *
+         * This was 0x200, which is kCGLRGB555Bit -- 16-bit colour. A
+         * request for kCGLPFAColorSize 32 could not be satisfied by it, so
+         * CGL called gldDestroyPixelFormat on our answer and picked someone
+         * else, with no error anywhere. The 0x200 came from copying the
+         * first entry of Apple's chained list, which describes one
+         * configuration among several and happened to be a 16-bit one.
+         */
+        *(unsigned int *)(pf + 0x10) = 0x8000;        /* ARGB8888          */
         *(unsigned int *)(pf + 0x14) = 0;             /* no accum          */
-        *(unsigned int *)(pf + 0x18) = 1;             /* one depth mode    */
-        *(unsigned int *)(pf + 0x1c) = 1;             /* one stencil mode  */
+        *(unsigned int *)(pf + 0x18) = 0x400;         /* depth modes       */
+        *(unsigned int *)(pf + 0x1c) = 1;             /* stencil modes     */
+        *(unsigned int *)(pf + 0x20) = 4;
         *(unsigned int *)(pf + 0x30) = 1;             /* display 1         */
     }
     *out_list = pf;
@@ -395,6 +436,24 @@ long gldGetRendererInfo(void *out, unsigned int display_mask)
     {
         const char *env = getenv("PEGLD_ID");
         w[1] = env ? (unsigned int)strtoul(env, NULL, 0) : 0x2000;
+    }
+    /*
+     * Word 2 is the capability flags, and leaving it zero is what kept this
+     * renderer out of every request. CGLDescribeRenderer reported
+     * offscreen=0, window=0, compliant=0 for us against 1/1/1 for Apple's
+     * software renderer, and CGL then excluded us from any pixel format
+     * asking for those -- including every off-screen one, which is why
+     * naming our own renderer ID returned no formats at all.
+     *
+     * 0x65d is what Apple's software renderer returns here, captured
+     * through PEGLD_PROXY. Tunable while the individual bits are still
+     * being mapped; the bits for "accelerated" in particular are not yet
+     * identified, and claiming that one wrongly would be worse than not
+     * claiming it.
+     */
+    {
+        const char *fenv = getenv("PEGLD_FLAGS");
+        w[2] = fenv ? (unsigned int)strtoul(fenv, NULL, 0) : 0x65d;
     }
     w[3]  = 0x0d;               /* BufferModes: double | accelerated bits   */
     w[4]  = 0xca00;             /* ColorModes: the modes the R200 path has  */
