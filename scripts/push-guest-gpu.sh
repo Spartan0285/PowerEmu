@@ -22,9 +22,21 @@ fi
 [ -x guest/gld/build/petest ] || { echo "no guest/gld/build/petest" >&2; exit 1; }
 [ -d guest/gpu/build/PowerEmuGPU.kext ] || { echo "no kext built" >&2; exit 1; }
 scp -P "$port" "${S[@]}" guest/gld/build/petest adam@127.0.0.1:/tmp/petest
-# scp -r would follow the bundle fine, but ditto keeps the modes right.
-tar -cf - -C guest/gpu/build PowerEmuGPU.kext |
-    ssh -p "$port" "${S[@]}" adam@127.0.0.1 'cd /tmp && rm -rf PowerEmuGPU.kext && tar -xf -'
+# Once the kext has been chowned to root:wheel for kextload, this user can no
+# longer replace it -- /tmp is sticky. That is not a failure if what is
+# already there is what we would have sent, so compare first and say so.
+want=$(openssl sha1 guest/gpu/build/PowerEmuGPU.kext/Contents/MacOS/PowerEmuGPU |
+       sed 's/.*= //')
+have=$(ssh -p "$port" "${S[@]}" adam@127.0.0.1 \
+       'openssl sha1 /tmp/PowerEmuGPU.kext/Contents/MacOS/PowerEmuGPU 2>/dev/null |
+        sed "s/.*= //"' 2>/dev/null)
+if [ "$want" = "$have" ]; then
+    echo "kext already in the guest and identical, leaving it alone"
+else
+    tar -cf - -C guest/gpu/build PowerEmuGPU.kext |
+        ssh -p "$port" "${S[@]}" adam@127.0.0.1 \
+            'cd /tmp && rm -rf PowerEmuGPU.kext && tar -xf -'
+fi
 ssh -p "$port" "${S[@]}" adam@127.0.0.1 'chmod +x /tmp/petest; ls -d /tmp/petest /tmp/PowerEmuGPU.kext'
 echo
 echo "In the guest, as yourself (these need your password, so type them there):"
