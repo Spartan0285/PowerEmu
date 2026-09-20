@@ -74,7 +74,12 @@ enum {
 #define kPEGpuRingBytes     (1u << 20)
 #define kPEGpuDataBytes     (32u << 20)
 #define kPEGpuSharedBytes   (kPEGpuRingBytes + kPEGpuDataBytes)
-#define kPEGpuBarBytes      (kPEGpuCtrlSize + kPEGpuSharedBytes)
+
+/*
+ * Rounded up to a power of two because a PCI BAR's size must be one; the
+ * tail past control + ring + data is unmapped. Mirrors PE_GPU_BAR_BYTES.
+ */
+#define kPEGpuBarBytes      (64u << 20)
 
 /*
  * Control registers as UInt32 indices rather than byte offsets: they are
