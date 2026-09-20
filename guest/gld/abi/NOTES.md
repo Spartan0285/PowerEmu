@@ -873,3 +873,46 @@ Selector **0x12** is never used by this plugin.
 8. Argument counts were derived from "highest `rN` read before written", which
    cannot see a **trailing argument the callee ignores**. Every prototype here
    is therefore a *lower bound* on the argument count.
+
+
+## The GLD dispatch table, recovered 20 September 2026
+
+`gldInitDispatch` is the entry point that could not be guessed at: it writes
+function pointers into a table GLEngine then calls directly, so a wrong slot
+means GLEngine calls the wrong function with the wrong arguments, and that
+crashes rather than warns. It is now read out of Apple's driver rather than
+inferred, by `dispatch-map.py`, which simulates the few PowerPC instructions
+involved (the bcl PIC base, the addis/lwz pairs that form a data address,
+and the stores to the table register).
+
+**The table is 33 slots, 0x00 to 0x80, and every one is accounted for.**
+Two functions fill it between them:
+
+- `gldInitDispatch` writes 17: slots 0-5, 19-21, 25-32.
+- `gldUpdateDispatch` writes 16: slots 6-18, 22-24. This is the
+  state-dependent half -- it is called again when state changes, which is
+  why the draw-path slots live here and the setup slots do not.
+
+`dispatch-table.txt` holds the full map. Two slots are named outright in
+the driver's own symbol table, and they anchor the rest:
+
+    +0x58  [22]  _gldFinish
+    +0x5c  [23]  _gldFlush
+
+**Four slots are no-ops.** Slots 16, 17, 18 and 24 all point at 0x21604,
+which is a single `blr`. Ours can be empty stubs, and that is four fewer
+functions to get wrong.
+
+`gldInitDispatch(ctx, table, out)` also does two things besides filling the
+table, both recovered from the same disassembly:
+
+- it copies six words from `ctx+0xf4 .. ctx+0x108` into `out+0x00 .. +0x14`,
+  so the third argument is an output block, not an input;
+- it stores the table pointer itself at `ctx+0x1c`.
+
+**What is still unknown** is each slot's signature and meaning. The targets
+resolve only to `nearest symbol + offset` because the driver is stripped, so
+names will have to come from somewhere else: the call sites in GLEngine,
+which load a slot and `bctrl` through it, and which sit next to code whose
+purpose can be identified. That is the next piece of work, and slots 22 and
+23 give it two fixed points to calibrate against.

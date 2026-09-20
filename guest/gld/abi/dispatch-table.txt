@@ -1,0 +1,39 @@
+
+_gldInitDispatch: 17 table slots
+  slot   index  target      symbol
+  +0x00  [ 0]   0x00003bcc  
+  +0x04  [ 1]   0x00020820  _gldPageoffBuffer+0x3138
+  +0x08  [ 2]   0x0021c2ac  _gldUpdateDispatch+0x1fab2c
+  +0x0c  [ 3]   0x00018758  _gldDestroyVertexArray+0xef34
+  +0x10  [ 4]   0x0001657c  _gldDestroyVertexArray+0xcd58
+  +0x14  [ 5]   0x0001294c  _gldDestroyVertexArray+0x9128
+  +0x4c  [19]   0x000af2c0  _gldUpdateDispatch+0x8db40
+  +0x50  [20]   0x000b0ba4  _gldUpdateDispatch+0x8f424
+  +0x54  [21]   0x000b0fa4  _gldUpdateDispatch+0x8f824
+  +0x64  [25]   0x00018f0c  _gldGetQueryInfo+0xd4
+  +0x68  [26]   0x0021cc20  _gldUpdateDispatch+0x1fb4a0
+  +0x6c  [27]   0x0021cddc  _gldUpdateDispatch+0x1fb65c
+  +0x70  [28]   0x0001e13c  _gldPageoffBuffer+0xa54
+  +0x74  [29]   0x0022ee90  _gldGetTextureLevel+0x2524
+  +0x78  [30]   0x0022fba4  _gldGetTextureLevel+0x3238
+  +0x7c  [31]   0x00230e04  _gldGetTextureLevel+0x4498
+  +0x80  [32]   0x0001d764  _gldPageoffBuffer+0x7c
+
+_gldUpdateDispatch: 16 table slots
+  slot   index  target      symbol
+  +0x18  [ 6]   0x00117cc4  _gldUpdateDispatch+0xf6544
+  +0x1c  [ 7]   0x000797d4  _gldUpdateDispatch+0x58054
+  +0x20  [ 8]   0x00090e14  _gldUpdateDispatch+0x6f694
+  +0x24  [ 9]   0x000a8490  _gldUpdateDispatch+0x86d10
+  +0x28  [10]   0x002160a0  _gldUpdateDispatch+0x1f4920
+  +0x2c  [11]   0x00198b44  _gldUpdateDispatch+0x1773c4
+  +0x30  [12]   0x001cda30  _gldUpdateDispatch+0x1ac2b0
+  +0x34  [13]   0x001b0150  _gldUpdateDispatch+0x18e9d0
+  +0x38  [14]   0x001e7630  _gldUpdateDispatch+0x1c5eb0
+  +0x3c  [15]   0x001febc0  _gldUpdateDispatch+0x1dd440
+  +0x40  [16]   0x00021604  _gldPageoffBuffer+0x3f1c
+  +0x44  [17]   0x00021604  _gldPageoffBuffer+0x3f1c
+  +0x48  [18]   0x00021604  _gldPageoffBuffer+0x3f1c
+  +0x58  [22]   0x000190ec  _gldFinish
+  +0x5c  [23]   0x00019704  _gldFlush
+  +0x60  [24]   0x00021604  _gldPageoffBuffer+0x3f1c
