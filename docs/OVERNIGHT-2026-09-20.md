@@ -143,6 +143,37 @@ Air.** The Air has been the limiting factor throughout.
 The pattern in all of these: the emulator was fine and the measurement was
 not. Every one was caught by a control run rather than by reasoning.
 
+## The first thing to run in the morning
+
+Start the VM with the device present:
+
+    POWEREMU_PARAVIRT_GPU=1 open build/PowerEmu.app
+
+Then push the kext and the transport test in (both are built and staged,
+`guest/gpu/build/` and `guest/gld/build/`):
+
+    scripts/push-guest-gpu.sh
+
+and in the guest, load it and run the test. The `sudo` lines are yours to
+type -- I do not run sudo in the guest and do not want your password.
+
+    sudo chown -R root:wheel /tmp/PowerEmuGPU.kext
+    sudo kextload -t -v 6 /tmp/PowerEmuGPU.kext     # validate only
+    sudo kextload -v /tmp/PowerEmuGPU.kext          # load
+    /tmp/petest
+
+`petest` prints one of a small number of things, and each points somewhere
+different:
+
+| it says | it means |
+|---|---|
+| `open: no PEGpuAccelerator service` | the kext did not attach -- check `dmesg` for `PEGpu:` |
+| `open: the device's memory could not be mapped` | it attached but `clientMemoryForType` did not work |
+| `open: the device speaks a protocol...` | the BAR is not ours; the app is not running with the device |
+| `FAIL: fence N never reached` | the doorbell did not reach the host: kext or mapping |
+| `FAIL: ... pixels are not 11223344` | the host got the batch and did not execute it: device |
+| `PASS: 16384 pixels written by the host...` | **the whole transport works** |
+
 ## Next
 
 1. **Load the kext** (yours to do -- admin in the guest). Then
