@@ -34,7 +34,7 @@
 			<key>CFBundleIdentifier</key><string>com.spartan0285.poweremu.gpu</string>
 			<key>IOClass</key><string>PEGpuAccelerator</string>
 			<key>IOProviderClass</key><string>IOPCIDevice</string>
-			<key>IOPCIMatch</key><string>0x10501b36</string>
+			<key>IOPCIMatch</key><string>0x50471b36</string>
 			<key>IOUserClientClass</key><string>PEGpuUserClient</string>
 			<key>IOMatchCategory</key><string>PEGpuAccelerator</string>
 			<key>IOProbeScore</key><integer>10000</integer>
