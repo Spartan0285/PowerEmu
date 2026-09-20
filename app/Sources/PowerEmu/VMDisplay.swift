@@ -428,7 +428,7 @@ final class VMDisplayView: NSView {
          * eating the cores or the machine was throttling.
          */
         let h = hostStats.sample(qemuPID: qemuPID?())
-        let warn = h.contended ? "  << HOST BUSY" :
+        let warn = h.contended ? "  << STARVED: something else has the CPU" :
             (h.thermal == .nominal ? "" : "  << THERMAL \(h.thermalText)")
 
         perf.string = String(format: " Guest %4.0f fps   window %3.0f fps   %5.0f draws/s\n"

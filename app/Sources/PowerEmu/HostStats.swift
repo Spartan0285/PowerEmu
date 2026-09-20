@@ -25,13 +25,25 @@ struct HostSample {
 
     /// True when the host is loaded enough that guest numbers are suspect.
     ///
-    /// The test is "someone other than us is busy", not "the machine is
-    /// busy": the emulator saturating a core is the normal, healthy case and
-    /// must not raise a warning, or the warning gets ignored.
+    /// The test that matters is not "is the machine busy" but "is the
+    /// emulator getting the CPU it is asking for". The vCPU thread wants one
+    /// core continuously; when it gets much less than that, something else
+    /// has taken it and every guest figure on this overlay is measuring
+    /// contention rather than the emulator.
+    ///
+    /// This replaces a system-wide test that did not work. On an eight-core
+    /// machine one process pinning a core is only ~12% system-wide and moves
+    /// the load average barely at all -- both far below any sensible
+    /// threshold -- while the emulator sat at 25% of a core and the guest
+    /// ran at half speed. The starvation is obvious from the emulator's own
+    /// share and nearly invisible from everything else.
     var contended: Bool {
-        hostBusy - (qemuCPU / Double(max(cores, 1))) > 25 ||
-            load1 > Double(cores) * 1.5
+        (running && qemuCPU < 70) || load1 > Double(cores) * 1.5
     }
+
+    /// Whether a VM is running at all; without one, a low emulator share is
+    /// simply idleness and means nothing.
+    var running: Bool { qemuCPU > 0 }
 
     var thermalText: String {
         switch thermal {
