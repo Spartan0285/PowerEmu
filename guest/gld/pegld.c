@@ -456,7 +456,105 @@ PE_STUB(gldReclaimContext)
 PE_STUB(gldAttachDrawable)
 PE_STUB(gldGetInteger)
 PE_STUB(gldSetInteger)
-PE_STUB(gldInitDispatch)
+/*
+ * The dispatch table: 33 function pointers GLEngine calls directly, rather
+ * than by name.  Its layout is in abi/dispatch-abi.md, recovered from
+ * GLEngine itself (which, unlike the driver, is not stripped).
+ *
+ * Every slot is filled.  GLEngine calls all of them and an unfilled one is
+ * a call through uninitialised memory -- it does not check first.
+ *
+ * Every slot may also safely return 0, because GLEngine's own placeholder
+ * (_gliDispatchNoop) is exactly "return 0" and it reads 0 as "not handled,
+ * fall back to software".  That is what makes this worth building
+ * incrementally: a slot we have not written yet costs performance, not
+ * correctness, so the renderer can grow one primitive at a time instead of
+ * having to be finished before it can be tried.
+ */
+#define PE_DISPATCH_SLOTS 33
+
+/*
+ * Seven pointer arguments for the same reason as PE_STUB: PowerPC passes
+ * the first eight in registers and a callee ignores what it does not read,
+ * so one shape serves every slot until each is written properly. The widest
+ * slot takes fifteen arguments, so anything beyond the seventh is read from
+ * the caller's frame by the real implementation when we write it -- not
+ * here, where nothing is read at all.
+ */
+static long pe_dispatch_noop(void *a1, void *a2, void *a3, void *a4,
+                             void *a5, void *a6, void *a7)
+{
+    (void)a1; (void)a2; (void)a3; (void)a4; (void)a5; (void)a6; (void)a7;
+    return 0;                       /* "not handled": GLEngine does it */
+}
+
+/* Named so a log of what GLEngine actually calls is readable. */
+static const char *const pe_slot_name[PE_DISPATCH_SLOTS] = {
+    "accum", "clear", "readPixels", "drawPixels", "copyPixels", "bitmap",
+    "points", "lines", "lineStrip", "lineLoop", "polygon", "triangles",
+    "triangleFan", "triangleStrip", "quads", "quadStrip",
+    "points2", "lines2", "polygon2",
+    "drawElements", "beginPrim", "renderPrim",
+    "finish", "flush", "swap",
+    "setFence", "beginQuery", "endQuery",
+    "vertexArrayRange", "copyTexImage", "texSubImage",
+    "generateMipmap", "bufferSubData",
+};
+
+static unsigned long pe_slot_calls[PE_DISPATCH_SLOTS];
+
+/*
+ * gldInitDispatch(ctx, table, out)
+ *
+ * Besides filling the table, Apple's driver copies six words from
+ * ctx+0xf4..0x108 into `out` and stores the table pointer at ctx+0x1c. The
+ * six words are the renderer's own state block and we have nothing to put
+ * in them yet, so `out` is zeroed rather than left as whatever the caller's
+ * stack held: GLEngine reads it back.
+ */
+long gldInitDispatch(void *ctx, void *table, void *out)
+{
+    long (*real)(void *, void *, void *) = pe_proxy_sym("gldInitDispatch");
+    void **slots = table;
+    int i;
+
+    pe_note("gldInitDispatch");
+    if (real) {
+        long r = real(ctx, table, out);
+
+        if (pe_log) {
+            fprintf(pe_log, "    proxy gldInitDispatch -> %ld\n", r);
+            for (i = 0; i < PE_DISPATCH_SLOTS; i++) {
+                fprintf(pe_log, "      [%2d] %-18s %p\n",
+                        i, pe_slot_name[i], slots ? slots[i] : NULL);
+            }
+        }
+        return r;
+    }
+    if (!slots) {
+        return 0;
+    }
+    for (i = 0; i < PE_DISPATCH_SLOTS; i++) {
+        slots[i] = (void *)pe_dispatch_noop;
+    }
+    if (out) {
+        memset(out, 0, 6 * sizeof(unsigned int));
+    }
+    if (ctx) {
+        /* 0x1c is a byte offset, so index bytes: dividing by sizeof(void *)
+         * happens to be right on this 32-bit target and would quietly stop
+         * being right anywhere else. */
+        *(void **)((char *)ctx + 0x1c) = table;
+    }
+    memset(pe_slot_calls, 0, sizeof(pe_slot_calls));
+    return 0;
+}
+
+/*
+ * gldUpdateDispatch rewrites 16 of the slots when state changes -- the
+ * draw-path half. Ours are all the same function, so there is nothing to
+ * re-point until they differ.
+ */
 PE_STUB(gldUpdateDispatch)
 PE_STUB(gldCreateTexture)
 PE_STUB(gldCreateTextureLevel)
