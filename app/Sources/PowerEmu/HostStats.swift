@@ -64,6 +64,21 @@ final class HostStats {
 
     private let cores = ProcessInfo.processInfo.activeProcessorCount
 
+    /// Mach time units to nanoseconds.
+    ///
+    /// proc_pid_rusage reports CPU time in mach absolute time units, not in
+    /// nanoseconds. On Intel the timebase is 1:1 and treating them as
+    /// nanoseconds happens to work; on Apple silicon a tick is 125/3 ns, so
+    /// the same code under-reports by about 42x -- which is how this overlay
+    /// came to show a fully busy emulator as "2%" and call it starved.
+    private let machToNanos: Double = {
+        var tb = mach_timebase_info_data_t()
+        guard mach_timebase_info(&tb) == KERN_SUCCESS, tb.denom != 0 else {
+            return 1
+        }
+        return Double(tb.numer) / Double(tb.denom)
+    }()
+
     func sample(qemuPID: pid_t?) -> HostSample {
         HostSample(qemuCPU: processCPU(qemuPID),
                    hostBusy: systemBusy(),
@@ -88,14 +103,15 @@ final class HostStats {
         }
         guard rc == 0 else { return 0 }
 
-        let nanos = info.ri_user_time + info.ri_system_time
+        let ticks = info.ri_user_time + info.ri_system_time
         let wall = ProcessInfo.processInfo.systemUptime
-        defer { lastProcNanos = nanos; lastProcWall = wall }
+        defer { lastProcNanos = ticks; lastProcWall = wall }
         guard let prev = lastProcNanos, let prevWall = lastProcWall,
-              wall > prevWall, nanos >= prev else {
+              wall > prevWall, ticks >= prev else {
             return 0
         }
-        return Double(nanos - prev) / 1e9 / (wall - prevWall) * 100
+        let nanos = Double(ticks - prev) * machToNanos
+        return nanos / 1e9 / (wall - prevWall) * 100
     }
 
     /// Percent of all cores busy, system-wide, from the difference in tick
