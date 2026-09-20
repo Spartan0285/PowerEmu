@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+    PowerEmu paravirtual GPU, Mac OS X 10.4 (Darwin 8) on PowerPC.
+
+    IOPCIMatch is the vendor/device register at config offset 0 as one
+    32-bit value, device in the high half: 0x1050 << 16 | 0x1b36.  It is the
+    same form ATIRadeon8500.kext uses for 0x59601002.  If the device ID in
+    hw/display/poweremu-gpu.c ever changes, this string changes with it and
+    there is no other coupling to fix.
+
+    IOGLBundleName is the whole reason the kext exists.  Apple's OpenGL
+    reads it from the matched service and loads
+    /System/Library/Extensions/<value>.bundle as the renderer plugin.  It is
+    repeated in PEGpuAccelerator::start(); see the comment there.
+-->
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key><string>English</string>
+	<key>CFBundleExecutable</key><string>PowerEmuGPU</string>
+	<key>CFBundleIdentifier</key><string>com.spartan0285.poweremu.gpu</string>
+	<key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+	<key>CFBundleName</key><string>PowerEmuGPU</string>
+	<key>CFBundlePackageType</key><string>KEXT</string>
+	<key>CFBundleShortVersionString</key><string>1.0.0</string>
+	<key>CFBundleSignature</key><string>????</string>
+	<key>CFBundleVersion</key><string>1.0.0</string>
+	<key>NSHumanReadableCopyright</key><string>Copyright 2026 Spartan0285. GPL-2.0-or-later.</string>
+
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>PowerEmuGPU</key>
+		<dict>
+			<key>CFBundleIdentifier</key><string>com.spartan0285.poweremu.gpu</string>
+			<key>IOClass</key><string>PEGpuAccelerator</string>
+			<key>IOProviderClass</key><string>IOPCIDevice</string>
+			<key>IOPCIMatch</key><string>0x10501b36</string>
+			<key>IOUserClientClass</key><string>PEGpuUserClient</string>
+			<key>IOMatchCategory</key><string>PEGpuAccelerator</string>
+			<key>IOProbeScore</key><integer>10000</integer>
+			<key>IOGLBundleName</key><string>PowerEmuGPUGLDriver</string>
+		</dict>
+	</dict>
+
+	<!--
+	    Versions are the Darwin 8 floors, not what 10.4.11 happens to ship:
+	    a kext that demands the exact running version stops loading after
+	    any system update.  Run `kextlibs -xml PowerEmuGPU.kext` on the
+	    build machine if the loader ever complains about a dependency.
+	-->
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.kpi.iokit</key><string>8.0.0</string>
+		<key>com.apple.kpi.libkern</key><string>8.0.0</string>
+		<key>com.apple.kpi.mach</key><string>8.0.0</string>
+		<key>com.apple.iokit.IOPCIFamily</key><string>1.4</string>
+	</dict>
+</dict>
+</plist>

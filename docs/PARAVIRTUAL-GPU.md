@@ -109,3 +109,86 @@ needs admin in the guest, which is the user's to do.
 4. Then the kext, on the G4.
 
 Stop after step 1 if the numbers do not justify steps 2-4.
+
+---
+
+# Measured 2026-09-20: the prize is much smaller than assumed
+
+`PPCGPU_TRAFFIC=1` during Warcraft III gameplay, on the Mac Studio:
+
+    [TRAFFIC] 4050 mmio-writes/s 715 mmio-reads/s 0 ring-dwords/s
+              1008252 type0-regs/s 6585 draws/s
+
+**Over 99.5% of the guest's GPU register traffic never traps.** Apple's ATI
+driver batches almost everything into PM4 command buffers in ordinary
+memory; only ~4,700 accesses a second are real trapping MMIO out of ~4.7
+million register operations a second.
+
+This kills the main argument for paravirtualisation as *I* framed it. The
+claim was that every register write leaves translated code through the
+software MMU and takes the BQL, so a shared-memory ring would delete a large
+hidden cost. That cost is not there. What paravirtualisation would still
+remove is our own decode (~3.7% device model, ~3.0% Metal encode) and some
+of the guest driver's own work -- real, but a fraction of what was pitched,
+and none of it touches the ~42% of emulator time spent on address
+translation and block lookup for guest code in general.
+
+**What the number redirects attention to:** those million type-0 register
+writes a second are ours to make cheaper without any guest driver. Each one
+currently goes through the full MMIO write switch, including a ~200-case
+`ppc_mac_gpu_reg_name()` lookup evaluated twice per access for loggers that
+are disabled. A fast path for the 3D shadow range is a contained change with
+no new driver, no new kext, and no new protocol.
+
+Decide the paravirtual work on its remaining merits (a cleaner architecture,
+removing our decode, a path to features the R200 cannot express), not on the
+performance claim I made before measuring.
+
+---
+
+# Guest-side progress, 2026-09-20
+
+**The load path is proven on the real 10.4.11 guest, with no kernel code.**
+
+- GLEngine in *this* guest contains both `IOGLBundleName` and `GL_RESOURCES`.
+- It requires exactly **63** `gld*` entry points, in a fixed order, recorded
+  in `guest/gld/entrypoints.txt` (extracted from the guest's own GLEngine).
+- `guest/gld/pegld.c` exports all 63, cross-builds to a PowerPC bundle in
+  seconds (see below), and **Tiger loads it, calls it, and lists it as a
+  third renderer** alongside the emulated R200 and the software renderer.
+- Observed call order: `gldInitializeLibrary` -> `gldGetVersion` ->
+  `gldGetRendererInfo`.
+- GLEngine validates the renderer ID from `gldGetVersion`: IDs colliding
+  with the live ATI renderer (0x1601/0x1602) are rejected and the module is
+  unlinked; 0x2000, 0x0600 and 0x1800 are accepted.
+
+Cross-build (no G4 needed for the userspace half):
+
+    limactl start ppcbuild
+    limactl copy guest/gld/pegld.c ppcbuild:/tmp/pegld.c
+    limactl shell ppcbuild bash -lc 'P=/opt/ppc/bin/powerpc-apple-darwin9; \
+      SDK=/opt/ppc/SDKs/MacOSX10.5.sdk; cd /tmp && \
+      $P-gcc -isysroot $SDK -mmacosx-version-min=10.4 \
+      -Wl,-syslibroot,$SDK -bundle -o GLDriverPE pegld.c'
+
+Install as a *flat* bundle (no Contents/) and point GL_RESOURCES at its
+directory; copy Apple's GLDriver.bundle in beside it or the software
+fallback disappears:
+
+    /tmp/pegl/GLDriverPE.bundle/GLDriverPE
+    GL_RESOURCES=/tmp/pegl/ ./yourglapp
+
+`guest/gld/abi/` holds the recovered ABI: `gld_abi.h` (prototypes tagged
+CONFIRMED / INFERRED / UNKNOWN with evidence addresses), `NOTES.md`, and the
+two reference binaries pulled from the guest. Highlights: `gldCreateContext`
+takes 7 arguments; `gldInitDispatch(ctx, table, mask)` fills a GLD-private
+~33-slot table, *not* the public `GLIFunctionDispatch`; sync funnels through
+a byte-reversed read of `SCRATCH_REG0`; `GL_REJECT_HW` disables the hardware
+path in Apple's own driver.
+
+`guest/gpu/` holds an untested kext skeleton for the hardware path (needs
+the PowerBook to build, and admin in the guest to load). Note the open
+question recorded there: our device has no framebuffer, and 10.4 selects a
+renderer via the accelerator attached to a *display*, so `IOGLBundleName`
+may never be consulted for it. Prove the transport with a plain command-line
+program before involving OpenGL.
