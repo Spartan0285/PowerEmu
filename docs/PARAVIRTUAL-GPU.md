@@ -192,3 +192,41 @@ question recorded there: our device has no framebuffer, and 10.4 selects a
 renderer via the accelerator attached to a *display*, so `IOGLBundleName`
 may never be consulted for it. Prove the transport with a plain command-line
 program before involving OpenGL.
+
+## The transport works, end to end, 20 September 2026
+
+The kext is loaded in the real 10.4.11 guest and the renderer's own test
+talks to the device through it:
+
+    PEGpu: attached, features 00000007, GL bundle PowerEmuGPUGLDriver
+
+    $ /tmp/petest
+    open: ok
+    features: 00000007  ctrl 0x5000  shared 0x2008000
+    fence 1 reached, error 0
+    PASS: 16384 pixels written by the host and read back by the guest
+
+Every layer is exercised and each is separately attested:
+
+| layer | what proves it |
+|---|---|
+| kext matches and attaches | `PEGpuAccelerator` registered, publishes `IOGLBundleName` |
+| BAR mapped into user space | `open: ok` -- both regions mapped, magic and version read |
+| guest encoder builds a legal batch | no `PE_GPU_ERR_PACKET` |
+| doorbell reaches the host | fence advances |
+| host executes the work | the pixels changed, and to the right value |
+| result visible to the guest | read back through the same mapping |
+
+The target is poisoned with 0xA5 first, so "the host did nothing" and "the
+host filled with black" cannot be confused.
+
+**One bug stood between compiling and loading**, and only a real kextload
+could have found it: `OSDynamicCast(IODeviceMemory, ...)` needs
+`IODeviceMemory::metaClass`, which `com.apple.kpi.iokit` does not export --
+only the legacy `com.apple.kernel.iokit` does, and a kext cannot depend on
+both. The cast was redundant; `getDeviceMemoryWithRegister()` already
+returns the right type.
+
+**What is left is now only the GL side**: translating GL state into
+PEGpuState and GL primitives into PEGpuDraw. The pipe they travel down is
+built and measured.
