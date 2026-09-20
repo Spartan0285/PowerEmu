@@ -2,8 +2,8 @@
 # Boot the Tiger overlay headless with the current build and see how far it gets.
 S="$(cd "$(dirname "$0")" && pwd)"
 W="${PE_BENCH_DIR:-$TMPDIR/poweremu-bench}"; mkdir -p "$W"
-H="$HOME/Developer/PowerEmu/build/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents"
-R="$HOME/Library/Application Support/PowerEmu/Virtual Machines/Tiger.poweremu/ROMs"
+H="${PE_HELPER:-$HOME/Developer/PowerEmu/build/PowerEmu.app/Contents/Helpers/PowerEmu VM.app}/Contents"
+R="${PE_ROMS:-$HOME/Library/Application Support/PowerEmu/Virtual Machines/Tiger.poweremu/ROMs}"
 # A leftover VM holding the SSH port silently turns every measurement into a
 # measurement of the *old* guest.  Refuse to start instead.
 if lsof -nP -iTCP:2299 -sTCP:LISTEN >/dev/null 2>&1; then
@@ -11,6 +11,9 @@ if lsof -nP -iTCP:2299 -sTCP:LISTEN >/dev/null 2>&1; then
     exit 1
 fi
 rm -f "$W/testconsole.log" "$S/test.qmp"
+# Extra -device arguments, for trying a device out on a real boot before it
+# is anywhere near the app: PE_EXTRA="-device poweremu-gpu,id=pvgpu0".
+read -r -a EXTRA <<< "${PE_EXTRA:-}"
 "${QEMU_BIN:-$H/MacOS/qemu-system-ppc}" -name TigerTest -L "$H/Resources/firmware" -nodefaults -vga none -audio none \
   -smp 1 -machine mac99,via=pmu -accel tcg,tb-size=512 -g 1024x768x32 -m 2048 \
   -device loader,addr=0x4000000,file="$H/Resources/firmware/ppc-ndrvloader" \
@@ -22,5 +25,6 @@ rm -f "$W/testconsole.log" "$S/test.qmp"
   -netdev user,id=net0,ipv6=off,hostfwd=tcp:127.0.0.1:2299-:22 -device sungem,netdev=net0 \
   -drive if=none,id=d0,file.filename="$W/tigertest.qcow2",format=qcow2,media=disk \
   -device ide-hd,bus=ide.0,unit=0,drive=d0,bootindex=0 \
+  "${EXTRA[@]}" \
   -serial "file:$W/testconsole.log" -qmp "unix:$TMPDIR/pe-test.qmp,server=on,wait=off" \
   > "$W/testqemu.log" 2>&1

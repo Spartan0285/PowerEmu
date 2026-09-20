@@ -4,7 +4,7 @@
     PowerEmu paravirtual GPU, Mac OS X 10.4 (Darwin 8) on PowerPC.
 
     IOPCIMatch is the vendor/device register at config offset 0 as one
-    32-bit value, device in the high half: 0x1050 << 16 | 0x1b36.  It is the
+    32-bit value, device in the high half: 0x5047 << 16 | 0x1b36.  It is the
     same form ATIRadeon8500.kext uses for 0x59601002.  If the device ID in
     hw/display/poweremu-gpu.c ever changes, this string changes with it and
     there is no other coupling to fix.

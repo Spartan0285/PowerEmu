@@ -107,6 +107,16 @@ final class VMRunner {
         if let r = c.gpuBIOSROM { gpu += ",biosrom=\(vm.romsURL.appendingPathComponent(r).path)" }
         a += ["-device", gpu]
 
+        // The paravirtual GPU, alongside the emulated R200 rather than in
+        // place of it: the guest keeps booting and displaying through the
+        // R200, and the new device does nothing at all until a guest driver
+        // opens it. Opt-in while that driver is being written, so a build
+        // that ships cannot be slowed down or destabilised by a device
+        // nothing in the guest is asking for yet.
+        if ProcessInfo.processInfo.environment["POWEREMU_PARAVIRT_GPU"] == "1" {
+            a += ["-device", "poweremu-gpu,id=pvgpu0"]
+        }
+
         if c.network {
             var net = "user,id=net0,ipv6=off"
             sshPort = c.sshPort.map(Self.freePort)
