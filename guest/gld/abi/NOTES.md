@@ -903,6 +903,23 @@ the driver's own symbol table, and they anchor the rest:
 which is a single `blr`. Ours can be empty stubs, and that is four fewer
 functions to get wrong.
 
+> **This was wrong.** `0x21604` is one *variant* among several.
+> `gldUpdateDispatch` rewrites those slots from different state paths --
+> slots 16/17/18 also take real functions (`0xcea30`, `0x186a70`) at
+> `0x2bd4c/0x2bd5c/0x2bd6c`, and slot 24 takes `0x1a11c`, `0x19cc4` or
+> `0x1986c` depending on `ctx->0x19c+0x434` and flag bit `0x400`. Slot 24
+> is in fact the buffer-swap entry, called from `_glSwap_Exec`.
+>
+> The error came from `dispatch-map.py` reporting a single value per slot:
+> for the 16 slots `gldUpdateDispatch` writes, the target is
+> state-dependent and needs a multi-path walk. Treating one path's answer
+> as the answer is the mistake to avoid here.
+>
+> Slots 31 and 32 *are* genuine stubs (`li r3,0 ; blr`): this driver does
+> not accelerate mipmap generation or `glBufferSubData`.
+>
+> See `dispatch-abi.md` for the recovered signatures.
+
 `gldInitDispatch(ctx, table, out)` also does two things besides filling the
 table, both recovered from the same disassembly:
 
