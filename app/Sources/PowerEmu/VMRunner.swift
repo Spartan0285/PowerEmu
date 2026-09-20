@@ -82,13 +82,18 @@ final class VMRunner {
             "-name", c.name,
             "-L", fw.path, "-nodefaults", "-vga", "none",
             "-smp", "cpus=1,sockets=1,cores=1,threads=1", "-machine", "mac99,via=pmu",
-            "-accel", "tcg,tb-size=512", "-g", "1024x768x32",
+            "-accel", "tcg,tb-size=512", "-g", "\(max(640, c.bootWidth))x\(max(480, c.bootHeight))x32",
             "-device", "loader,addr=0x4000000,file=\(fw.appendingPathComponent("ppc-ndrvloader").path)",
             "-prom-env", bootCmd,
             "-m", String(c.memoryMB),
             "-audio", c.audio,
         ]
         if c.extraDisplayModes { a += ["-global", "ppc-mac-gpu.host-aspect-modes=on"] }
+        if !c.verboseBoot {
+            // Open Firmware's messages go to the serial log, not the screen:
+            // it stays black until the loader draws the grey Apple.
+            a += ["-prom-env", "output-device=ttya"]
+        }
         if c.embeddedDisplay {
             // No window of QEMU's own (and so no second app in the Dock).
             a += ["-display", "none", "-object", "poweremu-display,id=pd0,path=\(displayPath)"]
@@ -156,6 +161,7 @@ final class VMRunner {
         if let p = monitorPort { a += ["-monitor", "telnet:127.0.0.1:\(p),server,nowait"] }
         a += ["-trace", c.gpuTrace ? "ppc_mac_gpu_*" : "ppc_mac_gpu_realize",
               "-D", vm.logsURL.appendingPathComponent("gpu-trace.log").path]
+        a += c.extraQEMUArgs
         return a
     }
 

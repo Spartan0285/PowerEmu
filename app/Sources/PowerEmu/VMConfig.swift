@@ -57,6 +57,15 @@ struct VMConfig: Codable, Equatable {
 
     // Startup
     var bootChime = true
+    /// Which chime: "g4", "warm", "bell", or "custom" (chimeFile).
+    var chimeSound = "g4"
+    var chimeFile: String?
+    /// The guest's last screen size: the next boot starts at it, so the
+    /// firmware and the grey Apple are already the right size.
+    var bootWidth = 1024
+    var bootHeight = 768
+    /// Start this virtual Mac when PowerEmu opens.
+    var autoStart = false
     var verboseBoot = false
     var safeBoot = false
     var singleUser = false
@@ -75,14 +84,16 @@ struct VMConfig: Codable, Equatable {
     var agpBridge = true
     var monitorPort: Int? = 4444
     var gpuTrace = false
+    /// Extra QEMU arguments, appended as given (config file only; for profiling).
+    var extraQEMUArgs: [String] = []
 
     init(name: String) { self.name = name }
 
     enum CodingKeys: String, CodingKey {
         case name, osName, memoryMB, disks, startupDisk, discs, insertedDisc, bootFromDisc
         case gpuOptionROM, gpuBIOSROM, hardwareCursor, extraDisplayModes, startFullscreen, embeddedDisplay, vramMB, mouseMode
-        case bootChime, verboseBoot, safeBoot, singleUser, audio, network, sshPort, shareClipboard, sharedFolders
-        case agpBridge, monitorPort, gpuTrace
+        case bootChime, chimeSound, chimeFile, bootWidth, bootHeight, autoStart, verboseBoot, safeBoot, singleUser, audio, network, sshPort, shareClipboard, sharedFolders
+        case agpBridge, monitorPort, gpuTrace, extraQEMUArgs
     }
 
     init(from decoder: Decoder) throws {
@@ -101,6 +112,9 @@ struct VMConfig: Codable, Equatable {
         if c.contains(.gpuBIOSROM) { d.gpuBIOSROM = try c.decodeIfPresent(String.self, forKey: .gpuBIOSROM) }
         try get(.hardwareCursor, &d.hardwareCursor); try get(.extraDisplayModes, &d.extraDisplayModes)
         try get(.startFullscreen, &d.startFullscreen); try get(.bootChime, &d.bootChime)
+        try get(.chimeSound, &d.chimeSound)
+        d.chimeFile = try c.decodeIfPresent(String.self, forKey: .chimeFile)
+        try get(.bootWidth, &d.bootWidth); try get(.bootHeight, &d.bootHeight); try get(.autoStart, &d.autoStart)
         try get(.embeddedDisplay, &d.embeddedDisplay); try get(.vramMB, &d.vramMB); try get(.mouseMode, &d.mouseMode)
         try get(.verboseBoot, &d.verboseBoot); try get(.safeBoot, &d.safeBoot)
         try get(.singleUser, &d.singleUser); try get(.audio, &d.audio); try get(.network, &d.network)
@@ -108,7 +122,7 @@ struct VMConfig: Codable, Equatable {
         try get(.shareClipboard, &d.shareClipboard); try get(.sharedFolders, &d.sharedFolders)
         try get(.agpBridge, &d.agpBridge)
         if c.contains(.monitorPort) { d.monitorPort = try c.decodeIfPresent(Int.self, forKey: .monitorPort) }
-        try get(.gpuTrace, &d.gpuTrace)
+        try get(.gpuTrace, &d.gpuTrace); try get(.extraQEMUArgs, &d.extraQEMUArgs)
         self = d
     }
 
