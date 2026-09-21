@@ -105,7 +105,17 @@ final class VMRunner {
         // No romfile or biosrom: the NDRV comes from ppc-ndrvloader above and
         // the kext binds on the PCI ID. See the note in VMConfig.
         //
-        a += ["-device", "ppc-mac-gpu,id=gpu0,vgamem_mb=\(c.vramMB)"]
+        // While installing, cap the card at 64 MB. The Mac OS X 10.4
+        // installer hangs with more -- it boots all the way to the point of
+        // showing its Language Chooser, then waits forever with the Apple
+        // logo on screen, which reads as a freeze at the logo but is not.
+        // Measured: 128 MB hangs with the AGP bridge on or off and with or
+        // without the ATI ROMs; 64 MB reaches the Language Chooser. An
+        // installed system runs fine at the full size, so this only applies
+        // while booting from the install disc and the machine keeps whatever
+        // the reader chose for afterwards.
+        let vram = c.bootFromDisc ? min(c.vramMB, 64) : c.vramMB
+        a += ["-device", "ppc-mac-gpu,id=gpu0,vgamem_mb=\(vram)"]
 
         // The paravirtual GPU, alongside the emulated R200 rather than in
         // place of it: the guest keeps booting and displaying through the

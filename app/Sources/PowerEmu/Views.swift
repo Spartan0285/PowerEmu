@@ -167,7 +167,7 @@ struct MachineDetail: View {
             } header: {
                 Text("Display")
             } footer: {
-                Text("Mac OS X drives the emulated Radeon with its own ATI driver, so Quartz Extreme and OpenGL are available; more video memory lets games and the desktop keep more textures on the card. No ROM files are needed.\n\nPick the resolution inside Mac OS X, in System Preferences → Displays. 1440 × 932 fills this Mac’s screen; 1440 × 904 and 16:10 modes sit below the notch in fullscreen. Fullscreen: Control-Option-F; Control-Option-G releases the mouse.")
+                Text("Mac OS X drives the emulated Radeon with its own ATI driver, so Quartz Extreme and OpenGL are available; more video memory lets games and the desktop keep more textures on the card. No ROM files are needed.\n\nWhile starting from an install disc the card is held at 64 MB, because the Mac OS X installer will not start with more. Your choice applies once Mac OS X is installed.\n\nPick the resolution inside Mac OS X, in System Preferences → Displays. 1440 × 932 fills this Mac’s screen; 1440 × 904 and 16:10 modes sit below the notch in fullscreen. Fullscreen: Control-Option-F; Control-Option-G releases the mouse.")
                     .font(.caption).foregroundStyle(.secondary)
             }
 
@@ -653,7 +653,7 @@ struct NewMachineSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("New Virtual Mac").font(.title2.bold())
-            Text("Makes a Power Mac G4 with an empty disk and your install disc in the drive. Start it, erase the disk in the installer’s Disk Utility (Mac OS Extended, Journaled), then install.")
+            Text("Makes a Power Mac G4 with an empty disk and your install disc in the drive. Start it, erase the disk in the installer’s Disk Utility (Mac OS Extended, Journaled), then install. When it has finished, eject the disc — that stops it starting the installer again, and gives the machine its full video memory.")
                 .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             Form {
                 TextField("Name", text: $name)
