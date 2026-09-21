@@ -6,6 +6,14 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$ROOT/build/PowerEmu.app"
 VERSION=0.1
+# The build number is what an updater compares and what a feedback report
+# carries, so it is a whole number and it goes up on every release.
+BUILD_NUMBER=1
+# The stage, in one place: it shows in the About badge and travels with every
+# feedback report. Empty it when this is no longer an alpha and it disappears
+# from both. Never put it in VERSION -- that string ends up in file names and
+# tags, and a space in it finds every one of them.
+STAGE=Alpha
 
 (cd "$ROOT/app" && swift build -c release)
 BIN="$(cd "$ROOT/app" && swift build -c release --show-bin-path)/PowerEmu"
@@ -24,6 +32,7 @@ mkdir -p "$OUT/Contents/MacOS" "$OUT/Contents/Helpers" "$OUT/Contents/Resources"
 cp "$BIN" "$OUT/Contents/MacOS/PowerEmu"
 ditto "$ROOT/build/PowerEmu VM.app" "$OUT/Contents/Helpers/PowerEmu VM.app"
 cp "$ROOT/LICENSE" "$ROOT/COPYING" "$ROOT/THIRD-PARTY-NOTICES.md" "$OUT/Contents/Resources/"
+cp "$ROOT/app/Resources/cytrusmark.png" "$OUT/Contents/Resources/"
 # The app icon, flattened from assets/poweremu.icon.
 ICON_CAR_DIR="$OUT/Contents/Resources" \
     "$ROOT/scripts/make-icon.sh" "$OUT/Contents/Resources/PowerEmu.icns" >/dev/null
@@ -59,7 +68,9 @@ cat > "$OUT/Contents/Info.plist" <<EOF
 	<key>CFBundleShortVersionString</key>
 	<string>$VERSION</string>
 	<key>CFBundleVersion</key>
-	<string>$VERSION</string>
+	<string>$BUILD_NUMBER</string>
+	<key>PEBuildStage</key>
+	<string>$STAGE</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
 	<key>LSApplicationCategoryType</key>

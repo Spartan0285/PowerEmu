@@ -15,10 +15,19 @@ struct PowerEmuApp: App {
                 .onAppear {
                     appDelegate.library = library
                     library.autoStartOnce()
+                    Feedback.flushOutbox()
                 }
         }
         .windowResizability(.contentMinSize)
         .commands {
+            // The standard About panel cannot carry the stage badge, the
+            // alpha sentence or what PowerEmu is not, so it draws its own.
+            CommandGroup(replacing: .appInfo) {
+                Button("About PowerEmu") { AboutWindowController.present() }
+            }
+            CommandGroup(replacing: .help) {
+                Button("Send Feedback…") { FeedbackWindowController.present() }
+            }
             CommandGroup(after: .windowList) {
                 OpenServicesButton()
             }
