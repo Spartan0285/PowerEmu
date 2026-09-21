@@ -91,16 +91,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         let running = MainActor.assumeIsolated {
-            library?.machines.filter { $0.state != .stopped }.map { $0.config.name } ?? []
+            library?.machines.filter { $0.state != .stopped } ?? []
         }
         guard !running.isEmpty else { return .terminateNow }
+
+        /*
+         * Quitting used to offer to leave them running, and that produced a
+         * virtual Mac nobody could reach: the guest's window belongs to
+         * PowerEmu, so once PowerEmu has gone there is no window, no menu
+         * and no way to shut it down -- only a QEMU process still holding
+         * the disk, which has to be found and killed from a terminal. The
+         * machine is not "still running" in any useful sense; it is
+         * stranded. So the choice now is to shut them down or to stay.
+         */
+        let names = running.map { $0.config.name }
         let a = NSAlert()
-        a.messageText = running.count == 1 ? "“\(running[0])” is still running."
-                                           : "\(running.count) virtual Macs are still running."
-        a.informativeText = "Shut them down before quitting PowerEmu. If you quit now they keep running, but PowerEmu can no longer control them."
+        a.messageText = names.count == 1 ? "Shut down “\(names[0])” before quitting?"
+                                         : "Shut down \(names.count) virtual Macs before quitting?"
+        a.informativeText = "PowerEmu will ask Mac OS X to shut down, and wait a few "
+                          + "seconds. Anything unsaved in the guest should be saved first."
+        a.addButton(withTitle: "Shut Down and Quit")
         a.addButton(withTitle: "Cancel")
-        a.addButton(withTitle: "Quit Anyway")
-        return a.runModal() == .alertSecondButtonReturn ? .terminateNow : .terminateCancel
+        guard a.runModal() == .alertFirstButtonReturn else { return .terminateCancel }
+
+        Task { @MainActor in
+            for vm in running { vm.requestShutDown() }
+            // Give Mac OS X a moment to go down on its own; a guest that
+            // ignores it is powered off rather than left behind.
+            for _ in 0..<20 {
+                if running.allSatisfy({ $0.state == .stopped }) { break }
+                try? await Task.sleep(nanoseconds: 500_000_000)
+            }
+            for vm in running where vm.state != .stopped { vm.forcePowerOff() }
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            NSApp.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }

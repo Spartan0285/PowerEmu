@@ -193,6 +193,7 @@ struct MachineDetail: View {
                 Toggle("Start when PowerEmu opens", isOn: binding(\.autoStart))
                 Toggle("Verbose startup (show messages instead of the Apple logo)", isOn: binding(\.verboseBoot))
                 Toggle("Safe Boot (skip third-party extensions)", isOn: binding(\.safeBoot))
+                Toggle("Single-user mode (a root prompt instead of the desktop)", isOn: binding(\.singleUser))
                 Toggle("Single-user mode", isOn: binding(\.singleUser))
             }
 
