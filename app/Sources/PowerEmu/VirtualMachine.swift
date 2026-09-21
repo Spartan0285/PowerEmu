@@ -31,7 +31,6 @@ final class VirtualMachine: ObservableObject, Identifiable {
     nonisolated var id: URL { url }
 
     var disksURL: URL { url.appendingPathComponent("Disks", isDirectory: true) }
-    var romsURL: URL { url.appendingPathComponent("ROMs", isDirectory: true) }
     var logsURL: URL { url.appendingPathComponent("Logs", isDirectory: true) }
     var configURL: URL { url.appendingPathComponent("config.plist") }
 

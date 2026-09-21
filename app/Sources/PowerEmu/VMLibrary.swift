@@ -59,21 +59,6 @@ final class VMLibrary: ObservableObject {
                 config.disks.append(DiskConfig(file: src.lastPathComponent))
             }
             config.startupDisk = config.disks.first?.id
-            config.gpuOptionROM = nil
-            config.gpuBIOSROM = nil
-            if let romFolder {
-                for rom in (try? fm.contentsOfDirectory(at: romFolder, includingPropertiesForKeys: nil)) ?? []
-                    where rom.pathExtension.lowercased() == "rom" {
-                    try cloneOrCopy(rom, to: pkg.appendingPathComponent("ROMs").appendingPathComponent(rom.lastPathComponent))
-                    let n = rom.lastPathComponent.lowercased()
-                    if n.contains("ndrv") { config.gpuOptionROM = rom.lastPathComponent }
-                    else if n.contains("fcode") && config.gpuOptionROM == nil { config.gpuOptionROM = rom.lastPathComponent }
-                    if n.contains("pciagp") || n.contains("bios") || n.contains("_full") {
-                        // Prefer the newer 201 BIOS when several are present.
-                        if config.gpuBIOSROM == nil || n.contains("201") { config.gpuBIOSROM = rom.lastPathComponent }
-                    }
-                }
-            }
             let vm = VirtualMachine(url: pkg, config: config)
             try vm.save()
             reload()
@@ -128,29 +113,18 @@ final class VMLibrary: ObservableObject {
     /// A new virtual Mac to install from a disc: a blank disk, the install
     /// disc in the drive, starting from the disc.  The ATI ROMs are copied
     /// from an existing machine.
-    func newMachine(name: String, osName: String, memoryMB: Int, vramMB: Int = 128, diskGB: Int, installDisc: URL?,
-                    romsFrom source: VirtualMachine?) throws -> VirtualMachine {
+    func newMachine(name: String, osName: String, memoryMB: Int, vramMB: Int = 128, diskGB: Int, installDisc: URL?) throws -> VirtualMachine {
         let pkg = folder.appendingPathComponent(name + ".poweremu", isDirectory: true)
         let fm = FileManager.default
         guard !fm.fileExists(atPath: pkg.path) else { throw PackageError.exists(name) }
-        for sub in ["Disks", "ROMs", "Logs"] {
+        for sub in ["Disks", "Logs"] {
             try fm.createDirectory(at: pkg.appendingPathComponent(sub), withIntermediateDirectories: true)
         }
         var config = VMConfig(name: name)
         config.osName = osName
         config.memoryMB = memoryMB
         config.vramMB = vramMB
-        config.gpuOptionROM = nil
-        config.gpuBIOSROM = nil
         do {
-            if let source {
-                for rom in [source.config.gpuOptionROM, source.config.gpuBIOSROM].compactMap({ $0 }) {
-                    try cloneOrCopy(source.romsURL.appendingPathComponent(rom),
-                                    to: pkg.appendingPathComponent("ROMs").appendingPathComponent(rom))
-                }
-                config.gpuOptionROM = source.config.gpuOptionROM
-                config.gpuBIOSROM = source.config.gpuBIOSROM
-            }
             if let installDisc {
                 config.discs = [installDisc.path]
                 config.insertedDisc = installDisc.path

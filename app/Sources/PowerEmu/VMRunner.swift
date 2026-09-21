@@ -102,10 +102,10 @@ final class VMRunner {
             if c.startFullscreen { a.append("-full-screen") }
         }
 
-        var gpu = "ppc-mac-gpu,id=gpu0,vgamem_mb=\(c.vramMB)"
-        if let r = c.gpuOptionROM { gpu += ",romfile=\(vm.romsURL.appendingPathComponent(r).path)" }
-        if let r = c.gpuBIOSROM { gpu += ",biosrom=\(vm.romsURL.appendingPathComponent(r).path)" }
-        a += ["-device", gpu]
+        // No romfile or biosrom: the NDRV comes from ppc-ndrvloader above and
+        // the kext binds on the PCI ID. See the note in VMConfig.
+        //
+        a += ["-device", "ppc-mac-gpu,id=gpu0,vgamem_mb=\(c.vramMB)"]
 
         // The paravirtual GPU, alongside the emulated R200 rather than in
         // place of it: the guest keeps booting and displaying through the

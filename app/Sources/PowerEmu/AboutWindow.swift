@@ -81,8 +81,7 @@ struct AboutView: View {
 
             // 3. What it is not. Said plainly and early, not buried.
             Text("PowerEmu is not affiliated with Apple. It emulates a Power Macintosh; "
-               + "it does not include Mac OS X, and it does not include the Radeon's "
-               + "firmware. You supply your own installation media and ROMs.")
+               + "it does not include Mac OS X. You supply your own installation media.")
                 .font(.system(size: 11))
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.bottom, 12)

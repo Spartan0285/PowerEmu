@@ -34,10 +34,22 @@ struct VMConfig: Codable, Equatable {
     /// Boot from the disc in the drive (installing) instead of the startup disk.
     var bootFromDisc = false
 
-    /// ATI option ROMs for the emulated Radeon, in the package's ROMs folder.
-    /// They are firmware from the real card and are supplied by the user.
-    var gpuOptionROM: String? = "ati_ndrv_joy.rom"
-    var gpuBIOSROM: String? = "ati_ret_9200_201_pciagp_full.rom"
+    /*
+     * There used to be two ATI ROM settings here, naming firmware dumped
+     * from a real Radeon. They are gone, because they were never needed.
+     *
+     * PowerEmu loads its own NDRV through ppc-ndrvloader, so the Mac driver
+     * in the card's ROM was always redundant; and Mac OS X's ATIRadeon8500
+     * binds on the PCI ID, which the device presents either way. Measured
+     * with no ROM at all: the desktop comes up, the kext loads, Quartz
+     * Extreme reports Supported, and Warcraft III runs at the same frame
+     * rate as with the ROMs. The only difference is cosmetic -- the card
+     * calls itself "QEMU VGA" rather than an ATI name.
+     *
+     * Requiring them would have meant every user dumping firmware from a
+     * physical Radeon Mac card, which almost nobody has, to gain nothing.
+     * Old packages may still carry the keys; they are ignored.
+     */
 
     // Display
     var hardwareCursor = true
@@ -91,7 +103,7 @@ struct VMConfig: Codable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case name, osName, memoryMB, disks, startupDisk, discs, insertedDisc, bootFromDisc
-        case gpuOptionROM, gpuBIOSROM, hardwareCursor, extraDisplayModes, startFullscreen, embeddedDisplay, vramMB, mouseMode
+        case hardwareCursor, extraDisplayModes, startFullscreen, embeddedDisplay, vramMB, mouseMode
         case bootChime, chimeSound, chimeFile, bootWidth, bootHeight, autoStart, verboseBoot, safeBoot, singleUser, audio, network, sshPort, shareClipboard, sharedFolders
         case agpBridge, monitorPort, gpuTrace, extraQEMUArgs
     }
@@ -108,8 +120,6 @@ struct VMConfig: Codable, Equatable {
         try get(.discs, &d.discs)
         d.insertedDisc = try c.decodeIfPresent(String.self, forKey: .insertedDisc)
         try get(.bootFromDisc, &d.bootFromDisc)
-        if c.contains(.gpuOptionROM) { d.gpuOptionROM = try c.decodeIfPresent(String.self, forKey: .gpuOptionROM) }
-        if c.contains(.gpuBIOSROM) { d.gpuBIOSROM = try c.decodeIfPresent(String.self, forKey: .gpuBIOSROM) }
         try get(.hardwareCursor, &d.hardwareCursor); try get(.extraDisplayModes, &d.extraDisplayModes)
         try get(.startFullscreen, &d.startFullscreen); try get(.bootChime, &d.bootChime)
         try get(.chimeSound, &d.chimeSound)

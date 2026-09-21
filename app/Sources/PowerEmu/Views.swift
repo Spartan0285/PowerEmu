@@ -160,10 +160,14 @@ struct MachineDetail: View {
                 Picker("Video memory", selection: binding(\.vramMB)) {
                     ForEach(VMConfig.vramChoices, id: \.self) { Text("\($0) MB").tag($0) }
                 }
+                LabeledContent("Graphics acceleration") {
+                    Text("On — Quartz Extreme and OpenGL")
+                        .foregroundStyle(.secondary)
+                }
             } header: {
                 Text("Display")
             } footer: {
-                Text("Pick the resolution inside Mac OS X, in System Preferences → Displays. 1440 × 932 fills this Mac’s screen; 1440 × 904 and 16:10 modes sit below the notch in fullscreen. Fullscreen: Control-Option-F; Control-Option-G releases the mouse.")
+                Text("Mac OS X drives the emulated Radeon with its own ATI driver, so Quartz Extreme and OpenGL are available; more video memory lets games and the desktop keep more textures on the card. No ROM files are needed.\n\nPick the resolution inside Mac OS X, in System Preferences → Displays. 1440 × 932 fills this Mac’s screen; 1440 × 904 and 16:10 modes sit below the notch in fullscreen. Fullscreen: Control-Option-F; Control-Option-G releases the mouse.")
                     .font(.caption).foregroundStyle(.secondary)
             }
 
@@ -644,7 +648,6 @@ struct NewMachineSheet: View {
     @State private var vram = 128
     @State private var diskGB = 40
     @State private var disc: URL?
-    @State private var romSource: URL?
     @State private var error: String?
 
     var body: some View {
@@ -677,12 +680,6 @@ struct NewMachineSheet: View {
                         }
                     }
                 }
-                Picker("ATI ROMs from", selection: $romSource) {
-                    Text("None").tag(URL?.none)
-                    ForEach(library.machines.filter { $0.config.gpuOptionROM != nil }) { m in
-                        Text(m.config.name).tag(Optional(m.url))
-                    }
-                }
             }
             .formStyle(.grouped)
             if let error { Text(error).foregroundStyle(.red) }
@@ -694,7 +691,6 @@ struct NewMachineSheet: View {
         }
         .padding(20)
         .frame(width: 520)
-        .onAppear { romSource = library.machines.first { $0.config.gpuOptionROM != nil }?.url }
         .onChange(of: osName) { _, v in
             if let short = v.split(separator: " ").last { name = String(short) }
         }
@@ -702,9 +698,8 @@ struct NewMachineSheet: View {
 
     private func create() {
         do {
-            let src = library.machines.first { $0.url == romSource }
             let vm = try library.newMachine(name: name, osName: osName, memoryMB: memory, vramMB: vram,
-                                            diskGB: diskGB, installDisc: disc, romsFrom: src)
+                                            diskGB: diskGB, installDisc: disc)
             onDone(vm)
             dismiss()
         } catch {
