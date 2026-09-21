@@ -32,7 +32,10 @@ mkdir -p "$OUT/Contents/MacOS" "$OUT/Contents/Helpers" "$OUT/Contents/Resources"
 cp "$BIN" "$OUT/Contents/MacOS/PowerEmu"
 ditto "$ROOT/build/PowerEmu VM.app" "$OUT/Contents/Helpers/PowerEmu VM.app"
 cp "$ROOT/LICENSE" "$ROOT/COPYING" "$ROOT/THIRD-PARTY-NOTICES.md" "$OUT/Contents/Resources/"
-cp "$ROOT/app/Resources/cytrusmark.png" "$OUT/Contents/Resources/"
+cp "$ROOT/app/Resources/cytruslogo.png" "$ROOT/app/Resources/cytruslogo-dark.png" "$OUT/Contents/Resources/"
+# Files dragged in from elsewhere carry Finder metadata, and codesign
+# refuses a bundle containing it ("resource fork ... not allowed").
+xattr -cr "$OUT/Contents/Resources" 2>/dev/null || true
 # The app icon, flattened from assets/poweremu.icon.
 ICON_CAR_DIR="$OUT/Contents/Resources" \
     "$ROOT/scripts/make-icon.sh" "$OUT/Contents/Resources/PowerEmu.icns" >/dev/null

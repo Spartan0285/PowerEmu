@@ -40,6 +40,15 @@ final class AboutWindowController: NSWindowController {
 }
 
 struct AboutView: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    /// The wordmark that will actually be legible here. Falls back to the
+    /// light one, since a missing image is better than a blank space.
+    private var lockup: NSImage {
+        let name = colorScheme == .dark ? "cytruslogo-dark" : "cytruslogo"
+        return NSImage(named: name) ?? NSImage(named: "cytruslogo") ?? NSImage()
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // 1. Icon, name, version and build, stage badge. The build
@@ -94,21 +103,16 @@ struct AboutView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.bottom, 14)
 
-            // 5. The Cytrus Software lockup: the mark, then the name beside
-            //    it. The logo's own wordmark is set in a face no Mac here
-            //    has, so only the mark is shipped and the name is drawn.
-            HStack(spacing: 8) {
-                if let mark = NSImage(named: "cytrusmark") {
-                    Image(nsImage: mark)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(height: 40)
-                }
-                VStack(alignment: .leading, spacing: -2) {
-                    Text("CYTRUS").font(.system(size: 17, weight: .bold))
-                    Text("SOFTWARE").font(.system(size: 10, weight: .semibold))
-                        .tracking(1.5)
-                }
+            // 5. The Cytrus Software lockup, as supplied: the real
+            //    wordmark rather than the mark with the name set beside it
+            //    in a substitute face. Two versions ship because the letters
+            //    are solid black in one and solid white in the other, and
+            //    either one disappears against the wrong background.
+            HStack {
+                Image(nsImage: lockup)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(height: 42)
                 Spacer()
             }
             .padding(.bottom, 14)
