@@ -170,7 +170,23 @@ struct MachineDetail: View {
             Section("Startup") {
                 Toggle("Start from the disc in the drive (to install)", isOn: binding(\.bootFromDisc))
                     .disabled(vm.config.insertedDisc == nil)
-                Toggle("Play startup chime", isOn: binding(\.bootChime))
+                Picker("Startup chime", selection: Binding(
+                    get: { vm.config.bootChime ? vm.config.chimeSound : "none" },
+                    set: { v in
+                        guard !locked else { return }
+                        if v == "none" { vm.config.bootChime = false }
+                        else if v == "custom" { chooseChimeFile() }
+                        else { vm.config.bootChime = true; vm.config.chimeSound = v; Chime.play(v) }
+                        try? vm.save()
+                    })) {
+                    Text("None").tag("none")
+                    ForEach(Chime.choices, id: \.0) { c in
+                        Text(c.0 == "custom" && vm.config.chimeFile != nil
+                             ? "Sound file: " + ((vm.config.chimeFile! as NSString).lastPathComponent)
+                             : c.1).tag(c.0)
+                    }
+                }
+                Toggle("Start when PowerEmu opens", isOn: binding(\.autoStart))
                 Toggle("Verbose startup (show messages instead of the Apple logo)", isOn: binding(\.verboseBoot))
                 Toggle("Safe Boot (skip third-party extensions)", isOn: binding(\.safeBoot))
                 Toggle("Single-user mode", isOn: binding(\.singleUser))
@@ -247,6 +263,19 @@ struct MachineDetail: View {
                 Button("Force Power Off") { confirmForce = true }
             }
         }
+    }
+
+    /// A sound of the user's own for the startup chime.
+    private func chooseChimeFile() {
+        let p = NSOpenPanel()
+        p.allowedContentTypes = [.audio]
+        p.message = "Choose a sound to play when this virtual Mac starts."
+        p.prompt = "Use"
+        guard p.runModal() == .OK, let u = p.url else { return }
+        vm.config.chimeFile = u.path
+        vm.config.chimeSound = "custom"
+        vm.config.bootChime = true
+        Chime.play("custom", file: u.path)
     }
 
     /// A binding into the config that saves on every change; read-only while

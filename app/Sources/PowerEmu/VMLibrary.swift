@@ -4,6 +4,17 @@ import AppKit
 /// All virtual Macs in ~/Library/Application Support/PowerEmu/Virtual Machines.
 @MainActor
 final class VMLibrary: ObservableObject {
+    private var autoStarted = false
+
+    /// Start the virtual Macs marked to start when PowerEmu opens (once).
+    func autoStartOnce() {
+        guard !autoStarted else { return }
+        autoStarted = true
+        for vm in machines where vm.config.autoStart && vm.state == .stopped {
+            vm.start()
+        }
+    }
+
     @Published private(set) var machines: [VirtualMachine] = []
     @Published var loadError: String?
 

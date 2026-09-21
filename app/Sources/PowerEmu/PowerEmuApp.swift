@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import ServiceManagement
 
 @main
 struct PowerEmuApp: App {
@@ -11,7 +12,10 @@ struct PowerEmuApp: App {
             ContentView()
                 .environmentObject(library)
                 .frame(minWidth: 760, minHeight: 520)
-                .onAppear { appDelegate.library = library }
+                .onAppear {
+                    appDelegate.library = library
+                    library.autoStartOnce()
+                }
         }
         .windowResizability(.contentMinSize)
         .commands {
@@ -46,6 +50,10 @@ struct PowerEmuApp: App {
             ServicesView()
         }
         .windowResizability(.contentMinSize)
+
+        Settings {
+            AppSettingsView()
+        }
     }
 }
 
@@ -87,4 +95,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+}
+
+/// PowerEmu → Settings: opening at login.
+struct AppSettingsView: View {
+    @State private var status = SMAppService.mainApp.status
+    @State private var problem: String?
+
+    var body: some View {
+        Form {
+            Toggle("Open PowerEmu when you log in", isOn: Binding(
+                get: { status == .enabled || status == .requiresApproval },
+                set: { on in
+                    problem = nil
+                    do {
+                        if on { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
+                    } catch {
+                        problem = error.localizedDescription
+                    }
+                    status = SMAppService.mainApp.status
+                }))
+            if status == .requiresApproval {
+                Text("Allow PowerEmu in System Settings → General → Login Items.")
+                    .font(.caption).foregroundStyle(.orange)
+            }
+            if let problem {
+                Text(problem).font(.caption).foregroundStyle(.red)
+            }
+            Text("Virtual Macs with “Start when PowerEmu opens” turned on (in their Startup settings) start with it.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+        .formStyle(.grouped)
+        .frame(width: 440)
+        .onAppear { status = SMAppService.mainApp.status }
+    }
 }

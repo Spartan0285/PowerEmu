@@ -1,32 +1,67 @@
 import AVFoundation
 
-/// A startup chime in the spirit of the PowerPC Macs': a bright F-major
-/// chord that rings out.  Synthesized here - Apple's recording is theirs.
+/// Startup chimes, synthesized here in the spirit of the classic Macs'
+/// (Apple's recordings are theirs), or a sound file of the user's own.
 enum Chime {
     private static var player: AVAudioPlayer?
 
-    static func play() {
-        if player == nil, let data = makeWAV() {
-            player = try? AVAudioPlayer(data: data)
+    /// The choices offered in the settings: (setting, title).
+    static let choices: [(String, String)] = [
+        ("g4", "Bright chord (Power Mac G3/G4 style)"),
+        ("warm", "Warm chord (Macintosh II style)"),
+        ("bell", "Soft bell"),
+        ("custom", "Sound file…"),
+    ]
+
+    private struct Voice {
+        let notes: [Double], amps: [Double], harmonics: [(Double, Double)]
+        let seconds: Double, decay: Double
+    }
+
+    private static let voices: [String: Voice] = [
+        // F3 C4 F4 A4 C5: a bright F-major chord that rings out.
+        "g4": Voice(notes: [174.61, 261.63, 349.23, 440.00, 523.25], amps: [0.30, 0.26, 0.22, 0.16, 0.12],
+                    harmonics: [(1, 1), (2, 0.28), (3, 0.10)], seconds: 2.6, decay: 1.55),
+        // C3 G3 C4 E4 G4: rounder, fewer overtones, a slower fade.
+        "warm": Voice(notes: [130.81, 196.00, 261.63, 329.63, 392.00], amps: [0.30, 0.24, 0.22, 0.18, 0.12],
+                      harmonics: [(1, 1), (2, 0.12)], seconds: 3.0, decay: 1.1),
+        // E5 B5 E6 with inharmonic partials: a small bell.
+        "bell": Voice(notes: [659.25, 987.77, 1318.51], amps: [0.34, 0.20, 0.10],
+                      harmonics: [(1, 1), (2.76, 0.25), (5.4, 0.08)], seconds: 2.4, decay: 2.2),
+    ]
+
+    private static var cache: [String: Data] = [:]
+
+    /// Play the chosen chime; a custom file that can't be read falls back to
+    /// the default.
+    static func play(_ kind: String = "g4", file: String? = nil) {
+        var p: AVAudioPlayer?
+        if kind == "custom", let file {
+            p = try? AVAudioPlayer(contentsOf: URL(fileURLWithPath: file))
         }
-        player?.currentTime = 0
+        if p == nil {
+            let k = voices[kind] == nil ? "g4" : kind
+            if cache[k] == nil { cache[k] = makeWAV(voices[k]!) }
+            if let d = cache[k] { p = try? AVAudioPlayer(data: d) }
+        }
+        player?.stop()
+        player = p
         player?.play()
     }
 
-    private static func makeWAV() -> Data? {
-        let rate = 44_100.0, seconds = 2.6
+    private static func makeWAV(_ v: Voice) -> Data? {
+        let rate = 44_100.0, seconds = v.seconds
         let n = Int(rate * seconds)
-        // F3 C4 F4 A4 C5, slightly detuned pairs for a chorus shimmer.
-        let notes: [Double] = [174.61, 261.63, 349.23, 440.00, 523.25]
+        let notes = v.notes
         var samples = [Int16](repeating: 0, count: n * 2)
         for i in 0..<n {
             let t = Double(i) / rate
             let attack = min(1, t / 0.012)
-            let decay = exp(-t * 1.55)
+            let decay = exp(-t * v.decay)
             var l = 0.0, r = 0.0
             for (k, f) in notes.enumerated() {
-                let amp = [0.30, 0.26, 0.22, 0.16, 0.12][k]
-                for (h, ha) in [(1.0, 1.0), (2.0, 0.28), (3.0, 0.10)] {
+                let amp = v.amps[k]
+                for (h, ha) in v.harmonics {
                     let det = 1.0 + 0.0012 * Double(k % 2 == 0 ? 1 : -1)
                     l += amp * ha * sin(2 * .pi * f * h * t)
                     r += amp * ha * sin(2 * .pi * f * h * det * t)

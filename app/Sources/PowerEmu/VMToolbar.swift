@@ -1,126 +1,149 @@
 import AppKit
 import UniformTypeIdentifiers
 
-/// The virtual Mac window's toolbar, as in Parallels: mouse mode, keys the
-/// host would otherwise take, devices (discs, this Mac's drives and USB),
-/// performance, power and full screen.  In full screen it hides with the
-/// menu bar and drops down when the pointer reaches the top of the screen.
+/// The virtual Mac's control bar, as in Parallels: mouse mode, keys the host
+/// would otherwise take, devices (discs, this Mac's drives and USB),
+/// performance, power and full screen.  It floats over the top of the
+/// guest's screen - it never takes room from it - and stays hidden until the
+/// pointer reaches the top edge (VMDisplayView.mouseMoved calls reveal).
 @MainActor
-final class VMToolbarController: NSObject, NSToolbarDelegate, NSMenuDelegate {
+final class VMToolbarController: NSObject, NSMenuDelegate {
     private weak var controller: VMWindowController?
     private var mouseControl: NSSegmentedControl?
     private let devicesMenu = NSMenu(title: "Devices")
-
-    private enum ID {
-        static let mouse = NSToolbarItem.Identifier("pe.mouse")
-        static let keys = NSToolbarItem.Identifier("pe.keys")
-        static let devices = NSToolbarItem.Identifier("pe.devices")
-        static let perf = NSToolbarItem.Identifier("pe.perf")
-        static let power = NSToolbarItem.Identifier("pe.power")
-        static let fullScreen = NSToolbarItem.Identifier("pe.fullscreen")
-    }
+    private var keys = NSMenu(), power = NSMenu()
+    let bar = OverlayBar()
+    private var hideTimer: Timer?
+    private var menuOpen = false
+    private(set) var shown = false
 
     init(_ c: VMWindowController) {
         controller = c
         super.init()
         devicesMenu.delegate = self
-        let tb = NSToolbar(identifier: "PowerEmuVM")
-        tb.delegate = self
-        tb.displayMode = .iconOnly
-        tb.allowsUserCustomization = false
-        c.window?.toolbar = tb
-        c.window?.toolbarStyle = .unified
+        keys = keysMenu()
+        keys.delegate = self
+        power = NSMenu()
+        power.addItem(entry("Shut Down", #selector(shutDown)))
+        power.addItem(entry("Restart", #selector(restart)))
+        power.addItem(.separator())
+        power.addItem(entry("Force Power Off…", #selector(forceOff)))
+        power.delegate = self
+        build()
     }
 
     private var vm: VirtualMachine? { controller?.vm }
     private var display: VMDisplayView? { controller?.display }
 
-    /// Toolbar clicks shouldn't leave the keyboard away from the guest.
+    /// Clicks on the bar shouldn't leave the keyboard away from the guest.
     private func refocus() {
         if let d = display { controller?.window?.makeFirstResponder(d) }
     }
 
-    // MARK: NSToolbarDelegate
+    // MARK: the bar
 
-    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [ID.mouse, ID.keys, ID.devices, .flexibleSpace, ID.perf, ID.power, ID.fullScreen]
+    private func build() {
+        let seg = NSSegmentedControl(labels: ["Seamless", "Captured"], trackingMode: .selectOne,
+                                     target: self, action: #selector(mouseChanged(_:)))
+        seg.setImage(NSImage(systemSymbolName: "cursorarrow", accessibilityDescription: nil), forSegment: 0)
+        seg.setImage(NSImage(systemSymbolName: "scope", accessibilityDescription: nil), forSegment: 1)
+        seg.setToolTip("The pointer moves in and out of the virtual Mac freely", forSegment: 0)
+        seg.setToolTip("A click captures the mouse (for games); Control-Option-G releases it", forSegment: 1)
+        seg.selectedSegment = display?.mouseMode == .captured ? 1 : 0
+        seg.refusesFirstResponder = true
+        seg.controlSize = .small
+        mouseControl = seg
+
+        let items: [NSView] = [
+            seg,
+            menuButton("keyboard", "Keys", "Send keys this Mac would keep for itself", keys),
+            menuButton("externaldrive.connected.to.line.below", "Devices", "Discs, this Mac's drives and USB devices", devicesMenu),
+            iconButton("speedometer", "Performance (Control-Option-P)", #selector(togglePerf)),
+            menuButton("power", "Power", "Shut down, restart or force off", power),
+            iconButton("arrow.up.left.and.arrow.down.right", "Full screen (Control-Option-F)", #selector(fullScreen)),
+        ]
+        bar.setContent(items)
+        bar.alphaValue = 0
+        bar.isHidden = true
     }
 
-    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        toolbarDefaultItemIdentifiers(toolbar)
+    private func iconButton(_ symbol: String, _ tip: String, _ action: Selector) -> NSButton {
+        let b = NSButton(image: NSImage(systemSymbolName: symbol, accessibilityDescription: tip)!, target: self, action: action)
+        b.bezelStyle = .texturedRounded
+        b.isBordered = false
+        b.toolTip = tip
+        b.refusesFirstResponder = true
+        b.setAccessibilityLabel(tip)
+        return b
     }
 
-    func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier id: NSToolbarItem.Identifier,
-                 willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
-        switch id {
-        case ID.mouse:
-            let seg = NSSegmentedControl(labels: ["Seamless", "Captured"], trackingMode: .selectOne,
-                                         target: self, action: #selector(mouseChanged(_:)))
-            seg.setImage(NSImage(systemSymbolName: "cursorarrow", accessibilityDescription: nil), forSegment: 0)
-            seg.setImage(NSImage(systemSymbolName: "scope", accessibilityDescription: nil), forSegment: 1)
-            seg.setToolTip("The pointer moves in and out of the virtual Mac freely", forSegment: 0)
-            seg.setToolTip("A click captures the mouse (for games); Control-Option-G releases it", forSegment: 1)
-            seg.selectedSegment = display?.mouseMode == .captured ? 1 : 0
-            seg.refusesFirstResponder = true
-            mouseControl = seg
-            let item = NSToolbarItem(itemIdentifier: id)
-            item.view = seg
-            item.label = "Mouse"
-            return item
+    private func menuButton(_ symbol: String, _ title: String, _ tip: String, _ menu: NSMenu) -> NSButton {
+        let b = NSButton(title: title, image: NSImage(systemSymbolName: symbol, accessibilityDescription: title)!,
+                         target: self, action: #selector(popMenu(_:)))
+        b.imagePosition = .imageLeading
+        b.bezelStyle = .texturedRounded
+        b.isBordered = false
+        b.toolTip = tip
+        b.refusesFirstResponder = true
+        b.controlSize = .small
+        b.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+        objc_setAssociatedObject(b, &Self.menuKey, menu, .OBJC_ASSOCIATION_RETAIN)
+        return b
+    }
+    nonisolated(unsafe) private static var menuKey = 0
 
-        case ID.keys:
-            let item = NSMenuToolbarItem(itemIdentifier: id)
-            item.image = NSImage(systemSymbolName: "keyboard", accessibilityDescription: "Keys")
-            item.label = "Keys"
-            item.toolTip = "Send keys this Mac would keep for itself"
-            item.menu = keysMenu()
-            item.showsIndicator = true
-            return item
+    @objc private func popMenu(_ b: NSButton) {
+        guard let m = objc_getAssociatedObject(b, &Self.menuKey) as? NSMenu else { return }
+        m.popUp(positioning: nil, at: NSPoint(x: 0, y: b.bounds.height + 4), in: b)
+    }
 
-        case ID.devices:
-            let item = NSMenuToolbarItem(itemIdentifier: id)
-            item.image = NSImage(systemSymbolName: "externaldrive.connected.to.line.below", accessibilityDescription: "Devices")
-            item.label = "Devices"
-            item.toolTip = "Discs, this Mac's drives and USB devices"
-            item.menu = devicesMenu
-            item.showsIndicator = true
-            return item
+    func menuWillOpen(_ menu: NSMenu) { menuOpen = true; hideTimer?.invalidate() }
+    func menuDidClose(_ menu: NSMenu) { menuOpen = false; scheduleHide(); refocus() }
 
-        case ID.perf:
-            return button(id, "speedometer", "Performance", "Show frame rate, VRAM and texture use (Control-Option-P)",
-                          #selector(togglePerf))
+    // MARK: showing and hiding
 
-        case ID.power:
-            let item = NSMenuToolbarItem(itemIdentifier: id)
-            item.image = NSImage(systemSymbolName: "power", accessibilityDescription: "Power")
-            item.label = "Power"
-            let m = NSMenu()
-            m.addItem(entry("Shut Down", #selector(shutDown)))
-            m.addItem(entry("Restart", #selector(restart)))
-            m.addItem(.separator())
-            m.addItem(entry("Force Power Off…", #selector(forceOff)))
-            item.menu = m
-            item.showsIndicator = true
-            return item
-
-        case ID.fullScreen:
-            return button(id, "arrow.up.left.and.arrow.down.right", "Full Screen", "Full screen (Control-Option-F)",
-                          #selector(fullScreen))
-
-        default:
-            return nil
+    /// The pointer is at `p` (view coordinates): show the bar when it reaches
+    /// the top edge, hide it after the pointer has left it.
+    func pointerMoved(_ p: NSPoint, in view: NSView) {
+        if !shown {
+            if p.y >= view.bounds.maxY - 4 && abs(p.x - view.bounds.midX) < view.bounds.width / 2 { reveal() }
+            return
+        }
+        if bar.frame.insetBy(dx: -24, dy: -24).contains(p) {
+            hideTimer?.invalidate()
+        } else {
+            scheduleHide()
         }
     }
 
-    private func button(_ id: NSToolbarItem.Identifier, _ symbol: String, _ label: String, _ tip: String,
-                        _ action: Selector) -> NSToolbarItem {
-        let item = NSToolbarItem(itemIdentifier: id)
-        item.image = NSImage(systemSymbolName: symbol, accessibilityDescription: label)
-        item.label = label
-        item.toolTip = tip
-        item.target = self
-        item.action = action
-        return item
+    func reveal() {
+        hideTimer?.invalidate()
+        guard !shown else { return }
+        shown = true
+        mouseControl?.selectedSegment = display?.mouseMode == .captured ? 1 : 0
+        bar.isHidden = false
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.18
+            bar.animator().alphaValue = 1
+        }
+    }
+
+    private func scheduleHide() {
+        guard shown, !menuOpen, hideTimer == nil || !(hideTimer!.isValid) else { return }
+        hideTimer = Timer.scheduledTimer(withTimeInterval: 0.8, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.hide() }
+        }
+    }
+
+    func hide() {
+        guard shown, !menuOpen else { return }
+        shown = false
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.25
+            bar.animator().alphaValue = 0
+        }, completionHandler: { [weak self] in
+            MainActor.assumeIsolated { if self?.shown == false { self?.bar.isHidden = true } }
+        })
     }
 
     private func entry(_ title: String, _ action: Selector, _ tag: Int = 0) -> NSMenuItem {
@@ -303,4 +326,50 @@ final class VMToolbarController: NSObject, NSToolbarDelegate, NSMenuDelegate {
         a.addButton(withTitle: "Force Power Off")
         if a.runModal() == .alertSecondButtonReturn { vm.forcePowerOff() }
     }
+}
+
+/// A small rounded HUD holding the controls, like Parallels' bar.
+final class OverlayBar: NSVisualEffectView {
+    private let stack = NSStackView()
+
+    init() {
+        super.init(frame: .zero)
+        material = .hudWindow
+        blendingMode = .withinWindow
+        state = .active
+        wantsLayer = true
+        layer?.cornerRadius = 10
+        layer?.masksToBounds = true
+        stack.orientation = .horizontal
+        stack.spacing = 10
+        stack.edgeInsets = NSEdgeInsets(top: 5, left: 12, bottom: 5, right: 12)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor),
+            stack.topAnchor.constraint(equalTo: topAnchor),
+            stack.bottomAnchor.constraint(equalTo: bottomAnchor),
+        ])
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    func setContent(_ views: [NSView]) {
+        stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        views.forEach { stack.addArrangedSubview($0) }
+    }
+
+    var fittingBarSize: NSSize { stack.fittingSize }
+
+    /// Over the bar the Mac's own pointer shows (the guest's hides).
+    override func resetCursorRects() { addCursorRect(bounds, cursor: .arrow) }
+
+    /// Clicks on the bar are the bar's, not the guest's: the background
+    /// between buttons swallows them instead of passing them down.
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override func mouseDown(with event: NSEvent) {}
+    override func mouseUp(with event: NSEvent) {}
+    override func rightMouseDown(with event: NSEvent) {}
+    override func rightMouseUp(with event: NSEvent) {}
 }
