@@ -17,6 +17,10 @@ struct ContentView: View {
                     MachineRow(vm: vm).tag(vm.url)
                 }
             }
+            // Rebuilt when machines come and go: a List that has a row
+            // inserted and selected keeps a scroll offset that hides the
+            // top row under the toolbar.
+            .id(library.machines.map(\.url))
             .safeAreaInset(edge: .bottom) { ServiceHubButton() }
             .navigationSplitViewColumnWidth(min: 200, ideal: 230)
             .toolbar {
@@ -47,13 +51,44 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .newVirtualMac)) { _ in showingNew = true }
         .onReceive(NotificationCenter.default.publisher(for: .addVirtualMac)) { _ in showingImport = true }
+        .onReceive(NotificationCenter.default.publisher(for: .selectVirtualMac)) { n in
+            if let u = n.object as? URL { select(u) }
+        }
         .sheet(isPresented: $showingImport) {
             ImportSheet { vm in selection = vm.url }
         }
         .sheet(isPresented: $showingNew) {
-            NewMachineSheet { vm in selection = vm.url }
+            NewMachineSheet(initialDisc: ProcessInfo.processInfo.environment["POWEREMU_TEST_NEW_SHEET"].map(URL.init(fileURLWithPath:))) { vm in select(vm.url) }
+        }
+        .onAppear {
+            // Developer testing: POWEREMU_TEST_NEW_SHEET=<disc> opens the sheet with it chosen.
+            if ProcessInfo.processInfo.environment["POWEREMU_TEST_NEW_SHEET"] != nil { showingNew = true }
         }
         .onAppear { if selection == nil { selection = library.machines.first?.url } }
+        .background(NoTitlebarSeparator())
+    }
+
+    /// Select a machine that was just added. Selecting it in the same pass
+    /// that inserts its row scrolls the list so the row sits under the
+    /// toolbar, half hidden; a moment later it lands where it should.
+    private func select(_ url: URL) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { selection = url }
+    }
+}
+
+/// Turns off the window's own title-bar separator. The split view draws the
+/// line under the toolbar itself; the window's line could also turn up
+/// across the middle of the toolbar, at plain title-bar height, while a
+/// virtual Mac was running.
+struct NoTitlebarSeparator: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView { Probe() }
+    func updateNSView(_ v: NSView, context: Context) {}
+
+    final class Probe: NSView {
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            window?.titlebarSeparatorStyle = .none
+        }
     }
 }
 
@@ -71,19 +106,55 @@ struct ServiceHubButton: View {
 }
 
 struct MachineRow: View {
+    @EnvironmentObject var library: VMLibrary
     @ObservedObject var vm: VirtualMachine
+    private var subtitle: String { vm.state == .stopped ? vm.config.osName : "Running" }
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: "desktopcomputer")
-                .font(.title2)
-                .foregroundStyle(vm.state == .stopped ? Color.secondary : Color.green)
+            MachineIcon(model: vm.config.model, size: 30, running: vm.state != .stopped)
             VStack(alignment: .leading) {
                 Text(vm.config.name).font(.headline)
-                Text(vm.state == .stopped ? vm.config.osName : "Running")
-                    .font(.caption).foregroundStyle(.secondary)
+                if let s = library.installs[vm.url], s.outcome == .running {
+                    InstallRowStatus(session: s)
+                } else {
+                    Text(subtitle).font(.caption).foregroundStyle(.secondary)
+                }
             }
         }
         .padding(.vertical, 3)
+    }
+}
+
+/// "Installing… 42%" under a machine's name, following its install.
+struct InstallRowStatus: View {
+    @ObservedObject var session: InstallSession
+    var body: some View {
+        Text("Installing… \(Int(session.fraction * 100))%")
+            .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+    }
+}
+
+/// The Mac a virtual Mac looks like, with a green dot while it runs.
+struct MachineIcon: View {
+    let model: String?
+    let size: CGFloat
+    var running = false
+    var body: some View {
+        let m = MacModel.named(model)
+        ZStack(alignment: .bottomTrailing) {
+            if let img = m?.image {
+                Image(nsImage: img).resizable().interpolation(.high).frame(width: size, height: size)
+            } else {
+                Image(systemName: m?.symbol ?? "desktopcomputer")
+                    .font(.system(size: size * 0.7))
+                    .foregroundStyle(running ? Color.green : Color.secondary)
+                    .frame(width: size, height: size)
+            }
+            if running, m?.image != nil {
+                Circle().fill(.green).frame(width: size * 0.26, height: size * 0.26)
+                    .overlay(Circle().stroke(.background, lineWidth: 1.5))
+            }
+        }
     }
 }
 
@@ -96,21 +167,29 @@ struct MachineDetail: View {
     @State private var confirmTrash = false
     @State private var error: String?
 
-    private var locked: Bool { vm.state != .stopped }
+    private var locked: Bool { vm.state != .stopped || installing }
+
+    private var install: InstallSession? { library.installs[vm.url] }
+    private var installing: Bool { install?.outcome == .running }
 
     var body: some View {
         Form {
+            if let install {
+                InstallProgressSection(session: install)
+            }
             Section {
                 HStack(alignment: .center, spacing: 16) {
-                    Image(systemName: "desktopcomputer").font(.system(size: 44))
-                        .foregroundStyle(locked ? Color.green : Color.accentColor)
+                    MachineIcon(model: vm.config.model, size: 56, running: locked)
                     VStack(alignment: .leading, spacing: 4) {
                         Text(vm.config.name).font(.title2.bold())
                         Text("\(vm.config.osName) · \(vm.config.memoryMB >= 1024 ? "\(vm.config.memoryMB / 1024) GB" : "\(vm.config.memoryMB) MB") · PowerPC G4")
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
-                    if vm.state == .stopped {
+                    if installing {
+                        Label("Installing…", systemImage: "arrow.down.circle")
+                            .foregroundStyle(.secondary).font(.headline)
+                    } else if vm.state == .stopped {
                         Button { vm.start() } label: { Label("Start", systemImage: "play.fill").frame(minWidth: 80) }
                             .buttonStyle(.borderedProminent).controlSize(.large)
                     } else {
@@ -405,7 +484,11 @@ struct DisksSection: View {
         Section {
             ForEach(vm.config.hardDisks) { d in
                 HStack {
-                    Image(systemName: "internaldrive")
+                    if let hd = DiscIcons.hardDiskImage {
+                        Image(nsImage: hd).resizable().frame(width: 24, height: 24)
+                    } else {
+                        Image(systemName: "internaldrive")
+                    }
                     VStack(alignment: .leading) {
                         Text(d.displayName)
                         Text(d.file).font(.caption).foregroundStyle(.secondary)
@@ -633,78 +716,5 @@ struct DriveSection: View {
         p.allowedContentTypes = VMConfig.discExtensions.compactMap { UTType(filenameExtension: $0) }
         guard p.runModal() == .OK, let u = p.url else { return }
         vm.insertDisc(u)
-    }
-}
-
-// MARK: - New virtual Mac
-
-struct NewMachineSheet: View {
-    @EnvironmentObject var library: VMLibrary
-    @Environment(\.dismiss) private var dismiss
-    var onDone: (VirtualMachine) -> Void
-
-    @State private var name = "Tiger"
-    @State private var osName = "Mac OS X 10.4 Tiger"
-    @State private var memory = 2048
-    @State private var vram = 128
-    @State private var diskGB = 40
-    @State private var disc: URL?
-    @State private var error: String?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("New Virtual Mac").font(.title2.bold())
-            Text("Makes a Power Mac G4 with an empty disk and your install disc in the drive. Start it, erase the disk in the installer’s Disk Utility (Mac OS Extended, Journaled), then install. When it has finished, eject the disc — that stops it starting the installer again, and gives the machine its full video memory.")
-                .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            Form {
-                TextField("Name", text: $name)
-                Picker("System", selection: $osName) {
-                    ForEach(["Mac OS X 10.5 Leopard", "Mac OS X 10.4 Tiger", "Mac OS X 10.3 Panther",
-                             "Mac OS X 10.2 Jaguar"], id: \.self) { Text($0).tag($0) }
-                }
-                Picker("Memory", selection: $memory) {
-                    ForEach([512, 1024, 1536, 2048], id: \.self) { Text($0 >= 1024 ? "\($0 / 1024) GB" : "\($0) MB").tag($0) }
-                }
-                Picker("Video memory", selection: $vram) {
-                    ForEach(VMConfig.vramChoices, id: \.self) { Text("\($0) MB").tag($0) }
-                }
-                Picker("Disk", selection: $diskGB) {
-                    ForEach([10, 20, 40, 80, 120], id: \.self) { Text("\($0) GB").tag($0) }
-                }
-                LabeledContent("Install disc") {
-                    HStack {
-                        Text(disc?.lastPathComponent ?? "None").foregroundStyle(disc == nil ? .secondary : .primary)
-                        Button("Choose…") {
-                            let p = NSOpenPanel()
-                            p.allowedContentTypes = VMConfig.discExtensions.compactMap { UTType(filenameExtension: $0) }
-                            if p.runModal() == .OK { disc = p.url }
-                        }
-                    }
-                }
-            }
-            .formStyle(.grouped)
-            if let error { Text(error).foregroundStyle(.red) }
-            HStack {
-                Spacer()
-                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
-                Button("Create") { create() }.keyboardShortcut(.defaultAction).disabled(name.isEmpty)
-            }
-        }
-        .padding(20)
-        .frame(width: 520)
-        .onChange(of: osName) { _, v in
-            if let short = v.split(separator: " ").last { name = String(short) }
-        }
-    }
-
-    private func create() {
-        do {
-            let vm = try library.newMachine(name: name, osName: osName, memoryMB: memory, vramMB: vram,
-                                            diskGB: diskGB, installDisc: disc)
-            onDone(vm)
-            dismiss()
-        } catch {
-            self.error = error.localizedDescription
-        }
     }
 }

@@ -22,6 +22,11 @@ struct DiskConfig: Codable, Hashable, Identifiable {
 struct VMConfig: Codable, Equatable {
     var name: String
     var osName: String = "Mac OS X 10.4 Tiger"
+    /// Which Mac it looks like (MacModel.id); only the icon.
+    var model: String?
+    /// The processor Mac OS X reports, in MHz: cosmetic only, the emulated
+    /// CPU runs the same whatever it says. nil = the emulator's own figure.
+    var cpuMHz: Int?
     var memoryMB: Int = 2048
 
     var disks: [DiskConfig] = []
@@ -102,7 +107,7 @@ struct VMConfig: Codable, Equatable {
     init(name: String) { self.name = name }
 
     enum CodingKeys: String, CodingKey {
-        case name, osName, memoryMB, disks, startupDisk, discs, insertedDisc, bootFromDisc
+        case name, osName, model, cpuMHz, memoryMB, disks, startupDisk, discs, insertedDisc, bootFromDisc
         case hardwareCursor, extraDisplayModes, startFullscreen, embeddedDisplay, vramMB, mouseMode
         case bootChime, chimeSound, chimeFile, bootWidth, bootHeight, autoStart, verboseBoot, safeBoot, singleUser, audio, network, sshPort, shareClipboard, sharedFolders
         case agpBridge, monitorPort, gpuTrace, extraQEMUArgs
@@ -115,6 +120,8 @@ struct VMConfig: Codable, Equatable {
             if let v = try c.decodeIfPresent(T.self, forKey: k) { into = v }
         }
         try get(.osName, &d.osName); try get(.memoryMB, &d.memoryMB)
+        d.model = try c.decodeIfPresent(String.self, forKey: .model)
+        d.cpuMHz = try c.decodeIfPresent(Int.self, forKey: .cpuMHz)
         try get(.disks, &d.disks)
         d.startupDisk = try c.decodeIfPresent(UUID.self, forKey: .startupDisk)
         try get(.discs, &d.discs)

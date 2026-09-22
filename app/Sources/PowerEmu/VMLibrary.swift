@@ -16,6 +16,8 @@ final class VMLibrary: ObservableObject {
     }
 
     @Published private(set) var machines: [VirtualMachine] = []
+    /// Installs in progress, by machine.
+    @Published private(set) var installs: [URL: InstallSession] = [:]
     @Published var loadError: String?
 
     let folder: URL
@@ -141,7 +143,67 @@ final class VMLibrary: ObservableObject {
         }
     }
 
+    /// A new virtual Mac installed from `options.disc` with nobody at the
+    /// keyboard (see InstallPlan). Returns at once; the install runs on.
+    func installMachine(name: String, memoryMB: Int, vramMB: Int, options: InstallPlan.Options,
+                        discVersion: String) throws -> VirtualMachine {
+        let vm = try newMachine(name: name, osName: "Mac OS X \(discVersion) Tiger", memoryMB: memoryMB,
+                                vramMB: vramMB, diskGB: options.diskGB, installDisc: nil)
+        let s = InstallSession(vm: vm, options: options, discVersion: discVersion)
+        s.onFinish = { [weak self, weak s] in
+            // Keep the finished session a moment so the window can say so.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+                guard let self, let s, s.outcome == .finished else { return }
+                self.installs[vm.url] = nil
+            }
+        }
+        installs[vm.url] = s
+        s.start()
+        return vm
+    }
+
+    /// Developer testing only: POWEREMU_TEST_INSTALL=/path/to/disc.iso starts
+    /// an install with the default choices when PowerEmu opens, so the whole
+    /// path can be exercised without clicking through the sheet.
+    /// POWEREMU_TEST_INSTALL_UPDATE=1 adds the 10.4.11 update.
+    private var developerInstallStarted = false
+    func developerAutoInstall() {
+        let env = ProcessInfo.processInfo.environment
+        guard !developerInstallStarted, let path = env["POWEREMU_TEST_INSTALL"], !path.isEmpty else { return }
+        developerInstallStarted = true
+        let disc = URL(fileURLWithPath: path)
+        let update = env["POWEREMU_TEST_INSTALL_UPDATE"] == "1"
+        Task.detached {
+            guard let info = try? InstallPlan.inspect(disc), info.automatable else {
+                NSLog("PowerEmu test install: %@ can't be installed automatically", path)
+                return
+            }
+            await MainActor.run {
+                var name = "Install Test"
+                var n = 2
+                while self.machines.contains(where: { $0.config.name == name }) { name = "Install Test \(n)"; n += 1 }
+                let o = InstallPlan.Options(disc: disc, diskGB: 20, language: InstallPlan.hostLanguage.value,
+                                            update10411: update)
+                do {
+                    let vm = try self.installMachine(name: name, memoryMB: 2048, vramMB: 128, options: o,
+                                                     discVersion: info.version)
+                    NotificationCenter.default.post(name: .selectVirtualMac, object: vm.url)
+                } catch {
+                    NSLog("PowerEmu test install failed to start: %@", error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    func dismissInstall(_ vm: VirtualMachine) {
+        installs[vm.url] = nil
+    }
+
+    var installing: [InstallSession] { installs.values.filter { $0.outcome == .running } }
+
     func moveToTrash(_ vm: VirtualMachine) throws {
+        installs[vm.url]?.cancel()
+        installs[vm.url] = nil
         try FileManager.default.trashItem(at: vm.url, resultingItemURL: nil)
         reload()
     }

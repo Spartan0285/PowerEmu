@@ -6,6 +6,8 @@ import Foundation
 /// option is explained; keep the two in step.
 @MainActor
 final class VMRunner {
+    /// The lowest processor speed Mac OS X is told (see the boot command).
+    static let minReportedMHz = 1420
     private let vm: VirtualMachine
     private var process: Process?
     private let qmpPath: String
@@ -21,6 +23,9 @@ final class VMRunner {
     /// ones when another virtual Mac (or anything else) has them.
     private(set) var sshPort: Int?
     private(set) var monitorPort: Int?
+    /// An unattended run (installing): no screen, and a guest restart ends
+    /// the emulator instead of restarting, which is how an install says done.
+    var headless = false
 
     init(vm: VirtualMachine) {
         self.vm = vm
@@ -76,7 +81,14 @@ final class VMRunner {
         // OpenBIOS: fake AGP properties on the PCI path (only used when the
         // AGP bridge is off) and the VRAM size for the QEMU VGA node.
         let vramHex = String(c.vramMB * 1024 * 1024, radix: 16)
-        let bootCmd = #"boot-command=" /pci@f2000000" find-device " uni-north" encode-string " compatible" property device-end " /pci@f2000000/ATY,Adagio@e" ['] find-device catch 0= if 7 encode-int " IOAGPFlags" property h# 104 encode-int " IOAGPCommandValue" property device-end then " /pci@f2000000/QEMU,VGA@e" ['] find-device catch 0= if h# "# + vramHex + #" encode-int " VRAM,totalsize" property device-end then boot"#
+        // The processor speed Mac OS X reports is the cpu node's
+        // clock-frequency. Programs read it too, and games refuse to run
+        // below their minimum (Halo on a 500 MHz "Cube"), so a chosen speed
+        // is only ever raised to, never lowered below, 1.42 GHz -- the
+        // fastest Power Mac G4. About This Mac shows the chosen speed anyway
+        // (PEPersonalize patches its text).
+        let cpuSpeed = c.cpuMHz.map { #"" /cpus/PowerPC,G4@0" find-device d# "# + String(max($0, Self.minReportedMHz) * 1_000_000) + #" encode-int " clock-frequency" property device-end "# } ?? ""
+        let bootCmd = #"boot-command="# + cpuSpeed + #"" /pci@f2000000" find-device " uni-north" encode-string " compatible" property device-end " /pci@f2000000/ATY,Adagio@e" ['] find-device catch 0= if 7 encode-int " IOAGPFlags" property h# 104 encode-int " IOAGPCommandValue" property device-end then " /pci@f2000000/QEMU,VGA@e" ['] find-device catch 0= if h# "# + vramHex + #" encode-int " VRAM,totalsize" property device-end then boot"#
 
         var a: [String] = [
             "-name", c.name,
@@ -94,7 +106,9 @@ final class VMRunner {
             // it stays black until the loader draws the grey Apple.
             a += ["-prom-env", "output-device=ttya"]
         }
-        if c.embeddedDisplay {
+        if headless {
+            a += ["-display", "none", "-no-reboot"]
+        } else if c.embeddedDisplay {
             // No window of QEMU's own (and so no second app in the Dock).
             a += ["-display", "none", "-object", "poweremu-display,id=pd0,path=\(displayPath)"]
         } else {

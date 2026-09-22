@@ -15,6 +15,7 @@ struct PowerEmuApp: App {
                 .onAppear {
                     appDelegate.library = library
                     library.autoStartOnce()
+                    library.developerAutoInstall()
                     Feedback.flushOutbox()
                 }
         }
@@ -78,6 +79,8 @@ struct OpenServicesButton: View {
 extension Notification.Name {
     static let newVirtualMac = Notification.Name("PowerEmuNewVirtualMac")
     static let addVirtualMac = Notification.Name("PowerEmuAddVirtualMac")
+    /// object: the machine's package URL
+    static let selectVirtualMac = Notification.Name("PowerEmuSelectVirtualMac")
 }
 
 /// Quitting PowerEmu would leave running virtual Macs without their
@@ -90,6 +93,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        // An install can't be picked up again, so say what quitting costs.
+        let installing = MainActor.assumeIsolated { library?.installing ?? [] }
+        if !installing.isEmpty {
+            let a = NSAlert()
+            a.messageText = "Stop installing Mac OS X?"
+            a.informativeText = "Quitting PowerEmu stops the installation. You would need to start it again from the beginning."
+            a.addButton(withTitle: "Keep Installing")
+            a.addButton(withTitle: "Stop and Quit")
+            guard a.runModal() == .alertSecondButtonReturn else { return .terminateCancel }
+            MainActor.assumeIsolated { for s in installing { s.cancel() } }
+        }
         let running = MainActor.assumeIsolated {
             library?.machines.filter { $0.state != .stopped } ?? []
         }

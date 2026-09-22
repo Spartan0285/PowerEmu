@@ -33,6 +33,8 @@ cp "$BIN" "$OUT/Contents/MacOS/PowerEmu"
 ditto "$ROOT/build/PowerEmu VM.app" "$OUT/Contents/Helpers/PowerEmu VM.app"
 cp "$ROOT/LICENSE" "$ROOT/COPYING" "$ROOT/THIRD-PARTY-NOTICES.md" "$OUT/Contents/Resources/"
 cp "$ROOT/app/Resources/cytruslogo.png" "$ROOT/app/Resources/cytruslogo-dark.png" "$OUT/Contents/Resources/"
+# Machine icons macOS no longer has (the Cube); the rest come from the system.
+cp "$ROOT"/app/Resources/Models/*.png "$OUT/Contents/Resources/" 2>/dev/null || true
 # Files dragged in from elsewhere carry Finder metadata, and codesign
 # refuses a bundle containing it ("resource fork ... not allowed").
 xattr -cr "$OUT/Contents/Resources" 2>/dev/null || true
