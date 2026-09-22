@@ -13,6 +13,9 @@
  *                   SHUTDOWN / RESTART
  *                   MOUNT   "URL\tNAME" of a shared folder (WebDAV)
  *                   UNMOUNT NAME of a shared folder
+ *                   CHANGED lines of "NAME\tPATH": folders in a shared folder
+ *                           that changed on the host (PATH is relative to
+ *                           the share, empty for its top)
  *                   PING
  *   guest -> host   HELLO   "agent-version\tmac-os-version\tuser"
  *                   CLIP    UTF-8 text copied in the guest
@@ -33,8 +36,10 @@
 #include <sys/param.h>
 #include <sys/ucred.h>
 #include <sys/mount.h>
+#include <sys/stat.h>
+#include <dirent.h>
 
-#define PE_AGENT_VERSION "1.0"
+#define PE_AGENT_VERSION "1.1"
 #define PE_HOST_ADDR     "10.0.2.100"
 #define PE_HOST_PORT     7700
 
@@ -51,6 +56,7 @@
 - (void)handle:(NSString *)verb payload:(NSData *)payload;
 - (void)mount:(NSString *)spec;
 - (void)unmount:(NSString *)name;
+- (void)changed:(NSString *)list;
 @end
 
 /* Where the volume mounted from `from` (a WebDAV URL) is, or nil. */
@@ -219,6 +225,8 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
         [self mount:text];
     } else if ([verb isEqualToString:@"UNMOUNT"]) {
         [self unmount:text];
+    } else if ([verb isEqualToString:@"CHANGED"]) {
+        [self changed:text];
     } else if ([verb isEqualToString:@"PING"]) {
         [self send:@"PONG" data:nil];
     }
@@ -252,6 +260,34 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
     if (![[NSWorkspace sharedWorkspace] unmountAndEjectDeviceAtPath:path] &&
         unmount([path fileSystemRepresentation], 0) != 0)
         [self send:@"LOG" text:[NSString stringWithFormat:@"unmount %@ failed: %s", path, strerror(errno)]];
+}
+
+/* Folders changed on the host.  Finder learns about changes on a WebDAV
+ * volume by checking each open folder's modification date, but webdavfs
+ * answers that from a cache that lasts about half a minute -- so new files
+ * took that long to appear.  Reading the folder refreshes webdavfs's copy
+ * (measured: Finder then shows the change within a second); the FNNotify
+ * is for anything else watching the folder. */
+- (void)changed:(NSString *)list
+{
+    NSEnumerator *e = [[list componentsSeparatedByString:@"\n"] objectEnumerator];
+    NSString *line;
+    while ((line = [e nextObject])) {
+        NSArray *f = [line componentsSeparatedByString:@"\t"];
+        if ([f count] < 2) continue;
+        NSString *rel = [f objectAtIndex:1];
+        if ([[rel pathComponents] containsObject:@".."]) continue;
+        NSString *mp = MountPointFor([NSString stringWithFormat:@"http://10.0.2.100/%@/", [f objectAtIndex:0]]);
+        if (!mp) continue;
+        NSString *path = [rel length] ? [mp stringByAppendingPathComponent:rel] : mp;
+        DIR *d = opendir([path fileSystemRepresentation]);
+        if (!d) continue;                           /* gone, or not a folder */
+        while (readdir(d)) {}
+        closedir(d);
+        struct stat st;
+        stat([path fileSystemRepresentation], &st);
+        FNNotifyByPath((const UInt8 *)[path fileSystemRepresentation], kFNDirectoryModifiedMessage, kNilOptions);
+    }
 }
 
 /* Poll the pasteboard: Cocoa has no change notification. */

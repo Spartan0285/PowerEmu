@@ -42,6 +42,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
     /// PowerEmu Tools in the guest, while running.
     @Published private(set) var agent: GuestAgent?
     private var dav: WebDAVServer?
+    private var shareWatcher: SharedFolderWatcher?
     private var clock: ClockServer?
     private var display: DisplayChannel?
     private var agentWatch: AnyCancellable?
@@ -81,6 +82,11 @@ final class VirtualMachine: ObservableObject, Identifiable {
             d.setShares(config.sharedFolders)
             try? d.start()
             dav = d
+            let w = SharedFolderWatcher { [weak a] changed in
+                if a?.connected == true { a?.send("CHANGED", changed) }
+            }
+            w.watch(config.sharedFolders)
+            shareWatcher = w
             let ck = ClockServer(socketPath: r.clockPath)
             try? ck.start()
             clock = ck
@@ -106,6 +112,8 @@ final class VirtualMachine: ObservableObject, Identifiable {
             agent = nil
             dav?.stop()
             dav = nil
+            shareWatcher?.stop()
+            shareWatcher = nil
             clock?.stop()
             clock = nil
             display?.stop()
@@ -200,6 +208,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
         config.sharedFolders.append(f)
         try? save()
         dav?.setShares(config.sharedFolders)
+        shareWatcher?.watch(config.sharedFolders)
         agent?.send("MOUNT", "\(Self.guestURL(f))\t\(f.name)")
     }
 
@@ -208,6 +217,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
         config.sharedFolders.removeAll { $0.id == f.id }
         try? save()
         dav?.setShares(config.sharedFolders)
+        shareWatcher?.watch(config.sharedFolders)
     }
 
     func setSharedFolderReadOnly(_ f: SharedFolder, _ ro: Bool) {
@@ -215,6 +225,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
         config.sharedFolders[i].readOnly = ro
         try? save()
         dav?.setShares(config.sharedFolders)
+        shareWatcher?.watch(config.sharedFolders)
     }
 
     func setShareClipboard(_ on: Bool) {
@@ -375,6 +386,8 @@ final class VirtualMachine: ObservableObject, Identifiable {
         agentWatch = nil
         dav?.stop()
         dav = nil
+        shareWatcher?.stop()
+        shareWatcher = nil
         clock?.stop()
         clock = nil
         display?.stop()

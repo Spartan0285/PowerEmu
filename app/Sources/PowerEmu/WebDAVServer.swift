@@ -138,10 +138,10 @@ final class WebDAVServer: @unchecked Sendable {
             var out = [propEntry(href: isDir.boolValue && !href.hasSuffix("/") ? href + "/" : href, url: url,
                                  name: rel.last ?? sh.name)]
             if isDir.boolValue && (r.header("depth") ?? "infinity") != "0" {
-                for child in listing(url) {
+                for child in listing(url, in: sh) {
                     let guestName = Self.guestName(child.lastPathComponent)
                     var h = (href.hasSuffix("/") ? href : href + "/") + Self.encode(guestName)
-                    if (try? child.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true { h += "/" }
+                    if Self.isDirectory(child) { h += "/" }
                     out.append(propEntry(href: h, url: child, name: guestName))
                 }
             }
@@ -226,15 +226,35 @@ final class WebDAVServer: @unchecked Sendable {
     // MARK: paths
 
     /// The file for a path inside a share; nil if it would leave the share.
-    /// Components are checked one by one (no "..", "." or "/"), so the
-    /// result is always inside the shared folder.
+    /// Components are checked one by one (no "..", "." or "/"), and the path
+    /// with its symlinks followed must still be inside the shared folder, so
+    /// a link can't hand the guest anything else on this Mac.
     private static func resolve(_ sh: SharedFolder, _ rel: [String]) -> URL? {
         var u = URL(fileURLWithPath: sh.path, isDirectory: true)
         for comp in rel {
             guard comp != "..", comp != ".", !comp.contains("/"), !comp.contains("\0") else { return nil }
             u.appendPathComponent(hostName(comp))
         }
-        return u
+        return inside(u, sh) ? u : nil
+    }
+
+    /// Whether `u`, symlinks followed, is the share's folder or inside it.
+    private static func inside(_ u: URL, _ sh: SharedFolder) -> Bool {
+        guard let root = realPath(sh.path), let p = realPath(u.path) else { return false }
+        return p == root || p.hasPrefix(root.hasSuffix("/") ? root : root + "/")
+    }
+
+    /// The path with every symlink followed. For a file that doesn't exist
+    /// yet (PUT, MKCOL), its folder's real path plus its name. (Foundation's
+    /// resolvingSymlinksInPath won't do: it shortens /private/tmp to /tmp,
+    /// but only for paths that exist.)
+    private static func realPath(_ path: String) -> String? {
+        if let r = realpath(path, nil) { defer { free(r) }; return String(cString: r) }
+        guard errno == ENOENT else { return nil }
+        let parent = (path as NSString).deletingLastPathComponent
+        guard parent != path, let rp = realpath(parent, nil) else { return nil }
+        defer { free(rp) }
+        return (String(cString: rp) as NSString).appendingPathComponent((path as NSString).lastPathComponent)
     }
 
     /// Mac OS X's Finder writes .DS_Store into every folder it opens; keep
@@ -243,11 +263,23 @@ final class WebDAVServer: @unchecked Sendable {
     private static func hostName(_ guest: String) -> String { guest == ".DS_Store" ? guestDSStore : guest }
     private static func guestName(_ host: String) -> String { host == guestDSStore ? ".DS_Store" : host }
 
-    private func listing(_ dir: URL) -> [URL] {
+    private func listing(_ dir: URL, in sh: SharedFolder) -> [URL] {
         let items = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys:
             [.isDirectoryKey, .fileSizeKey, .contentModificationDateKey, .creationDateKey])) ?? []
         // This Mac's .DS_Store stays private, and half-written uploads are hidden.
-        return items.filter { $0.lastPathComponent != ".DS_Store" && !$0.lastPathComponent.hasPrefix(".poweremu-upload-") }
+        // Symlinks (every framework is full of them) show as what they point
+        // to -- WebDAV has no links -- and ones leading out of the share, or
+        // to nothing, aren't shown at all.
+        return items.filter {
+            $0.lastPathComponent != ".DS_Store" && !$0.lastPathComponent.hasPrefix(".poweremu-upload-")
+                && Self.inside($0, sh) && FileManager.default.fileExists(atPath: $0.path)
+        }
+    }
+
+    /// Whether a path is a folder, following symlinks.
+    private static func isDirectory(_ u: URL) -> Bool {
+        var d: ObjCBool = false
+        return FileManager.default.fileExists(atPath: u.path, isDirectory: &d) && d.boolValue
     }
 
     private func destination(_ s: String) -> (share: SharedFolder, url: URL)? {
@@ -285,7 +317,8 @@ final class WebDAVServer: @unchecked Sendable {
     }
 
     private func propEntry(href: String, url: URL, name: String) -> String {
-        let v = try? url.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .contentModificationDateKey, .creationDateKey])
+        // Describe what a symlink points to: that's what GET sends.
+        let v = try? url.resolvingSymlinksInPath().resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .contentModificationDateKey, .creationDateKey])
         let dir = v?.isDirectory ?? false
         let mod = v?.contentModificationDate ?? Date()
         let created = v?.creationDate ?? mod
@@ -481,7 +514,7 @@ final class HTTPConnection {
     func sendFile(_ url: URL, range: String?, headOnly: Bool) -> Bool {
         guard let h = try? FileHandle(forReadingFrom: url) else { return respond(403) }
         defer { try? h.close() }
-        let size = Int((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+        let size = Int((try? url.resolvingSymlinksInPath().resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
         var start = 0, end = size - 1, status = 200
         var headers = ["Content-Type": "application/octet-stream", "Accept-Ranges": "bytes"]
         if let range, range.hasPrefix("bytes="), size > 0 {
