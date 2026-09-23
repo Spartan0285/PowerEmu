@@ -51,6 +51,14 @@ struct NewMachineSheet: View {
     @State private var vram = 128
     @State private var diskGB = 40
     @State private var disc: URL?
+    @StateObject private var download = MediaDownload()
+    @StateObject private var discCopy = DiscCopy()
+    @ObservedObject private var drives = HostDriveMonitor.shared
+    @State private var link = ""
+    @State private var source: Source = .have
+    enum Source: String, CaseIterable {
+        case have = "Disc image", drive = "DVD in this Mac", link = "Download"
+    }
     @State private var info: InstallPlan.DiscInfo?
     @State private var inspecting = false
     @State private var discProblem: String?
@@ -319,7 +327,7 @@ struct NewMachineSheet: View {
         case .disc:
             return "PowerEmu installs Mac OS X for you from your own install disc. Choose the disc image of a Mac OS X 10.4 Tiger install DVD for PowerPC Macs, or drag it here."
         case .machine:
-            return "Name your virtual Mac, choose the Mac it looks like, and give it a hard disk. The disk only takes up space on your Mac as it fills, so a roomy one costs nothing up front."
+            return "Name your virtual Mac, choose the Mac it looks like, and give it a hard disk. Mac OS X sees the size you pick here, while the disk takes up space on your Mac only as it fills \u{2014} so pick a roomy one. It can be made larger later, but not smaller."
         case .about:
             return "Choose how your virtual Mac describes itself in About This Mac and System Profiler. This is for looks only: it runs the same emulated Power Mac G4 at the same speed whatever you pick, and “Dual” doesn’t add a second processor."
         case .options:
@@ -363,6 +371,124 @@ struct NewMachineSheet: View {
 
     private var discControls: some View {
         VStack(alignment: .leading, spacing: 10) {
+            Picker("", selection: $source) {
+                ForEach(Source.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented).labelsHidden()
+            switch source {
+            case .have:  haveDiscControls
+            case .drive: driveControls
+            case .link:  linkControls
+            }
+            if inspecting {
+                HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Reading the disc…") }
+                    .font(.callout).foregroundStyle(.secondary)
+            } else if let info {
+                Label(info.automatable ? "Mac OS X \(version) install DVD — PowerEmu can install this for you."
+                                       : "Mac OS X \(version). PowerEmu can’t drive this disc’s installer, so it will start it for you to use.",
+                      systemImage: info.automatable ? "checkmark.circle.fill" : "info.circle")
+                    .font(.callout).foregroundStyle(info.automatable ? Color.green : Color.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if let discProblem {
+                Label(discProblem, systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout).foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    /// A link the reader gives us: PowerEmu suggests none of its own, since
+    /// nobody may pass Mac OS X around but Apple.
+    private var linkControls: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                TextField("https://…", text: $link)
+                    .textFieldStyle(.roundedBorder)
+                    .disabled(download.running)
+                    .onSubmit { if !link.isEmpty { download.start(link: link) } }
+                if download.running {
+                    Button("Stop") { download.cancel() }
+                } else {
+                    Button("Get") { download.start(link: link) }
+                        .disabled(link.isEmpty)
+                }
+            }
+            if download.running {
+                VStack(alignment: .leading, spacing: 4) {
+                    if let f = download.fraction {
+                        ProgressView(value: f)
+                    } else {
+                        ProgressView()
+                    }
+                    Text(download.progressText).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            if let p = download.problem {
+                Label(p, systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
+            }
+            if !MediaDownload.remembered.isEmpty && !download.running {
+                Menu("Links you have used") {
+                    ForEach(MediaDownload.remembered, id: \.self) { old in
+                        Button(old) { link = old; download.start(link: old) }
+                    }
+                }
+                .font(.caption)
+            }
+            Text("Paste a link to a Mac OS X install disc image. PowerEmu keeps it, so a second virtual Mac doesn’t download it again. Only take Mac OS X from somewhere you are entitled to.")
+                .font(.caption).foregroundStyle(.white.opacity(0.6)).fixedSize(horizontal: false, vertical: true)
+        }
+        .onChange(of: download.file) { _, new in
+            if let new { use(new) }
+        }
+    }
+
+    /// A real disc in this Mac's drive.  It is copied to an image first,
+    /// because installing without anyone watching means patching a copy of
+    /// the disc, and a pressed DVD cannot be patched.
+    private var driveControls: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            let optical = drives.drives.filter { $0.kind != .floppy }
+            if optical.isEmpty {
+                Label("Put a Mac OS X disc in this Mac’s drive.", systemImage: "opticaldiscdrive")
+                    .font(.callout).foregroundStyle(.white.opacity(0.8))
+            } else {
+                ForEach(optical) { d in
+                    HStack {
+                        Image(systemName: "opticaldisc").foregroundStyle(.white.opacity(0.8))
+                        Text(d.name).lineLimit(1).truncationMode(.middle)
+                        Spacer()
+                        Button("Use This Disc") { discCopy.start(d) }
+                            .disabled(discCopy.running)
+                    }
+                    .font(.callout)
+                }
+            }
+            if discCopy.running {
+                VStack(alignment: .leading, spacing: 4) {
+                    if let f = discCopy.fraction { ProgressView(value: f) } else { ProgressView() }
+                    HStack {
+                        Text("Copying the disc… \(discCopy.progressText)")
+                        Spacer()
+                        Button("Stop") { discCopy.cancel() }.controlSize(.small)
+                    }
+                    .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            if let p = discCopy.problem {
+                Label(p, systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
+            }
+            Text("The disc is copied to this Mac once, so PowerEmu can install Mac OS X without anyone watching. macOS will ask for an administrator to read the disc.")
+                .font(.caption).foregroundStyle(.white.opacity(0.6)).fixedSize(horizontal: false, vertical: true)
+        }
+        .onChange(of: discCopy.file) { _, new in
+            if let new { use(new) }
+        }
+    }
+
+    private var haveDiscControls: some View {
+        VStack(alignment: .leading, spacing: 10) {
             Button { chooseDisc() } label: {
                 HStack(spacing: 10) {
                     Image(systemName: disc == nil ? "square.and.arrow.down" : "opticaldisc")
@@ -386,20 +512,6 @@ struct NewMachineSheet: View {
                     if let url { Task { @MainActor in use(url) } }
                 }
                 return true
-            }
-            if inspecting {
-                HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Reading the disc…") }
-                    .font(.callout).foregroundStyle(.secondary)
-            } else if let info {
-                Label(info.automatable ? "Mac OS X \(version) install DVD — PowerEmu can install this for you."
-                                       : "Mac OS X \(version). PowerEmu can’t drive this disc’s installer, so it will start it for you to use.",
-                      systemImage: info.automatable ? "checkmark.circle.fill" : "info.circle")
-                    .font(.callout).foregroundStyle(info.automatable ? Color.green : Color.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else if let discProblem {
-                Label(discProblem, systemImage: "exclamationmark.triangle.fill")
-                    .font(.callout).foregroundStyle(.orange)
-                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
