@@ -184,17 +184,27 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
         bar.alphaValue = 1
         place(in: view, shown: false, animated: false)   // just above the top edge
         place(in: view, shown: true, animated: true)     // and slide it down
+        // The pointer is already where the bar is arriving, and no further
+        // movement may follow, so hand it back to this Mac now rather than
+        // leaving the reader with the guest's cursor stuck at the top edge.
+        NSCursor.arrow.set()
+        view.window?.invalidateCursorRects(for: view)
     }
 
     /// Put the bar where it belongs: down over the guest's screen when
     /// shown, tucked out of sight just above the top edge when not.
+    ///
+    /// Always flush with the top of the window, in full screen as anywhere
+    /// else.  It used to be pushed down by the height of the menu bar in
+    /// full screen, to sit below it -- but the menu bar only appears when
+    /// the pointer reaches the top, which is the same movement that brings
+    /// this bar down, so the two appeared together and the buttons ended up
+    /// under the menu bar.  The window now keeps the menu bar hidden while
+    /// it is full screen (see VMWindowController), and this edge is the
+    /// bar's alone.
     func place(in view: NSView, shown showing: Bool, animated: Bool) {
         let height = OverlayBar.height
-        // In full screen the menu bar comes down over the same edge, so the
-        // bar sits below it rather than under it.
-        let menuBar = view.window?.styleMask.contains(.fullScreen) == true
-            ? (NSApp.mainMenu?.menuBarHeight ?? 24) : 0
-        let top = view.bounds.maxY - menuBar
+        let top = view.bounds.maxY
         let y = showing ? (top - height).rounded() : top.rounded()
         let frame = CGRect(x: view.bounds.minX, y: y, width: view.bounds.width, height: height)
         if animated {

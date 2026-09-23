@@ -206,6 +206,66 @@ final class DisplayChannel: @unchecked Sendable {
     }
 }
 
+/// What the window says while there is nothing to show.
+///
+/// Waking reads the machine's memory back before a single frame arrives,
+/// and going to sleep writes it out with the picture frozen.  Both take
+/// tens of seconds on a large machine, and without a word a black window
+/// reads as a virtual Mac that has failed to start.
+final class VMStatusView: NSView {
+    private let wheel = NSProgressIndicator()
+    private let title = NSTextField(labelWithString: "")
+    private let detail = NSTextField(labelWithString: "")
+
+    init() {
+        super.init(frame: .zero)
+        wantsLayer = true
+        // Dark enough to read against, but not opaque: going to sleep, the
+        // last thing the virtual Mac drew stays faintly behind it.
+        layer?.backgroundColor = NSColor.black.withAlphaComponent(0.72).cgColor
+        wheel.style = .spinning
+        wheel.controlSize = .regular
+        wheel.isIndeterminate = true
+        title.font = .systemFont(ofSize: 15, weight: .medium)
+        title.textColor = .white
+        title.alignment = .center
+        detail.font = .systemFont(ofSize: 12)
+        detail.textColor = NSColor.white.withAlphaComponent(0.7)
+        detail.alignment = .center
+        let stack = NSStackView(views: [wheel, title, detail])
+        stack.orientation = .vertical
+        stack.alignment = .centerX
+        stack.spacing = 10
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.centerXAnchor.constraint(equalTo: centerXAnchor),
+            stack.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+        isHidden = true
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    func show(_ text: String, _ note: String?) {
+        title.stringValue = text
+        detail.stringValue = note ?? ""
+        detail.isHidden = note == nil
+        isHidden = false
+        wheel.startAnimation(nil)
+    }
+
+    func hideStatus() {
+        guard !isHidden else { return }
+        wheel.stopAnimation(nil)
+        isHidden = true
+    }
+
+    /// Never in the way: the toolbar above it and the guest below it go on
+    /// receiving what the reader does.
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}
+
 /// Shows the frames, draws the guest's hardware cursor, and turns keyboard
 /// and mouse events into input for the guest.
 final class VMDisplayView: NSView {
@@ -217,6 +277,9 @@ final class VMDisplayView: NSView {
     private let cursor = CALayer()
     private let hint = CATextLayer()
     private let perf = PerfHUD()
+    private let status = VMStatusView()
+    /// Whether the message goes away by itself once the guest draws.
+    private var statusUntilFrame = false
     private var fpsHistory = PerfHistory()
     private var windowHistory = PerfHistory()
     private var emuHistory = PerfHistory()
@@ -276,6 +339,7 @@ final class VMDisplayView: NSView {
             perfSpot = CGPoint(x: x, y: y)
         }
         layer?.addSublayer(perf)
+        addSubview(status)
 
         channel.onFrame = { [weak self] s, w, h in self?.show(s, w, h) }
         channel.onCursor = { [weak self] img, hx, hy in self?.setCursor(img, hx, hy) }
@@ -309,6 +373,27 @@ final class VMDisplayView: NSView {
     private var firmwareTimer: Timer?
     private static let firmwareBlank: TimeInterval = 2.5
 
+    /// A machine being woken has no firmware to hide: the first thing it
+    /// draws is the desktop it fell asleep on, and holding that back would
+    /// only make waking look slower than it is.
+    func expectRestoredFrame() {
+        firmwareHidden = false
+        firmwareTimer?.invalidate()
+        firmwareTimer = nil
+    }
+
+    /// Say what is happening over the screen.  `untilFirstFrame` takes the
+    /// message away the moment the guest has something to show.
+    func showStatus(_ text: String, _ note: String? = nil, untilFirstFrame: Bool = false) {
+        statusUntilFrame = untilFirstFrame
+        status.show(text, note)
+    }
+
+    func clearStatus() {
+        statusUntilFrame = false
+        status.hideStatus()
+    }
+
     private func show(_ s: IOSurfaceRef, _ w: Int, _ h: Int) {
         if firmwareHidden {
             let left = Self.firmwareBlank - Date().timeIntervalSince(started)
@@ -325,6 +410,7 @@ final class VMDisplayView: NSView {
             }
             firmwareHidden = false
         }
+        if statusUntilFrame { clearStatus() }
         let size = CGSize(width: w, height: h)
         if size != guestSize {
             guestSize = size
@@ -356,6 +442,7 @@ final class VMDisplayView: NSView {
         screen.minificationFilter = .linear
         let hs = CGSize(width: 480, height: 22)
         hint.frame = CGRect(x: bounds.midX - hs.width / 2, y: 16, width: hs.width, height: hs.height)
+        status.frame = bounds
         layoutPerf()
         // The bar places itself: shown, it sits over the top of the guest's
         // screen; hidden, just above the edge, ready to slide down.
@@ -563,8 +650,18 @@ final class VMDisplayView: NSView {
     /// screen, with the guest drawing its own.
     private func hidesPointer(at p: CGPoint) -> Bool {
         // Not over the overlay: the reader needs to see what they are
-        // dragging.
-        mouseMode == .seamless && !grabbed && screenRect.contains(p) && !onPerf(p)
+        // dragging.  Not over the toolbar either: the toolbar is this Mac's,
+        // and the guest's own cursor cannot be moved onto it -- it stops at
+        // the top of its screen and stays there, which left the bar
+        // impossible to aim at.
+        mouseMode == .seamless && !grabbed && screenRect.contains(p)
+            && !onPerf(p) && !onBar(p)
+    }
+
+    /// Whether `p` is on the toolbar while it is down.
+    private func onBar(_ p: CGPoint) -> Bool {
+        guard let c = controls, c.shown, !c.bar.isHidden else { return false }
+        return c.bar.frame.contains(p)
     }
 
     private func keepPointerHidden(_ e: NSEvent) {
@@ -874,8 +971,41 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
         return false
     }
 
+    /// Full screen belongs to the virtual Mac.  By default macOS keeps its
+    /// own menu bar on the same edge, dropping it over the top whenever the
+    /// pointer goes up there -- which is exactly the movement that brings
+    /// PowerEmu's toolbar down, so the two arrived together and the toolbar
+    /// had to sit underneath, out of reach.  Hiding the menu bar gives the
+    /// top edge to the toolbar.  Control-Option-F leaves full screen, and
+    /// the toolbar's own Full Screen button does the same.
+    func window(_ window: NSWindow,
+                willUseFullScreenPresentationOptions proposed: NSApplication.PresentationOptions)
+        -> NSApplication.PresentationOptions {
+        [.fullScreen, .hideDock, .hideMenuBar]
+    }
+
     func windowDidResignKey(_ n: Notification) { display.releaseAll() }
     func windowDidEnterFullScreen(_ n: Notification) { display.needsLayout = true }
-    func windowDidExitFullScreen(_ n: Notification) { display.needsLayout = true }
+
+    /*
+     * Give this Mac its menu bar back.
+     *
+     * The options above are meant to belong to the full screen session and
+     * to lapse with it, but the hidden menu bar outlived it: leaving full
+     * screen gave back the window and left the top of this Mac's screen
+     * black, with menus that still dropped down when clicked but could not
+     * be read.  Saying plainly that nothing is hidden any more is what
+     * actually restores it.
+     */
+    private func restorePresentation() {
+        if !NSApp.presentationOptions.isEmpty { NSApp.presentationOptions = [] }
+    }
+
+    func windowWillExitFullScreen(_ n: Notification) { restorePresentation() }
+    func windowDidExitFullScreen(_ n: Notification) {
+        display.needsLayout = true
+        restorePresentation()
+    }
+    func windowWillClose(_ n: Notification) { restorePresentation() }
 }
 
