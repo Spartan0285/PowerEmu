@@ -250,8 +250,6 @@ struct MachineDetail: View {
 
             SharedFoldersSection(vm: vm)
 
-            MusicSection(vm: vm)
-
             Group {
 
             Section {
@@ -555,24 +553,6 @@ struct ToolsSection: View {
         } footer: {
             Text("With PowerEmu Tools installed in Mac OS X, text you copy on either Mac can be pasted on the other, and Shut Down and Restart work without asking.")
                 .font(.caption).foregroundStyle(.secondary)
-        }
-    }
-}
-
-/// Letting the virtual Mac play this Mac's music.
-struct MusicSection: View {
-    @ObservedObject var vm: VirtualMachine
-
-    var body: some View {
-        Section {
-            Toggle("Let the virtual Mac play this Mac\u{2019}s music", isOn: Binding(
-                get: { vm.config.shareMusic },
-                set: { vm.config.shareMusic = $0; try? vm.save() }))
-                .disabled(vm.state != .stopped)
-            Text("PowerMusic on this Mac holds the music and does the playing; the controller in Mac OS X finds it by itself, with no address to type and with the virtual Mac still off any network. Nothing is started on this Mac: with PowerMusic not running the controller simply finds nothing. The setting takes effect when the virtual Mac next starts.")
-                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-        } header: {
-            Text("Music")
         }
     }
 }

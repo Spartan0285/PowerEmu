@@ -98,6 +98,17 @@ struct ServicesConfig: Codable {
     var webBlockTrackers = true
     /// What real Macs on the network send as X-PowerEmu-Token.
     var pairingCode = ServicesConfig.newPairingCode()
+    // PowerMusic: this Mac holds the music and does the playing, old Macs
+    // search and control it.  Off until it has a key to sign with.
+    var musicEnabled = false
+    var musicPort = 3001
+    var musicTeamID = ""
+    var musicKeyID = ""
+    /// The private key downloaded from the Apple Developer portal (.p8).
+    var musicKeyPath = ""
+    var musicStorefront = "us"
+    /// The built controller and player pages.
+    var musicWebRoot = NSHomeDirectory() + "/PowerMusic/web/dist"
 
     static func newPairingCode() -> String {
         String(format: "%04d-%04d", Int.random(in: 0...9999), Int.random(in: 0...9999))
@@ -113,6 +124,13 @@ struct ServicesConfig: Codable {
         webConvertImages = try c.decodeIfPresent(Bool.self, forKey: .webConvertImages) ?? true
         webBlockTrackers = try c.decodeIfPresent(Bool.self, forKey: .webBlockTrackers) ?? true
         pairingCode = try c.decodeIfPresent(String.self, forKey: .pairingCode) ?? ServicesConfig.newPairingCode()
+        musicEnabled = try c.decodeIfPresent(Bool.self, forKey: .musicEnabled) ?? false
+        musicPort = try c.decodeIfPresent(Int.self, forKey: .musicPort) ?? 3001
+        musicTeamID = try c.decodeIfPresent(String.self, forKey: .musicTeamID) ?? ""
+        musicKeyID = try c.decodeIfPresent(String.self, forKey: .musicKeyID) ?? ""
+        musicKeyPath = try c.decodeIfPresent(String.self, forKey: .musicKeyPath) ?? ""
+        musicStorefront = try c.decodeIfPresent(String.self, forKey: .musicStorefront) ?? "us"
+        musicWebRoot = try c.decodeIfPresent(String.self, forKey: .musicWebRoot) ?? (NSHomeDirectory() + "/PowerMusic/web/dist")
     }
 }
 
@@ -207,10 +225,17 @@ final class ServicesHub: ObservableObject {
     nonisolated static let networkIMAPPort: UInt16 = 1143
     nonisolated static let networkSMTPPort: UInt16 = 1025
     nonisolated static let webSocket = NSTemporaryDirectory() + "poweremu-web.sock"
+    /// PowerMusic, for virtual Macs at 10.0.2.100:3001.
+    nonisolated static let musicSocket = NSTemporaryDirectory() + "poweremu-music.sock"
 
     /// The Web Accelerator (always exists; listens only when switched on).
     nonisolated let web = WebAccelerator(note: { s in Task { @MainActor in ServicesHub.shared.note(s) } })
+    /// PowerMusic (always exists; listens only when switched on).  It holds
+    /// the queue whether anything is listening or not, so that a restart
+    /// does not lose what was playing.
+    nonisolated let music: MusicServer
     private var bonjour: NetService?
+    private var musicBonjour: NetService?
 
     /// What the proxy sessions (on their own threads) read.
     nonisolated let accounts = AccountStore()
@@ -222,9 +247,15 @@ final class ServicesHub: ObservableObject {
     }
 
     private init() {
-        if let d = try? Data(contentsOf: configURL), let c = try? PropertyListDecoder().decode(ServicesConfig.self, from: d) {
-            config = c
+        var loaded = ServicesConfig()
+        if let d = try? Data(contentsOf: FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+                                .appendingPathComponent("PowerEmu/Services.plist")),
+           let c = try? PropertyListDecoder().decode(ServicesConfig.self, from: d) {
+            loaded = c
         }
+        music = MusicServer(settings: Self.musicSettings(loaded),
+                            note: { s in Task { @MainActor in ServicesHub.shared.note(s) } })
+        config = loaded
         // Write back at once: settings new in this version (the pairing
         // code above all, which is made up when missing) must stay the same
         // from one launch to the next.
@@ -247,6 +278,8 @@ final class ServicesHub: ObservableObject {
         listeners = []
         bonjour?.stop()
         bonjour = nil
+        musicBonjour?.stop()
+        musicBonjour = nil
         accounts.set(config.accounts)
         web.update(.init(convertImages: config.webConvertImages, blockTrackers: config.webBlockTrackers,
                          pairingCode: config.pairingCode))
@@ -275,6 +308,20 @@ final class ServicesHub: ObservableObject {
                 bonjour = b
             }
         }
+        music.update(Self.musicSettings(config))
+        if config.musicEnabled {
+            let m = self.music
+            l.append(SocketListener(unixPath: Self.musicSocket, name: "virtual Mac") { fd, peer in m.serve(fd: fd, peer: peer) })
+            if config.allowNetwork {
+                l.append(SocketListener(tcpPort: UInt16(config.musicPort)) { fd, peer in m.serve(fd: fd, peer: peer) })
+                // The controller on a real Mac finds it by browsing for this.
+                let b = NetService(domain: "local.", type: "_poweremu-music._tcp.", name: "",
+                                   port: Int32(config.musicPort))
+                b.setTXTRecord(NetService.data(fromTXTRecord: ["v": Data("1".utf8)]))
+                b.publish()
+                musicBonjour = b
+            }
+        }
         for x in l {
             do { try x.start() } catch { note("Could not listen for \(x.name): \(error.localizedDescription)") }
         }
@@ -296,6 +343,27 @@ final class ServicesHub: ObservableObject {
     func setWebBlockTrackers(_ on: Bool) { config.webBlockTrackers = on; save(); restartListeners() }
     func newPairingCode() { config.pairingCode = ServicesConfig.newPairingCode(); save(); restartListeners() }
     func setAllowNetwork(_ on: Bool) { config.allowNetwork = on; save(); restartListeners() }
+    func setMusicEnabled(_ on: Bool) { config.musicEnabled = on; save(); restartListeners() }
+    func setMusicKey(team: String, key: String, path: String, storefront: String) {
+        config.musicTeamID = team.trimmingCharacters(in: .whitespaces)
+        config.musicKeyID = key.trimmingCharacters(in: .whitespaces)
+        config.musicKeyPath = path
+        config.musicStorefront = storefront.isEmpty ? "us" : storefront.lowercased()
+        save(); restartListeners()
+    }
+    func setMusicWebRoot(_ p: String) { config.musicWebRoot = p; save(); restartListeners() }
+    func setMusicPort(_ p: Int) { config.musicPort = p; save(); restartListeners() }
+
+    nonisolated static func musicSettings(_ c: ServicesConfig) -> MusicServer.Settings {
+        .init(apple: .init(teamID: c.musicTeamID, keyID: c.musicKeyID,
+                           keyPath: c.musicKeyPath, storefront: c.musicStorefront),
+              webRoot: c.musicWebRoot)
+    }
+
+    /// Where a reader points a browser on this Mac to make the sound, and
+    /// what to type on an old Mac that cannot browse for it.
+    var musicPlayerURL: String { "http://localhost:\(config.musicPort)/player" }
+    nonisolated static func musicControllerURL(_ port: Int) -> String { "http://\(hostName):\(port)/controller" }
 
     /// Add an account after its provider sign-in has been checked.
     func add(_ a: MailAccount, providerPassword: String) {

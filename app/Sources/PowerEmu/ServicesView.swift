@@ -37,6 +37,101 @@ private struct WebAcceleratorSection: View {
     }
 }
 
+/// PowerMusic: this Mac holds the music and plays it; old Macs search and
+/// control it.
+private struct MusicSection: View {
+    @ObservedObject var hub = ServicesHub.shared
+    @State private var team = ""
+    @State private var key = ""
+    @State private var keyPath = ""
+    @State private var storefront = ""
+
+    private var keyReady: Bool {
+        !hub.config.musicTeamID.isEmpty && !hub.config.musicKeyID.isEmpty
+            && FileManager.default.fileExists(atPath: hub.config.musicKeyPath)
+    }
+    private var pagesReady: Bool {
+        FileManager.default.fileExists(atPath: hub.config.musicWebRoot + "/index.html")
+    }
+
+    var body: some View {
+        Section {
+            Toggle("Music", isOn: Binding(get: { hub.config.musicEnabled }, set: { hub.setMusicEnabled($0) }))
+            Group {
+                if !keyReady {
+                    Label("Needs an Apple Music key before it can answer anything",
+                          systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.orange)
+                } else if !pagesReady {
+                    Label("The controller and player pages are not where PowerEmu is looking",
+                          systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.orange)
+                } else {
+                    HStack {
+                        Label("Playing from this Mac", systemImage: "music.note.house")
+                            .foregroundStyle(.green)
+                        Spacer()
+                        Button("Open Player") {
+                            if let u = URL(string: hub.musicPlayerURL) { NSWorkspace.shared.open(u) }
+                        }
+                        .controlSize(.small)
+                    }
+                    HStack {
+                        Text("On old Macs")
+                        Spacer()
+                        Text(ServicesHub.musicControllerURL(hub.config.musicPort))
+                            .font(.system(.body, design: .monospaced)).textSelection(.enabled)
+                            .opacity(hub.config.allowNetwork ? 1 : 0.4)
+                    }
+                }
+                LabeledContent("Team ID") {
+                    TextField("", text: $team, prompt: Text("ABCDE12345")).frame(width: 160)
+                }
+                LabeledContent("Key ID") {
+                    TextField("", text: $key, prompt: Text("ABCDE12345")).frame(width: 160)
+                }
+                LabeledContent("Storefront") {
+                    TextField("", text: $storefront, prompt: Text("us")).frame(width: 60)
+                }
+                HStack {
+                    Text("Private key")
+                    Spacer()
+                    Text(keyPath.isEmpty ? "None chosen" : (keyPath as NSString).lastPathComponent)
+                        .foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                    Button("Choose…") {
+                        let p = NSOpenPanel()
+                        p.message = "Choose the MusicKit private key downloaded from the Apple Developer portal."
+                        p.allowedFileTypes = ["p8"]
+                        if p.runModal() == .OK, let u = p.url { keyPath = u.path; apply() }
+                    }
+                    .controlSize(.small)
+                }
+                HStack {
+                    Spacer()
+                    Button("Apply") { apply() }
+                        .disabled(team.isEmpty || key.isEmpty || keyPath.isEmpty)
+                }
+            }
+            .disabled(!hub.config.musicEnabled)
+        } header: {
+            Text("Music")
+        } footer: {
+            Text("PowerEmu holds the queue and searches Apple Music for old Macs that could never speak to Apple themselves. The music is played by a page on this Mac — Open Player, and leave it open — because Apple’s music can only be decrypted here; send the sound where you like, including to an AirPlay speaker. Virtual Macs reach it at 10.0.2.100:\(hub.config.musicPort); real Macs need “Let other Macs on the network use the Service Hub” above. The key is yours, from the Apple Developer portal, and stays on this Mac.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+        .onAppear {
+            team = hub.config.musicTeamID
+            key = hub.config.musicKeyID
+            keyPath = hub.config.musicKeyPath
+            storefront = hub.config.musicStorefront
+        }
+    }
+
+    private func apply() {
+        hub.setMusicKey(team: team, key: key, path: keyPath, storefront: storefront)
+    }
+}
+
 /// The Service Hub window: the mail proxy's accounts and the settings to
 /// type into Mail on an old Mac.
 struct ServicesView: View {
@@ -65,6 +160,8 @@ struct ServicesView: View {
             }
 
             WebAcceleratorSection()
+
+            MusicSection()
 
             Section {
                 ForEach(hub.config.accounts) { a in

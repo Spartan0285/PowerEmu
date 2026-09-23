@@ -202,22 +202,10 @@ final class VMRunner {
             net += ",guestfwd=tcp:10.0.2.100:25-cmd:/usr/bin/nc -U \(ServicesHub.smtpSocket)"
             net += ",guestfwd=tcp:10.0.2.100:587-cmd:/usr/bin/nc -U \(ServicesHub.smtpSocket)"
             net += ",guestfwd=tcp:10.0.2.100:7780-cmd:/usr/bin/nc -U \(ServicesHub.webSocket)"
-            /*
-             * Music: the guest's controller reaches PowerMusic on this Mac
-             * at 10.0.2.100:3001, with no address to type and with the
-             * virtual Mac still off any network.  Only when the reader has
-             * asked for it -- otherwise a machine that has nothing to do
-             * with music would have a way into this Mac.
-             *
-             * One nc per connection, as with the other services: slirp's
-             * other form hands the port to a single chardev, which several
-             * overlapping requests would talk over each other on.  PowerEmu
-             * does not start the server; if it isn't running the guest gets
-             * a refused connection, which is the truth.
-             */
-            if c.shareMusic {
-                net += ",guestfwd=tcp:10.0.2.100:3001-cmd:/usr/bin/nc 127.0.0.1 3001"
-            }
+            // PowerMusic: the controller in Mac OS X finds this Mac's music
+            // at 10.0.2.100:3001.  Always forwarded, like the mail and the
+            // web; whether anything answers is the Service Hub's switch.
+            net += ",guestfwd=tcp:10.0.2.100:3001-cmd:/usr/bin/nc -U \(ServicesHub.musicSocket)"
             a += ["-netdev", net, "-device", "sungem,netdev=net0"]
             /*
              * Bridged: a second card, straight on to this Mac's network
