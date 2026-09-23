@@ -198,7 +198,12 @@ struct MachineDetail: View {
                         Label("Installing…", systemImage: "arrow.down.circle")
                             .foregroundStyle(.secondary).font(.headline)
                     } else if vm.state == .stopped {
-                        Button { vm.start() } label: { Label("Start", systemImage: "play.fill").frame(minWidth: 80) }
+                        Button { vm.start() } label: {
+                            // A machine with its memory saved is woken, not started.
+                            Label(vm.asleep ? "Wake" : "Start",
+                                  systemImage: vm.asleep ? "sun.max.fill" : "play.fill")
+                                .frame(minWidth: 80)
+                        }
                             .buttonStyle(.borderedProminent).controlSize(.large)
                     } else {
                         Label(vm.state == .starting ? "Starting…"

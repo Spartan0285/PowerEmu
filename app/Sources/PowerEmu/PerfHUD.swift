@@ -68,6 +68,20 @@ final class PerfHUD: CALayer {
     func update(rows: [Row], lines: [String]) {
         self.rows = rows
         self.lines = lines
+        /*
+         * Take the size the new contents need straight away, rather than
+         * waiting for the window to lay out again.  The overlay gains a
+         * row -- the frame rate's lowest and highest arrive once there is
+         * a second of history -- and until the frame caught up, the first
+         * row was drawn outside the dark panel, over the guest's screen.
+         * It grows downwards, so the top edge stays where it was put.
+         */
+        let want = wantedSize
+        if abs(want.width - bounds.width) > 0.5 || abs(want.height - bounds.height) > 0.5 {
+            let top = frame.maxY
+            frame = CGRect(x: frame.minX, y: top - want.height,
+                           width: want.width, height: want.height)
+        }
         setNeedsDisplay()
     }
 
