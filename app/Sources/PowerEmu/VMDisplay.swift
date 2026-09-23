@@ -298,7 +298,33 @@ final class VMDisplayView: NSView {
         needsLayout = true
     }
 
+    /*
+     * The first moments belong to the firmware, which paints the screen its
+     * own colour before Mac OS X takes over.  A real Mac shows nothing at
+     * all until the Apple appears, so the window stays black for a beat
+     * rather than flashing that up.
+     */
+    private let started = Date()
+    private var firmwareHidden = true
+    private var firmwareTimer: Timer?
+    private static let firmwareBlank: TimeInterval = 2.5
+
     private func show(_ s: IOSurfaceRef, _ w: Int, _ h: Int) {
+        if firmwareHidden {
+            let left = Self.firmwareBlank - Date().timeIntervalSince(started)
+            if left > 0 {
+                if firmwareTimer == nil {
+                    firmwareTimer = Timer.scheduledTimer(withTimeInterval: left, repeats: false) { [weak self] _ in
+                        MainActor.assumeIsolated {
+                            self?.firmwareHidden = false
+                            self?.firmwareTimer = nil
+                        }
+                    }
+                }
+                return                      /* keep the window black for now */
+            }
+            firmwareHidden = false
+        }
         let size = CGSize(width: w, height: h)
         if size != guestSize {
             guestSize = size
