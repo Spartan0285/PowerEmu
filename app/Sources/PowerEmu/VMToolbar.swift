@@ -10,6 +10,7 @@ import UniformTypeIdentifiers
 final class VMToolbarController: NSObject, NSMenuDelegate {
     private weak var controller: VMWindowController?
     private var mouseControl: NSSegmentedControl?
+    private var pauseButton: NSButton?
     private let devicesMenu = NSMenu(title: "Devices")
     private var keys = NSMenu(), power = NSMenu()
     let bar = OverlayBar()
@@ -56,15 +57,65 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
 
         let items: [NSView] = [
             seg,
+            separator(),
             menuButton("keyboard", "Keys", "Send keys this Mac would keep for itself", keys),
             menuButton("externaldrive.connected.to.line.below", "Devices", "Discs, this Mac's drives and USB devices", devicesMenu),
-            iconButton("speedometer", "Performance (Control-Option-P)", #selector(togglePerf)),
+            separator(),
+            pauseItem(),
+            labelledButton("moon.fill", "Sleep", "Save the virtual Mac as it is and close it", #selector(sleepMachine)),
             menuButton("power", "Power", "Shut down, restart or force off", power),
-            iconButton("arrow.up.left.and.arrow.down.right", "Full screen (Control-Option-F)", #selector(fullScreen)),
+            OverlayBar.space(),
+            labelledButton("speedometer", "Stats", "Show what the virtual Mac and this Mac are doing (Control-Option-P)", #selector(togglePerf)),
+            labelledButton("arrow.up.left.and.arrow.down.right", "Full Screen", "Fill the screen (Control-Option-F)", #selector(fullScreen)),
         ]
         bar.setContent(items)
         bar.alphaValue = 0
         bar.isHidden = true
+    }
+
+    /// A button that says what it does: an ordinary toolbar item, rather
+    /// than an icon the reader has to hover over to identify.
+    private func labelledButton(_ symbol: String, _ title: String, _ tip: String,
+                                _ action: Selector) -> NSButton {
+        let b = NSButton(title: title, image: NSImage(systemSymbolName: symbol, accessibilityDescription: title)!,
+                         target: self, action: action)
+        b.imagePosition = .imageAbove
+        b.bezelStyle = .texturedRounded
+        b.isBordered = false
+        b.toolTip = tip
+        b.refusesFirstResponder = true
+        b.imageScaling = .scaleProportionallyDown
+        b.font = .systemFont(ofSize: 10)
+        b.setAccessibilityLabel(title)
+        return b
+    }
+
+    /// Pause, or Continue when the machine is already stopped where it
+    /// stands: one button, saying which it will do.
+    private func pauseItem() -> NSButton {
+        let b = labelledButton("pause.fill", "Pause",
+                               "Stop the virtual Mac where it stands", #selector(pauseOrResume))
+        pauseButton = b
+        return b
+    }
+
+    private func updatePauseItem() {
+        guard let b = pauseButton else { return }
+        let paused = vm?.state == .paused
+        b.title = paused ? "Continue" : "Pause"
+        b.image = NSImage(systemSymbolName: paused ? "play.fill" : "pause.fill",
+                          accessibilityDescription: b.title)
+        b.toolTip = paused ? "Let the virtual Mac carry on from where it stopped"
+                           : "Stop the virtual Mac where it stands"
+    }
+
+    /// A hairline between groups of controls.
+    private func separator() -> NSView {
+        let v = NSBox()
+        v.boxType = .separator
+        v.translatesAutoresizingMaskIntoConstraints = false
+        v.heightAnchor.constraint(equalToConstant: 30).isActive = true
+        return v
     }
 
     private func iconButton(_ symbol: String, _ tip: String, _ action: Selector) -> NSButton {
@@ -80,13 +131,13 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
     private func menuButton(_ symbol: String, _ title: String, _ tip: String, _ menu: NSMenu) -> NSButton {
         let b = NSButton(title: title, image: NSImage(systemSymbolName: symbol, accessibilityDescription: title)!,
                          target: self, action: #selector(popMenu(_:)))
-        b.imagePosition = .imageLeading
+        b.imagePosition = .imageAbove
         b.bezelStyle = .texturedRounded
         b.isBordered = false
         b.toolTip = tip
         b.refusesFirstResponder = true
-        b.controlSize = .small
-        b.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+        b.imageScaling = .scaleProportionallyDown
+        b.font = .systemFont(ofSize: 10)
         objc_setAssociatedObject(b, &Self.menuKey, menu, .OBJC_ASSOCIATION_RETAIN)
         return b
     }
@@ -102,14 +153,21 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
 
     // MARK: showing and hiding
 
-    /// The pointer is at `p` (view coordinates): show the bar when it reaches
-    /// the top edge, hide it after the pointer has left it.
+    /// How close to the top the pointer must come for the bar to appear.
+    /// A few pixels was too fine to aim at; a band the depth of a menu bar
+    /// is what other virtual machine apps use.
+    private static let revealBand: CGFloat = 26
+
+    /// The pointer is at `p` (view coordinates): bring the bar down when it
+    /// reaches the top of the screen, and let it go again once the pointer
+    /// leaves.
     func pointerMoved(_ p: NSPoint, in view: NSView) {
         if !shown {
-            if p.y >= view.bounds.maxY - 4 && abs(p.x - view.bounds.midX) < view.bounds.width / 2 { reveal() }
+            if p.y >= view.bounds.maxY - Self.revealBand { reveal() }
             return
         }
-        if bar.frame.insetBy(dx: -24, dy: -24).contains(p) {
+        // Stay while the pointer is on the bar, or in the band above it.
+        if p.y >= bar.frame.minY - 12 {
             hideTimer?.invalidate()
         } else {
             scheduleHide()
@@ -118,13 +176,35 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
 
     func reveal() {
         hideTimer?.invalidate()
-        guard !shown else { return }
+        guard !shown, let view = display else { return }
         shown = true
         mouseControl?.selectedSegment = display?.mouseMode == .captured ? 1 : 0
+        updatePauseItem()
         bar.isHidden = false
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.18
-            bar.animator().alphaValue = 1
+        bar.alphaValue = 1
+        place(in: view, shown: false, animated: false)   // just above the top edge
+        place(in: view, shown: true, animated: true)     // and slide it down
+    }
+
+    /// Put the bar where it belongs: down over the guest's screen when
+    /// shown, tucked out of sight just above the top edge when not.
+    func place(in view: NSView, shown showing: Bool, animated: Bool) {
+        let height = OverlayBar.height
+        // In full screen the menu bar comes down over the same edge, so the
+        // bar sits below it rather than under it.
+        let menuBar = view.window?.styleMask.contains(.fullScreen) == true
+            ? (NSApp.mainMenu?.menuBarHeight ?? 24) : 0
+        let top = view.bounds.maxY - menuBar
+        let y = showing ? (top - height).rounded() : top.rounded()
+        let frame = CGRect(x: view.bounds.minX, y: y, width: view.bounds.width, height: height)
+        if animated {
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.22
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                bar.animator().frame = frame
+            }
+        } else {
+            bar.frame = frame
         }
     }
 
@@ -136,14 +216,17 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
     }
 
     func hide() {
-        guard shown, !menuOpen else { return }
+        guard shown, !menuOpen, let view = display else { return }
         shown = false
-        NSAnimationContext.runAnimationGroup({ ctx in
-            ctx.duration = 0.25
-            bar.animator().alphaValue = 0
-        }, completionHandler: { [weak self] in
-            MainActor.assumeIsolated { if self?.shown == false { self?.bar.isHidden = true } }
-        })
+        place(in: view, shown: false, animated: true)
+        // Hidden only once it has slid back out of sight, so it isn't
+        // clipped away mid-movement.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.24) { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, !self.shown else { return }
+                self.bar.isHidden = true
+            }
+        }
     }
 
     private func entry(_ title: String, _ action: Selector, _ tag: Int = 0) -> NSMenuItem {
@@ -304,6 +387,12 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
     // MARK: the rest
 
     @objc private func togglePerf() { display?.togglePerformance(); refocus() }
+    @objc private func pauseOrResume() {
+        guard let vm else { return }
+        if vm.state == .paused { vm.resume() } else { vm.pause() }
+        refocus()
+    }
+    @objc private func sleepMachine() { vm?.sleep(); refocus() }
     @objc private func fullScreen() { controller?.window?.toggleFullScreen(nil) }
     @objc private func shutDown() { vm?.requestShutDown() }
     @objc private func restart() {
@@ -328,9 +417,16 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
     }
 }
 
-/// A small rounded HUD holding the controls, like Parallels' bar.
+/// The toolbar: the width of the window, coming down over the top of the
+/// guest's screen when the pointer reaches the edge, the way a virtual
+/// machine's controls are expected to behave.  It was a small floating
+/// panel in the middle, which was fiddly to hit and looked like a widget
+/// rather than a toolbar.
 final class OverlayBar: NSVisualEffectView {
     private let stack = NSStackView()
+    /// A toolbar's worth of height: an icon with its word underneath, as
+    /// the Finder's own toolbar has them.
+    static let height: CGFloat = 52
 
     init() {
         super.init(frame: .zero)
@@ -338,11 +434,10 @@ final class OverlayBar: NSVisualEffectView {
         blendingMode = .withinWindow
         state = .active
         wantsLayer = true
-        layer?.cornerRadius = 10
-        layer?.masksToBounds = true
         stack.orientation = .horizontal
-        stack.spacing = 10
-        stack.edgeInsets = NSEdgeInsets(top: 5, left: 12, bottom: 5, right: 12)
+        stack.spacing = 12
+        stack.alignment = .centerY
+        stack.edgeInsets = NSEdgeInsets(top: 3, left: 14, bottom: 3, right: 14)
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
         NSLayoutConstraint.activate([
@@ -360,7 +455,22 @@ final class OverlayBar: NSVisualEffectView {
         views.forEach { stack.addArrangedSubview($0) }
     }
 
-    var fittingBarSize: NSSize { stack.fittingSize }
+    /// A line along the bottom, so the bar reads as a bar rather than as a
+    /// tint over the guest's own picture.
+    override func draw(_ dirty: NSRect) {
+        super.draw(dirty)
+        NSColor.white.withAlphaComponent(0.15).setFill()
+        NSRect(x: 0, y: 0, width: bounds.width, height: 1).fill()
+    }
+
+    /// Something that pushes what follows it to the right.
+    static func space() -> NSView {
+        let v = NSView()
+        v.translatesAutoresizingMaskIntoConstraints = false
+        v.setContentHuggingPriority(.init(1), for: .horizontal)
+        v.setContentCompressionResistancePriority(.init(1), for: .horizontal)
+        return v
+    }
 
     /// Over the bar the Mac's own pointer shows (the guest's hides).
     override func resetCursorRects() { addCursorRect(bounds, cursor: .arrow) }

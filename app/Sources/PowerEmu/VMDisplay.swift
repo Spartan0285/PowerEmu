@@ -216,7 +216,14 @@ final class VMDisplayView: NSView {
     private let screen = CALayer()
     private let cursor = CALayer()
     private let hint = CATextLayer()
-    private let perf = CATextLayer()
+    private let perf = PerfHUD()
+    private var fpsHistory = PerfHistory()
+    private var windowHistory = PerfHistory()
+    private var emuHistory = PerfHistory()
+    private var drawHistory = PerfHistory()
+    /// Where the reader dragged the overlay, as a fraction of the view.
+    private var perfSpot: CGPoint?
+    private var perfDragFrom: CGPoint?
     private var perfTimer: Timer?
     private var lastPerf: (time: TimeInterval, frames: Double, draws: Double, shown: Int,
                            texVRAM: Double, texAGP: Double, agpBytes: Double)?
@@ -244,6 +251,9 @@ final class VMDisplayView: NSView {
         wantsLayer = true
         layer = CALayer()
         layer?.backgroundColor = NSColor.black.cgColor
+        // The toolbar hides just above the top edge and slides down into
+        // view, so anything outside the screen area must be clipped away.
+        layer?.masksToBounds = true
         screen.contentsGravity = .resize
         screen.isOpaque = true
         screen.actions = ["contents": NSNull(), "bounds": NSNull(), "position": NSNull()]
@@ -261,15 +271,10 @@ final class VMDisplayView: NSView {
         hint.cornerRadius = 6
         hint.isHidden = true
         layer?.addSublayer(hint)
-        perf.fontSize = 11
-        perf.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .medium)
-        perf.foregroundColor = NSColor.white.cgColor
-        perf.backgroundColor = NSColor.black.withAlphaComponent(0.6).cgColor
-        perf.cornerRadius = 6
-        perf.isWrapped = true
-        perf.isHidden = true
-        perf.contentsScale = 2
-        perf.actions = ["contents": NSNull(), "bounds": NSNull(), "position": NSNull(), "hidden": NSNull()]
+        if let saved = UserDefaults.standard.dictionary(forKey: PerfHUD.positionKey),
+           let x = saved["x"] as? Double, let y = saved["y"] as? Double {
+            perfSpot = CGPoint(x: x, y: y)
+        }
         layer?.addSublayer(perf)
 
         channel.onFrame = { [weak self] s, w, h in self?.show(s, w, h) }
@@ -325,16 +330,10 @@ final class VMDisplayView: NSView {
         screen.minificationFilter = .linear
         let hs = CGSize(width: 480, height: 22)
         hint.frame = CGRect(x: bounds.midX - hs.width / 2, y: 16, width: hs.width, height: hs.height)
-        let sr = screenRect
         layoutPerf()
-        if let bar = controls?.bar {
-            // Over the screen, never beside it; below the menu bar in full screen.
-            let size = bar.fittingBarSize
-            let menuBar = window?.styleMask.contains(.fullScreen) == true ? (NSApp.mainMenu?.menuBarHeight ?? 24) : 0
-            bar.frame = CGRect(x: (bounds.midX - size.width / 2).rounded(),
-                               y: (bounds.maxY - size.height - 8 - menuBar).rounded(),
-                               width: size.width, height: size.height)
-        }
+        // The bar places itself: shown, it sits over the top of the guest's
+        // screen; hidden, just above the edge, ready to slide down.
+        if let controls { controls.place(in: self, shown: controls.shown, animated: false) }
         CATransaction.commit()
         placeCursor()
         window?.invalidateCursorRects(for: self)
@@ -361,12 +360,25 @@ final class VMDisplayView: NSView {
 
     // MARK: the performance overlay
 
+    /// Developer testing: POWEREMU_TEST_HUD=1 shows the overlay as soon as
+    /// a machine's window opens, POWEREMU_TEST_TOOLBAR=1 the toolbar.
+    func showPerformanceForTesting() {
+        let env = ProcessInfo.processInfo.environment
+        if env["POWEREMU_TEST_HUD"] != nil && !showsPerformance {
+            togglePerformance()
+        }
+        if env["POWEREMU_TEST_TOOLBAR"] != nil {
+            controls?.reveal()
+        }
+    }
+
     func togglePerformance() {
         if let t = perfTimer {
             t.invalidate(); perfTimer = nil; perf.isHidden = true; lastPerf = nil
             return
         }
-        perf.string = " Measuring…"
+        fpsHistory.reset(); windowHistory.reset(); emuHistory.reset(); drawHistory.reset()
+        perf.update(rows: [], lines: ["Measuring…"])
         perf.isHidden = false
         needsLayout = true
         samplePerformance()
@@ -375,23 +387,37 @@ final class VMDisplayView: NSView {
         }
     }
 
-    /// Size the overlay to whatever it currently says.
-    ///
-    /// It used to be a fixed 330x62, which fitted the three lines it had at
-    /// the time and silently clipped the fourth when one was added. Measuring
-    /// the text means a line can be added or reworded without anyone having to
-    /// remember to re-measure a constant.
+    /// Put the overlay where the reader last dragged it, or under the top
+    /// of the window -- below the menu bar in full screen, which is what
+    /// the safe area describes.
     private func layoutPerf() {
-        let text = (perf.string as? String) ?? ""
-        let font = NSFont.monospacedSystemFont(ofSize: 11, weight: .medium)
-        let measured = (text as NSString).boundingRect(
-            with: CGSize(width: 4000, height: 4000),
-            options: [.usesLineFragmentOrigin],
-            attributes: [.font: font])
-        let w = max(330, ceil(measured.width) + 18)
-        let h = max(24, ceil(measured.height) + 10)
-        let sr = screenRect
-        perf.frame = CGRect(x: sr.minX + 10, y: sr.maxY - 10 - h, width: w, height: h)
+        let size = perf.wantedSize
+        let i = safeAreaInsets
+        let area = CGRect(x: bounds.minX + i.left + 10, y: bounds.minY + i.bottom + 10,
+                          width: max(1, bounds.width - i.left - i.right - 20 - size.width),
+                          height: max(1, bounds.height - i.top - i.bottom - 20 - size.height))
+        let spot = perfSpot ?? CGPoint(x: 0, y: 1)          // top left by default
+        let x = area.minX + area.width * min(1, max(0, spot.x))
+        let y = area.minY + area.height * min(1, max(0, spot.y))
+        perf.frame = CGRect(origin: CGPoint(x: x.rounded(), y: y.rounded()), size: size)
+    }
+
+    /// Whether a point is on the overlay, which the reader can drag.
+    private func onPerf(_ p: CGPoint) -> Bool {
+        !perf.isHidden && perf.frame.contains(p)
+    }
+
+    /// Remember where it was dragged to, as a fraction of the space it can
+    /// move in, so it keeps its place when the window changes size.
+    private func rememberPerfSpot() {
+        let size = perf.wantedSize
+        let i = safeAreaInsets
+        let w = max(1, bounds.width - i.left - i.right - 20 - size.width)
+        let h = max(1, bounds.height - i.top - i.bottom - 20 - size.height)
+        let spot = CGPoint(x: (perf.frame.minX - (bounds.minX + i.left + 10)) / w,
+                           y: (perf.frame.minY - (bounds.minY + i.bottom + 10)) / h)
+        perfSpot = spot
+        UserDefaults.standard.set(["x": spot.x, "y": spot.y], forKey: PerfHUD.positionKey)
     }
 
     private func samplePerformance() {
@@ -431,14 +457,41 @@ final class VMDisplayView: NSView {
         let warn = h.contended ? "  << STARVED: something else has the CPU" :
             (h.thermal == .nominal ? "" : "  << THERMAL \(h.thermalText)")
 
-        perf.string = String(format: " Guest %4.0f fps   window %3.0f fps   %5.0f draws/s\n"
-                                   + " VRAM peak %5.1f of %.0f MB\n"
-                                   + " Textures from AGP %3.0f%%   (%.1f MB/s copied)\n"
-                                   + " Host %3.0f%% busy   emulator %3.0f%%   load %.1f/%d   thermal %@%@",
-                             fps, shownRate, draws, (v["vram_high"] ?? 0) / mb, (v["vram_usable"] ?? 0) / mb,
-                             agpShare, agpMB,
-                             h.hostBusy, h.qemuCPU, h.load1, h.cores,
-                             h.thermalText as NSString, warn as NSString)
+        fpsHistory.add(fps)
+        windowHistory.add(shownRate)
+        emuHistory.add(h.qemuCPU)
+        drawHistory.add(draws)
+
+        /*
+         * The lowest and highest matter more than the average: a guest that
+         * sits at 30 and drops to 4 for a moment every second feels nothing
+         * like a steady 30, and only the range shows it.
+         */
+        let range = fpsHistory.hasRange
+            ? String(format: "%.0f fps   (%.0f low, %.0f high)", fps, fpsHistory.lowest, fpsHistory.highest)
+            : String(format: "%.0f fps", fps)
+        var rows: [PerfHUD.Row] = [
+            .init(title: "Guest", value: range,
+                  history: fpsHistory.values, scale: fpsHistory.scale(atLeast: 30), tint: .systemGreen),
+            .init(title: "Window", value: String(format: "%.0f fps", shownRate),
+                  history: windowHistory.values, scale: max(60, windowHistory.scale(atLeast: 60)),
+                  tint: .systemTeal),
+            .init(title: "Draws", value: String(format: "%.0f/s", draws),
+                  history: drawHistory.values, scale: drawHistory.scale(atLeast: 1000), tint: .systemPurple),
+            .init(title: "Emulator", value: String(format: "%.0f%% of a core", h.qemuCPU),
+                  history: emuHistory.values, scale: max(100, Double(h.cores) * 100), tint: .systemOrange),
+        ]
+        if fpsHistory.values.count < 2 {
+            rows = rows.map { var r = $0; r.graph = false; return r }
+        }
+        var lines = [
+            String(format: "VRAM peak %.1f of %.0f MB   textures from AGP %.0f%% (%.1f MB/s)",
+                   (v["vram_high"] ?? 0) / mb, (v["vram_usable"] ?? 0) / mb, agpShare, agpMB),
+            String(format: "This Mac %.0f%% busy   load %.1f of %d   thermal %@",
+                   h.hostBusy, h.load1, h.cores, h.thermalText as NSString),
+        ]
+        if !warn.isEmpty { lines.append(warn.trimmingCharacters(in: .whitespaces)) }
+        perf.update(rows: rows, lines: lines)
         layoutPerf()
     }
 
@@ -467,6 +520,32 @@ final class VMDisplayView: NSView {
         }
     }
 
+    /// AppKit consults the cursor rects only now and then -- after a click,
+    /// when the app is activated -- and puts the arrow back in between, so
+    /// this Mac's pointer would appear alongside the one the guest draws.
+    /// Setting it here, on every cursor update and every movement, keeps
+    /// the two from showing at once.
+    override func cursorUpdate(with event: NSEvent) {
+        if hidesPointer(at: convert(event.locationInWindow, from: nil)) {
+            Self.blankCursor.set()
+        } else {
+            super.cursorUpdate(with: event)
+        }
+    }
+
+    /// Whether this Mac's pointer belongs out of sight: over the guest's
+    /// screen, with the guest drawing its own.
+    private func hidesPointer(at p: CGPoint) -> Bool {
+        // Not over the overlay: the reader needs to see what they are
+        // dragging.
+        mouseMode == .seamless && !grabbed && screenRect.contains(p) && !onPerf(p)
+    }
+
+    private func keepPointerHidden(_ e: NSEvent) {
+        guard hidesPointer(at: convert(e.locationInWindow, from: nil)) else { return }
+        if NSCursor.current !== Self.blankCursor { Self.blankCursor.set() }
+    }
+
     func grab() {
         guard mouseMode == .captured, !grabbed, window?.isKeyWindow == true else { return }
         grabbed = true
@@ -487,13 +566,17 @@ final class VMDisplayView: NSView {
         hint.isHidden = !show || mouseMode != .captured
     }
 
-    override func mouseEntered(with event: NSEvent) { if !grabbed { flashHint(true) } }
+    override func mouseEntered(with event: NSEvent) {
+        keepPointerHidden(event)
+        if !grabbed { flashHint(true) }
+    }
     override func mouseExited(with event: NSEvent) { flashHint(false) }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         trackingAreas.forEach(removeTrackingArea)
-        addTrackingArea(NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self))
+        addTrackingArea(NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .cursorUpdate,
+                                                               .activeInKeyWindow, .inVisibleRect], owner: self))
     }
 
     /// Where an event is on the guest's screen, in guest pixels (nil: off it).
@@ -524,11 +607,25 @@ final class VMDisplayView: NSView {
     }
 
     override func mouseDown(with e: NSEvent) {
+        // The overlay is the reader's, not the guest's: a click on it picks
+        // it up to be dragged, and never reaches Mac OS X.
+        let p = convert(e.locationInWindow, from: nil)
+        if onPerf(p) && !grabbed {
+            perfDragFrom = CGPoint(x: p.x - perf.frame.minX, y: p.y - perf.frame.minY)
+            return
+        }
         if mouseMode == .captured && !grabbed { grab(); return }   // the capturing click isn't passed on
         if mouseMode == .seamless && !point(e) { return }
         button(1, true)
     }
-    override func mouseUp(with e: NSEvent) { if engaged { point(e); button(1, false) } }
+    override func mouseUp(with e: NSEvent) {
+        if perfDragFrom != nil {
+            perfDragFrom = nil
+            rememberPerfSpot()
+            return
+        }
+        if engaged { point(e); button(1, false) }
+    }
     override func rightMouseDown(with e: NSEvent) { if grabbed || point(e) { button(2, true) } }
     override func rightMouseUp(with e: NSEvent) { if engaged { point(e); button(2, false) } }
     override func otherMouseDown(with e: NSEvent) { if grabbed || point(e) { button(4, true) } }
@@ -549,8 +646,17 @@ final class VMDisplayView: NSView {
         motion.x -= CGFloat(dx); motion.y -= CGFloat(dy)
         channel.send(.motion, [dx, dy])
     }
-    override func mouseMoved(with e: NSEvent) { move(e) }
-    override func mouseDragged(with e: NSEvent) { move(e) }
+    override func mouseMoved(with e: NSEvent) { keepPointerHidden(e); move(e) }
+    override func mouseDragged(with e: NSEvent) {
+        if let from = perfDragFrom {
+            let p = convert(e.locationInWindow, from: nil)
+            CATransaction.begin(); CATransaction.setDisableActions(true)
+            perf.frame.origin = CGPoint(x: (p.x - from.x).rounded(), y: (p.y - from.y).rounded())
+            CATransaction.commit()
+            return
+        }
+        keepPointerHidden(e); move(e)
+    }
     override func rightMouseDragged(with e: NSEvent) { move(e) }
     override func otherMouseDragged(with e: NSEvent) { move(e) }
 
@@ -746,3 +852,4 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
     func windowDidEnterFullScreen(_ n: Notification) { display.needsLayout = true }
     func windowDidExitFullScreen(_ n: Notification) { display.needsLayout = true }
 }
+

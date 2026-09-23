@@ -329,6 +329,12 @@ struct MachineDetail: View {
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) { controls }
         }
+        .confirmationDialog("Start “\(vm.config.name)” from the beginning?",
+                            isPresented: $confirmDiscardSleep) {
+            Button("Start Fresh", role: .destructive) { vm.discardSleep() }
+        } message: {
+            Text("What the virtual Mac was doing when it went to sleep is thrown away, as if it had been switched off. Anything unsaved in it is lost.")
+        }
         .confirmationDialog("Force “\(vm.config.name)” to power off?", isPresented: $confirmForce) {
             Button("Force Power Off", role: .destructive) { vm.forcePowerOff() }
         } message: {
