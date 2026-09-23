@@ -468,9 +468,13 @@ struct DisksSection: View {
     @State private var newName = "Data"
     @State private var newSize = 20
     @State private var removing: DiskConfig?
+    @State private var growing: DiskConfig?
+    @State private var growTo = 0
+    @State private var growStep: String?
 
     var body: some View {
         disks.sheet(isPresented: $showingNewDisk) { newDiskSheet }
+            .sheet(item: $growing) { d in growSheet(d) }
             .confirmationDialog("Remove “\(removing?.displayName ?? "")” from this virtual Mac?",
                                 isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } })) {
                 Button("Move to Trash", role: .destructive) { if let d = removing { remove(d, trash: true) } }
@@ -491,9 +495,12 @@ struct DisksSection: View {
                     }
                     VStack(alignment: .leading) {
                         Text(d.displayName)
-                        Text(d.file).font(.caption).foregroundStyle(.secondary)
+                        Text(sizeLine(d)).font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
+                    if vm.state == .stopped {
+                        Button("Change Size…") { startGrow(d) }.controlSize(.small)
+                    }
                     if vm.config.startupDiskConfig?.id == d.id {
                         Text("Startup Disk").font(.caption.bold()).foregroundStyle(.green)
                     } else if vm.state == .stopped {
@@ -546,6 +553,78 @@ struct DisksSection: View {
             }
         }
         .padding(20).frame(width: 420)
+    }
+
+    /// The file's name, and the size Mac OS X sees.
+    private func sizeLine(_ d: DiskConfig) -> String {
+        guard let size = diskSize(d) else { return d.file }
+        return "\(d.file) · \(size >> 30) GB"
+    }
+
+    private func diskSize(_ d: DiskConfig) -> Int64? {
+        try? DiskGrow.virtualSize(of: vm.disksURL.appendingPathComponent(d.file))
+    }
+
+    private func startGrow(_ d: DiskConfig) {
+        growTo = Int((diskSize(d).map { $0 >> 30 } ?? 10) + 10)
+        growStep = nil
+        growing = d
+    }
+
+    /// Give a disk more room.  Mac OS X sees the new size at its next start;
+    /// the volume is grown here, on this Mac, because 10.4's Disk Utility
+    /// can't.  The old disk goes to the Trash once the new one checks out.
+    private func growSheet(_ d: DiskConfig) -> some View {
+        let current = Int((diskSize(d).map { $0 >> 30 } ?? 0))
+        let choices = [10, 20, 40, 60, 80, 120, 200].filter { $0 > current }
+        return VStack(alignment: .leading, spacing: 14) {
+            Text("Change the Size of “\(d.displayName)”").font(.title2.bold())
+            if let growStep {
+                HStack(spacing: 10) { ProgressView().controlSize(.small); Text(growStep) }
+                Text("This takes a few minutes for a large disk. Don’t quit PowerEmu.")
+                    .font(.caption).foregroundStyle(.secondary)
+            } else {
+                Form {
+                    LabeledContent("Now", value: "\(current) GB")
+                    Picker("New size", selection: $growTo) {
+                        ForEach(choices, id: \.self) { Text("\($0) GB").tag($0) }
+                    }
+                }
+                .formStyle(.grouped)
+                Text("A disk can only be made larger. The disk takes space on this Mac as it fills, and Mac OS X sees the new size the next time this virtual Mac starts. The old disk goes to the Trash.")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+            HStack {
+                Spacer()
+                Button("Cancel") { growing = nil }.keyboardShortcut(.cancelAction).disabled(growStep != nil)
+                Button("Change Size") { runGrow(d) }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(growStep != nil || choices.isEmpty)
+            }
+        }
+        .padding(20).frame(width: 460)
+        .interactiveDismissDisabled(growStep != nil)
+    }
+
+    private func runGrow(_ d: DiskConfig) {
+        guard let tool = VMRunner.helperURL?.appendingPathComponent("Contents/MacOS/qemu-img") else { return }
+        let file = vm.disksURL.appendingPathComponent(d.file)
+        let bytes = Int64(growTo) << 30
+        growStep = "Starting…"
+        Task.detached {
+            do {
+                try DiskGrow.grow(file, to: bytes, qemuImg: tool) { s in
+                    Task { @MainActor in growStep = s }
+                }
+                await MainActor.run { growing = nil; growStep = nil }
+            } catch {
+                await MainActor.run {
+                    growing = nil
+                    growStep = nil
+                    self.error = error.localizedDescription
+                }
+            }
+        }
     }
 
     private func remove(_ d: DiskConfig, trash: Bool) {
