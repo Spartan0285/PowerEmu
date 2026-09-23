@@ -151,6 +151,15 @@ final class VirtualMachine: ObservableObject, Identifiable {
                 try ch.start()
                 display = ch
                 let w = VMWindowController.show(self, channel: ch)
+                if asleep {
+                    // Nothing will be drawn until the machine's memory has
+                    // been read back, which is the longest silence PowerEmu
+                    // ever shows; say so rather than showing a black window.
+                    w.display.expectRestoredFrame()
+                    w.display.showStatus("Waking \u{201C}\(config.name)\u{201D}\u{2026}",
+                                         "Reading its memory back from the startup disk.",
+                                         untilFirstFrame: true)
+                }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
                     MainActor.assumeIsolated { w.display.showPerformanceForTesting() }
                 }
@@ -247,12 +256,16 @@ final class VirtualMachine: ObservableObject, Identifiable {
         guard state == .running || state == .paused, let runner else { return }
         state = .sleeping
         lastError = nil
+        VMWindowController.open[url]?.display.showStatus(
+            "Putting \u{201C}\(config.name)\u{201D} to sleep\u{2026}",
+            "Saving its memory to the startup disk.")
         runner.sleep { [weak self] err in
             Task { @MainActor in
                 guard let self else { return }
                 if let err {
                     self.lastError = "The virtual Mac could not be put to sleep. \(err)"
                     self.state = .running
+                    VMWindowController.open[self.url]?.display.clearStatus()
                     return
                 }
                 self.asleep = true

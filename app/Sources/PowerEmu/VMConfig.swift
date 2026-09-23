@@ -104,6 +104,10 @@ struct VMConfig: Codable, Equatable {
     /// gets its own address and can see other Macs; it also needs an
     /// administrator each time it starts.
     var bridgedInterface: String?
+    /// Let the guest reach PowerMusic on this Mac, at 10.0.2.100:3001.
+    /// Off by default: a machine that has nothing to do with music should
+    /// have no way into this Mac at all.
+    var shareMusic = false
     /// Folders on this Mac shown in the guest (WebDAV; PowerEmu Tools mounts them).
     var sharedFolders: [SharedFolder] = []
 
@@ -121,6 +125,7 @@ struct VMConfig: Codable, Equatable {
         case hardwareCursor, extraDisplayModes, startFullscreen, embeddedDisplay, vramMB, mouseMode
         case bootChime, chimeSound, chimeFile, bootWidth, bootHeight, autoStart, verboseBoot, safeBoot, singleUser, audio, network, sshPort, shareClipboard, sharedFolders
         case agpBridge, monitorPort, gpuTrace, extraQEMUArgs, gamepad, shareOnNetwork, bridgedInterface
+        case shareMusic
     }
 
     init(from decoder: Decoder) throws {
@@ -147,6 +152,7 @@ struct VMConfig: Codable, Equatable {
         try get(.singleUser, &d.singleUser); try get(.audio, &d.audio); try get(.network, &d.network)
         if c.contains(.sshPort) { d.sshPort = try c.decodeIfPresent(Int.self, forKey: .sshPort) }
         try get(.shareClipboard, &d.shareClipboard); try get(.sharedFolders, &d.sharedFolders)
+        try get(.shareMusic, &d.shareMusic)
         try get(.gamepad, &d.gamepad); try get(.shareOnNetwork, &d.shareOnNetwork)
         d.bridgedInterface = try c.decodeIfPresent(String.self, forKey: .bridgedInterface)
         try get(.agpBridge, &d.agpBridge)
