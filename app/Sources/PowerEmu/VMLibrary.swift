@@ -6,10 +6,15 @@ import AppKit
 final class VMLibrary: ObservableObject {
     private var autoStarted = false
 
-    /// Start the virtual Macs marked to start when PowerEmu opens (once).
+    /// Start the virtual Macs marked to start when PowerEmu opens (once),
+    /// after taking back any that outlived a PowerEmu that crashed.
     func autoStartOnce() {
         guard !autoStarted else { return }
         autoStarted = true
+        for vm in machines { vm.adoptIfLeftRunning() }
+        // A machine may have been put to sleep in an earlier run, with its
+        // memory sitting in its disk waiting to be picked up again.
+        for vm in machines where vm.state == .stopped { vm.checkForSleep() }
         for vm in machines where vm.config.autoStart && vm.state == .stopped {
             vm.start()
         }

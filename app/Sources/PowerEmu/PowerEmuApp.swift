@@ -37,6 +37,10 @@ struct PowerEmuApp: App {
                 Button("Full Screen  (⌃⌥F)") { VMWindowController.key?.window?.toggleFullScreen(nil) }
                 Button("Show Performance  (⌃⌥P)") { VMWindowController.key?.display.togglePerformance() }
                 Divider()
+                Button("Pause") { VMWindowController.key?.vm.pause() }
+                    .keyboardShortcut("p", modifiers: [.command, .control])
+                Button("Continue") { VMWindowController.key?.vm.resume() }
+                Divider()
                 Button("Shut Down") { VMWindowController.key?.vm.requestShutDown() }
                 Button("Restart") { VMWindowController.key?.vm.requestRestart() }
                 Button("Force Power Off…") {
@@ -110,31 +114,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard !running.isEmpty else { return .terminateNow }
 
         /*
-         * Quitting used to offer to leave them running, and that produced a
-         * virtual Mac nobody could reach: the guest's window belongs to
+         * A virtual Mac cannot simply be left behind: its window belongs to
          * PowerEmu, so once PowerEmu has gone there is no window, no menu
-         * and no way to shut it down -- only a QEMU process still holding
-         * the disk, which has to be found and killed from a terminal. The
-         * machine is not "still running" in any useful sense; it is
-         * stranded. So the choice now is to shut them down or to stay.
+         * and no way to reach it. So quitting means deciding what happens
+         * to it -- put it to sleep and have everything exactly as it was
+         * next time, or shut Mac OS X down properly.
          */
         let names = running.map { $0.config.name }
         let a = NSAlert()
-        a.messageText = names.count == 1 ? "Shut down “\(names[0])” before quitting?"
-                                         : "Shut down \(names.count) virtual Macs before quitting?"
-        a.informativeText = "PowerEmu will ask Mac OS X to shut down, and wait a few "
-                          + "seconds. Anything unsaved in the guest should be saved first."
+        a.messageText = names.count == 1 ? "What should “\(names[0])” do before quitting?"
+                                         : "What should \(names.count) virtual Macs do before quitting?"
+        a.informativeText = "Sleep saves everything as it is, in the virtual Mac's disk, and "
+                          + "puts it back when you start it again. Shutting down closes Mac OS X "
+                          + "properly, so save your work in it first."
+        a.addButton(withTitle: "Sleep and Quit")
         a.addButton(withTitle: "Shut Down and Quit")
         a.addButton(withTitle: "Cancel")
-        guard a.runModal() == .alertFirstButtonReturn else { return .terminateCancel }
+        let choice = a.runModal()
+        guard choice != .alertThirdButtonReturn else { return .terminateCancel }
+        let sleeping = choice == .alertFirstButtonReturn
 
         Task { @MainActor in
-            for vm in running { vm.requestShutDown() }
-            // Give Mac OS X a moment to go down on its own; a guest that
-            // ignores it is powered off rather than left behind.
-            for _ in 0..<20 {
-                if running.allSatisfy({ $0.state == .stopped }) { break }
-                try? await Task.sleep(nanoseconds: 500_000_000)
+            if sleeping {
+                for vm in running { vm.sleep() }
+                // Writing a machine's memory takes a while; a machine that
+                // fails to sleep is shut down rather than left stranded.
+                for _ in 0..<240 {
+                    if running.allSatisfy({ $0.state == .stopped }) { break }
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                }
+            } else {
+                for vm in running { vm.requestShutDown() }
+                // Give Mac OS X a moment to go down on its own; a guest that
+                // ignores it is powered off rather than left behind.
+                for _ in 0..<20 {
+                    if running.allSatisfy({ $0.state == .stopped }) { break }
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                }
             }
             for vm in running where vm.state != .stopped { vm.forcePowerOff() }
             try? await Task.sleep(nanoseconds: 500_000_000)

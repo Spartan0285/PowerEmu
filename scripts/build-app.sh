@@ -31,6 +31,10 @@ rm -rf "$OUT"
 mkdir -p "$OUT/Contents/MacOS" "$OUT/Contents/Helpers" "$OUT/Contents/Resources"
 cp "$BIN" "$OUT/Contents/MacOS/PowerEmu"
 ditto "$ROOT/build/PowerEmu VM.app" "$OUT/Contents/Helpers/PowerEmu VM.app"
+# The network helper: the only piece that ever runs as an administrator,
+# and it does nothing but carry ethernet frames for a bridged virtual Mac.
+cc -O2 -Wall -o "$OUT/Contents/Helpers/poweremu-netd" "$ROOT/helper/poweremu-netd.c" \
+   -framework vmnet -framework Foundation
 cp "$ROOT/LICENSE" "$ROOT/COPYING" "$ROOT/THIRD-PARTY-NOTICES.md" "$OUT/Contents/Resources/"
 cp "$ROOT/app/Resources/cytruslogo.png" "$ROOT/app/Resources/cytruslogo-dark.png" "$OUT/Contents/Resources/"
 # Machine icons macOS no longer has (the Cube); the rest come from the system.
@@ -106,6 +110,7 @@ if [ "$SIGN" != "-" ]; then
         "$HELPER/Contents/MacOS/qemu-system-ppc" >/dev/null
     codesign --force --sign "$SIGN" --timestamp=none "$HELPER" >/dev/null
 fi
+codesign --force --sign "$SIGN" --timestamp=none "$OUT/Contents/Helpers/poweremu-netd" >/dev/null
 codesign --force --sign "$SIGN" --timestamp=none "$OUT/Contents/MacOS/PowerEmu" >/dev/null
 codesign --force --sign "$SIGN" --timestamp=none "$OUT" >/dev/null
 echo "signed: $SIGN"

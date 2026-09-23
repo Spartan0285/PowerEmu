@@ -10,15 +10,28 @@ final class VMRunner {
     static let minReportedMHz = 1420
     private let vm: VirtualMachine
     private var process: Process?
-    private let qmpPath: String
+    /// Watches an adopted machine (one this PowerEmu did not start).
+    private var adoptWatch: Timer?
+    private var qmpPath: String
     /// PowerEmu Tools' socket (GuestAgent listens on it).
-    let agentPath: String
+    private(set) var agentPath: String
     /// Shared folders' WebDAV socket (WebDAVServer listens on it).
-    let davPath: String
+    private(set) var davPath: String
     /// PowerEmu Clock's socket (ClockServer listens on it).
-    let clockPath: String
+    private(set) var clockPath: String
     /// The screen's socket (DisplayChannel listens on it) when shown in PowerEmu.
-    let displayPath: String
+    private(set) var displayPath: String
+    /// The game controller's socket (GamepadServer listens on it).
+    private(set) var gamepadPath: String
+    /// Services of the guest offered to the network: guest service to the
+    /// port this Mac listens on. Empty unless the reader shares them.
+    var sharedPorts: [NetworkShare.Service: Int] = [:]
+    /// Where the network helper and the emulator meet, when the guest is
+    /// bridged straight on to this Mac's network.
+    private(set) var bridgeHelperPath: String
+    private(set) var bridgeEmulatorPath: String
+    /// The address the network gave the bridge, for the guest's own card.
+    var bridgeMAC: String?
     /// The host ports this run uses: the configured ones, or the next free
     /// ones when another virtual Mac (or anything else) has them.
     private(set) var sshPort: Int?
@@ -26,16 +39,38 @@ final class VMRunner {
     /// An unattended run (installing): no screen, and a guest restart ends
     /// the emulator instead of restarting, which is how an install says done.
     var headless = false
+    /// Start from the memory saved when the machine was put to sleep,
+    /// rather than from the beginning.
+    var wake = false
+    /// What the saved machine is called inside the disk.
+    static let sleepTag = "PowerEmuSleep"
 
     init(vm: VirtualMachine) {
         self.vm = vm
-        // Unix socket paths are limited to 104 bytes; keep it short.
-        let tag = "poweremu-\(abs(vm.url.path.hashValue) % 1_000_000)"
+        // Unix socket paths are limited to 104 bytes; keep it short. The
+        // name must be the same in every PowerEmu that ever runs this
+        // machine -- that is how one finds a machine another left running
+        // -- so it can't come from Swift's hashValue, which is seeded anew
+        // in each process.
+        let tag = "poweremu-\(Self.tag(for: vm.url.path))"
         qmpPath = NSTemporaryDirectory() + tag + ".qmp"
         agentPath = NSTemporaryDirectory() + tag + ".agent"
         davPath = NSTemporaryDirectory() + tag + ".dav"
         clockPath = NSTemporaryDirectory() + tag + ".clock"
         displayPath = NSTemporaryDirectory() + tag + ".display"
+        gamepadPath = NSTemporaryDirectory() + tag + ".pad"
+        bridgeHelperPath = NSTemporaryDirectory() + tag + ".net-helper"
+        bridgeEmulatorPath = NSTemporaryDirectory() + tag + ".net-guest"
+    }
+
+    /// A short, steady name for a machine's sockets: FNV-1a of its path.
+    nonisolated static func tag(for path: String) -> String {
+        var h: UInt64 = 0xcbf2_9ce4_8422_2325
+        for b in path.utf8 {
+            h ^= UInt64(b)
+            h &*= 0x0000_0100_0000_01B3
+        }
+        return String(h % 1_000_000_000, radix: 36)
     }
 
     /// The first port from `start` that nothing on 127.0.0.1 is using.
@@ -145,6 +180,15 @@ final class VMRunner {
             var net = "user,id=net0,ipv6=off"
             sshPort = c.sshPort.map(Self.freePort)
             if let p = sshPort { net += ",hostfwd=tcp:127.0.0.1:\(p)-:22" }
+            /*
+             * Sharing: the same forwarding, but listening on every address
+             * of this Mac rather than only on this Mac itself, so a
+             * connection from another machine on the network reaches the
+             * guest. Only the services the reader asked to share.
+             */
+            for (service, host) in sharedPorts.sorted(by: { $0.value < $1.value }) {
+                net += ",hostfwd=tcp::\(host)-:\(service.guestPort)"
+            }
             // PowerEmu Tools: the guest's connections to 10.0.2.100:7700
             // reach GuestAgent's socket, one nc per connection.
             net += ",guestfwd=tcp:10.0.2.100:7700-cmd:/usr/bin/nc -U \(agentPath)"
@@ -159,6 +203,20 @@ final class VMRunner {
             net += ",guestfwd=tcp:10.0.2.100:587-cmd:/usr/bin/nc -U \(ServicesHub.smtpSocket)"
             net += ",guestfwd=tcp:10.0.2.100:7780-cmd:/usr/bin/nc -U \(ServicesHub.webSocket)"
             a += ["-netdev", net, "-device", "sungem,netdev=net0"]
+            /*
+             * Bridged: a second card, straight on to this Mac's network
+             * through the helper. The first card stays, because PowerEmu's
+             * own services -- shared folders, the clipboard, the clock --
+             * live on it at a fixed address the guest already knows.
+             */
+            if c.bridgedInterface != nil {
+                unlink(bridgeEmulatorPath)
+                a += ["-netdev", "dgram,id=net1,local.type=unix,local.path=\(bridgeEmulatorPath)"
+                                + ",remote.type=unix,remote.path=\(bridgeHelperPath)"]
+                var dev = "sungem,netdev=net1"
+                if let mac = bridgeMAC { dev += ",mac=\(mac)" }
+                a += ["-device", dev]
+            }
         } else {
             a += ["-nic", "none"]
         }
@@ -169,6 +227,11 @@ final class VMRunner {
         // mouse), the mouse relative movement (captured, for games).
         a += ["-usb", "-device", "usb-mouse,bus=usb-bus.0", "-device", "usb-tablet,bus=usb-bus.0",
               "-device", "usb-kbd,bus=usb-bus.0"]
+        // A game controller of this Mac, as a USB gamepad in the guest
+        // (GamepadServer listens on the socket; the device dials in).
+        if c.gamepad {
+            a += ["-device", "poweremu-gamepad,bus=usb-bus.0,path=\(gamepadPath)"]
+        }
 
         // IDE: two buses with two units each.  The startup disk goes first on
         // ide.0; the CD/DVD drive (always present, so discs can be inserted
@@ -195,6 +258,10 @@ final class VMRunner {
         if let p = monitorPort { a += ["-monitor", "telnet:127.0.0.1:\(p),server,nowait"] }
         a += ["-trace", c.gpuTrace ? "ppc_mac_gpu_*" : "ppc_mac_gpu_realize",
               "-D", vm.logsURL.appendingPathComponent("gpu-trace.log").path]
+        // Waking: the machine's memory was written into its startup disk
+        // when it went to sleep, and the emulator loads it instead of
+        // starting Mac OS X afresh.
+        if wake { a += ["-loadvm", Self.sleepTag] }
         a += c.extraQEMUArgs
         return a
     }
@@ -236,6 +303,146 @@ final class VMRunner {
         process = p
     }
 
+    /// Whether an emulator for this machine is already running: its QMP
+    /// socket answers.  A virtual Mac outlives a PowerEmu that crashed, and
+    /// its sockets are named after the machine, so the next PowerEmu can
+    /// find it again (see `adopt`).  Older PowerEmus named them otherwise,
+    /// so the emulator's own command line is read as a fallback.
+    func isLeftRunning() -> Bool {
+        if Self.canConnect(qmpPath) { return true }
+        guard let args = Self.runningEmulatorArguments(for: vm) else { return false }
+        func value(_ suffix: String) -> String? {
+            args.first { $0.contains("poweremu-") && $0.contains(suffix) }?
+                .replacingOccurrences(of: "unix:", with: "")
+                .split(separator: ",").first.map(String.init)
+        }
+        guard let qmp = value(".qmp"), Self.canConnect(qmp) else { return false }
+        qmpPath = qmp
+        agentPath = value(".agent") ?? agentPath
+        davPath = value(".dav") ?? davPath
+        clockPath = value(".clock") ?? clockPath
+        displayPath = value(".display") ?? displayPath
+        return true
+    }
+
+    /// The command line of an emulator running this machine's startup disk.
+    private static func runningEmulatorArguments(for vm: VirtualMachine) -> [String]? {
+        guard let disk = vm.config.startupDiskConfig?.file else { return nil }
+        let wanted = vm.disksURL.appendingPathComponent(disk).path
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/bin/ps")
+        p.arguments = ["-axo", "args="]
+        let out = Pipe()
+        p.standardOutput = out
+        p.standardError = Pipe()
+        guard (try? p.run()) != nil else { return nil }
+        let text = String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        p.waitUntilExit()
+        for line in text.split(separator: "\n") where line.contains("qemu-system-ppc") && line.contains(wanted) {
+            return line.split(separator: " ").map(String.init)
+        }
+        return nil
+    }
+
+    nonisolated static func canConnect(_ path: String) -> Bool {
+        let fd = socket(AF_UNIX, SOCK_STREAM, 0)
+        guard fd >= 0 else { return false }
+        defer { close(fd) }
+        var addr = sockaddr_un()
+        addr.sun_family = sa_family_t(AF_UNIX)
+        let bytes = Array(path.utf8)
+        guard bytes.count < MemoryLayout.size(ofValue: addr.sun_path) else { return false }
+        withUnsafeMutableBytes(of: &addr.sun_path) { buf in for (i, b) in bytes.enumerated() { buf[i] = b } }
+        return withUnsafePointer(to: &addr) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                connect(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) == 0
+            }
+        }
+    }
+
+    /// Take charge of an emulator that is already running (PowerEmu was
+    /// quit unexpectedly while it ran).  Nothing is started; the machine is
+    /// watched instead, and `onExit` is called when it goes.
+    func adopt(onExit: @escaping @Sendable (Int32) -> Void) {
+        adoptWatch?.invalidate()
+        let path = qmpPath
+        adoptWatch = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { t in
+            guard !Self.canConnect(path) else { return }
+            t.invalidate()
+            onExit(0)
+        }
+    }
+
+    /*
+     * Sleep: the whole machine -- memory, processor, devices -- is written
+     * into the startup disk, and the emulator then quits.  Starting again
+     * with -loadvm puts it back exactly where it was, so a reader can shut
+     * the app without losing what was open.
+     *
+     * This is QEMU's own savevm, driven through the monitor because it
+     * picks the disk to write into by itself.  It takes a moment: the
+     * machine's memory is gigabytes.
+     */
+    func sleep(_ done: @escaping @Sendable (String?) -> Void) {
+        QMP.shared.send(qmpPath, ["execute": "human-monitor-command",
+                                  "arguments": ["command-line": "savevm \(Self.sleepTag)"]]) { r in
+            if let err = QMP.errorText(r) { done(err); return }
+            // The monitor reports its own failures in the returned text.
+            let text = (r?["return"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            done(text.isEmpty ? nil : text)
+        }
+    }
+
+    /// Throw away the saved machine while the emulator is running it: a
+    /// tool on this Mac cannot touch a disk the machine holds, so the
+    /// emulator does it through the monitor.
+    func forgetSleep() {
+        QMP.shared.send(qmpPath, ["execute": "human-monitor-command",
+                                  "arguments": ["command-line": "delvm \(Self.sleepTag)"]])
+    }
+
+    /// The same, for a machine that is not running.
+    static func forgetSleep(disk: URL, qemuImg: URL, done: @escaping @Sendable () -> Void) {
+        DispatchQueue.global(qos: .utility).async {
+            _ = try? InstallPlan.run(qemuImg.path, ["snapshot", "-d", sleepTag, disk.path])
+            done()
+        }
+    }
+
+    /// Whether a machine was left asleep in this disk.
+    nonisolated static func hasSleep(disk: URL, qemuImg: URL) -> Bool {
+        guard let out = try? InstallPlan.run(qemuImg.path, ["snapshot", "-l", disk.path]) else { return false }
+        return String(decoding: out, as: UTF8.self).contains(sleepTag)
+    }
+
+    /// Whether the machine is running or paused right now, as the
+    /// emulator sees it: a machine taken back after PowerEmu restarted may
+    /// have been left paused.
+    func askIfPaused(_ done: @escaping @Sendable (Bool) -> Void) {
+        QMP.shared.send(qmpPath, ["execute": "query-status"]) { reply in
+            let ret = reply?["return"] as? [String: Any]
+            done((ret?["status"] as? String) == "paused")
+        }
+    }
+
+    /// Stop the guest's processor where it stands, and let it go again.
+    /// Nothing inside the virtual Mac runs while it is paused: the screen
+    /// holds its last frame and no time passes for the guest.
+    func pause(_ done: @escaping @Sendable (String?) -> Void) {
+        QMP.shared.send(qmpPath, ["execute": "stop"]) { r in done(QMP.errorText(r)) }
+    }
+
+    func resume(_ done: @escaping @Sendable (String?) -> Void) {
+        QMP.shared.send(qmpPath, ["execute": "cont"]) { r in done(QMP.errorText(r)) }
+    }
+
+    /// Whether the machine is still there: the process we started, or -- for
+    /// one we adopted -- something still answering on its socket.
+    func isAlive() -> Bool {
+        if let p = process { return p.isRunning }
+        return Self.canConnect(qmpPath)
+    }
+
     func pressPowerKey() {
         QMP.shared.send(qmpPath, ["execute": "send-key",
                                   "arguments": ["keys": [["type": "qcode", "data": "power"]]]])
@@ -258,6 +465,8 @@ final class VMRunner {
     }
 
     func terminate() {
+        adoptWatch?.invalidate()
+        adoptWatch = nil
         QMP.shared.send(qmpPath, ["execute": "quit"])
         DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
             if let p = self?.process, p.isRunning { p.terminate() }

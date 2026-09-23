@@ -108,7 +108,14 @@ struct ServiceHubButton: View {
 struct MachineRow: View {
     @EnvironmentObject var library: VMLibrary
     @ObservedObject var vm: VirtualMachine
-    private var subtitle: String { vm.state == .stopped ? vm.config.osName : "Running" }
+    private var subtitle: String {
+        switch vm.state {
+        case .stopped: return vm.asleep ? "Asleep" : vm.config.osName
+        case .paused:  return "Paused"
+        case .sleeping: return "Going to sleep…"
+        default:       return "Running"
+        }
+    }
     var body: some View {
         HStack(spacing: 10) {
             MachineIcon(model: vm.config.model, size: 30, running: vm.state != .stopped)
@@ -164,6 +171,7 @@ struct MachineDetail: View {
     @EnvironmentObject var library: VMLibrary
     @ObservedObject var vm: VirtualMachine
     @State private var confirmForce = false
+    @State private var confirmDiscardSleep = false
     @State private var confirmTrash = false
     @State private var error: String?
 
@@ -193,8 +201,11 @@ struct MachineDetail: View {
                         Button { vm.start() } label: { Label("Start", systemImage: "play.fill").frame(minWidth: 80) }
                             .buttonStyle(.borderedProminent).controlSize(.large)
                     } else {
-                        Label(vm.state == .starting ? "Starting…" : "Running", systemImage: "circle.fill")
-                            .foregroundStyle(.green).font(.headline)
+                        Label(vm.state == .starting ? "Starting…"
+                              : vm.state == .paused ? "Paused"
+                              : vm.state == .sleeping ? "Going to sleep…" : "Running",
+                              systemImage: "circle.fill")
+                            .foregroundStyle(vm.state == .paused ? .orange : .green).font(.headline)
                         if vm.hasWindow {
                             Button("Show Window") { vm.showWindow() }
                         }
@@ -227,6 +238,10 @@ struct MachineDetail: View {
             DriveSection(vm: vm)
 
             ToolsSection(vm: vm)
+
+            GamepadSection(vm: vm)
+
+            NetworkShareSection(vm: vm)
 
             SharedFoldersSection(vm: vm)
 
@@ -331,12 +346,31 @@ struct MachineDetail: View {
     @ViewBuilder private var controls: some View {
         switch vm.state {
         case .stopped:
-            Button { vm.start() } label: { Label("Start", systemImage: "play.fill").frame(minWidth: 80) }
+            HStack {
+                Button { vm.start() } label: {
+                    Label(vm.asleep ? "Wake" : "Start", systemImage: vm.asleep ? "sun.max.fill" : "play.fill")
+                        .frame(minWidth: 80)
+                }
                 .buttonStyle(.borderedProminent).controlSize(.large)
+                if vm.asleep {
+                    Button("Start Fresh Instead…") { confirmDiscardSleep = true }
+                        .help("Throw away what was saved and start Mac OS X from the beginning.")
+                }
+            }
         case .starting:
             ProgressView().controlSize(.small)
+        case .sleeping:
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                Text("Going to sleep…").foregroundStyle(.secondary)
+            }
         case .running, .stopping:
             HStack {
+                Button { vm.pause() } label: { Label("Pause", systemImage: "pause.fill") }
+                    .help("Stop the virtual Mac where it stands. Nothing runs inside it until you continue.")
+                    .disabled(vm.state != .running)
+                Button { vm.sleep() } label: { Label("Sleep", systemImage: "moon.fill") }
+                    .help("Save everything the virtual Mac is doing into its disk and close it. Starting it again puts it back exactly where it was.")
                 if vm.toolsConnected {
                     Button { vm.requestShutDown() } label: { Label("Shut Down", systemImage: "power") }
                         .help("Shut down Mac OS X, as from the Apple menu; programs are asked to quit first.")
@@ -344,6 +378,14 @@ struct MachineDetail: View {
                     Button { vm.requestShutDown() } label: { Label("Shut Down…", systemImage: "power") }
                         .help("Press the virtual Mac’s power key; Mac OS X asks whether to shut down.")
                 }
+                Button("Force Power Off") { confirmForce = true }
+            }
+        case .paused:
+            HStack {
+                Button { vm.resume() } label: { Label("Continue", systemImage: "play.fill") }
+                    .buttonStyle(.borderedProminent)
+                    .help("Let the virtual Mac carry on from where it stopped.")
+                Button { vm.sleep() } label: { Label("Sleep", systemImage: "moon.fill") }
                 Button("Force Power Off") { confirmForce = true }
             }
         }
@@ -371,6 +413,98 @@ struct MachineDetail: View {
                     vm.config[keyPath: kp] = v
                     do { try vm.save() } catch { self.error = error.localizedDescription }
                 })
+    }
+}
+
+/// Letting other Macs on the network see and reach this virtual Mac.
+struct NetworkShareSection: View {
+    @ObservedObject var vm: VirtualMachine
+    @ObservedObject private var share: NetworkShare
+
+    init(vm: VirtualMachine) {
+        self.vm = vm
+        self.share = vm.share
+    }
+
+    var body: some View {
+        Section {
+            Picker("Connection", selection: Binding(
+                get: { vm.config.bridgedInterface ?? "" },
+                set: { vm.config.bridgedInterface = $0.isEmpty ? nil : $0; try? vm.save() })) {
+                Text("Private to this Mac").tag("")
+                ForEach(NetBridge.interfaces()) { i in
+                    Text("Bridged to \(i.label)").tag(i.bsdName)
+                }
+            }
+            .disabled(vm.state != .stopped)
+            Text(vm.config.bridgedInterface == nil
+                 ? "The virtual Mac reaches the internet through this Mac, and nothing on your network can see it."
+                 : "The virtual Mac gets its own address from your router and behaves like any other Mac on the network — it can see others, and they can see it. Starting it asks for an administrator, because only macOS itself may attach to a network interface this way.")
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            if let p = vm.bridge.problem {
+                Label(p, systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
+            }
+            Divider()
+            Toggle("Share this virtual Mac on the local network", isOn: Binding(
+                get: { vm.config.shareOnNetwork },
+                set: { vm.config.shareOnNetwork = $0; try? vm.save() }))
+                .disabled(vm.state != .stopped)
+            if vm.config.shareOnNetwork {
+                Text(vm.state == .stopped
+                     ? "Other Macs will see “\(vm.config.name)” in their Finder when it is running."
+                     : "Other Macs see “\(share.advertisedName)” in their Finder.")
+                    .font(.caption).foregroundStyle(.secondary)
+                ForEach(NetworkShare.Service.all) { service in
+                    HStack {
+                        Text(service.name).font(.caption)
+                        Spacer()
+                        Text(share.open[service].map { "this Mac’s port \($0)" } ?? "when running")
+                            .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                    }
+                }
+            }
+            Text("Sharing forwards a few services from this Mac into the virtual one and announces them, which a private virtual Mac needs to be reachable at all. A bridged one is already on the network in its own right. Either way the virtual Mac decides what it offers, in System Preferences → Sharing, and either way it exposes an old system to your network.")
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+        } header: {
+            Text("Network")
+        }
+    }
+}
+
+/// A game controller of this Mac, given to the virtual Mac as a plain USB
+/// gamepad: the guest needs no driver, and the controller keeps talking to
+/// this Mac, which knows how to read Xbox and PlayStation pads over
+/// Bluetooth.
+struct GamepadSection: View {
+    @ObservedObject var vm: VirtualMachine
+
+    var body: some View {
+        Section {
+            HStack {
+                if let name = vm.gamepad?.controllerName {
+                    Label("\(name) is connected", systemImage: "gamecontroller.fill")
+                        .foregroundStyle(.green)
+                } else if vm.state == .running && vm.config.gamepad {
+                    Label("No controller connected to this Mac", systemImage: "gamecontroller")
+                        .foregroundStyle(.secondary)
+                } else {
+                    Label("The virtual Mac gets a USB gamepad when it starts",
+                          systemImage: "gamecontroller")
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Toggle("", isOn: Binding(
+                    get: { vm.config.gamepad },
+                    set: { vm.config.gamepad = $0; try? vm.save() }))
+                    .labelsHidden()
+                    .disabled(vm.state != .stopped)
+            }
+            Text("Pair the controller with this Mac in System Settings. Mac OS X sees an ordinary USB gamepad, so games that read a controller find it; the setting takes effect when the virtual Mac next starts.")
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+        } header: {
+            Text("Game Controller")
+        }
     }
 }
 
@@ -729,7 +863,7 @@ struct DriveSection: View {
     @ObservedObject var vm: VirtualMachine
     @ObservedObject var host = HostDriveMonitor.shared
 
-    private var running: Bool { vm.state == .running }
+    private var running: Bool { vm.state == .running || vm.state == .paused }
 
     var body: some View {
         Section {

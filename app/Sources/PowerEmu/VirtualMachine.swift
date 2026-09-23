@@ -23,9 +23,11 @@ final class VirtualMachine: ObservableObject, Identifiable {
     @Published private(set) var sshPortInUse: Int?
     @Published private(set) var monitorPortInUse: Int?
     private var discPoll: Timer?
+    private var aliveCheck: Timer?
+    private var missedAlive = 0
 
     enum RunState: Equatable {
-        case stopped, starting, running, stopping
+        case stopped, starting, running, paused, sleeping, stopping
     }
 
     nonisolated var id: URL { url }
@@ -43,6 +45,14 @@ final class VirtualMachine: ObservableObject, Identifiable {
     @Published private(set) var agent: GuestAgent?
     private var dav: WebDAVServer?
     private var shareWatcher: SharedFolderWatcher?
+    /// This Mac's game controller, given to the guest as a USB gamepad.
+    private(set) var gamepad: GamepadServer?
+    /// The machine as other Macs on the network see it.
+    let share = NetworkShare()
+    /// The helper that puts the machine straight on to the network.
+    let bridge = NetBridge()
+    /// The address the network gave the bridge, for the guest's own card.
+    private var pendingBridgeMAC: String?
     private var clock: ClockServer?
     private var display: DisplayChannel?
     private var agentWatch: AnyCancellable?
@@ -67,9 +77,49 @@ final class VirtualMachine: ObservableObject, Identifiable {
     // MARK: running
 
     func start() {
-        guard state == .stopped else { return }
-        lastError = nil
+        /*
+         * A bridged machine needs the helper running first: the emulator
+         * looks for it the moment it starts, and the address the network
+         * hands the bridge becomes the guest's own, so the network sees one
+         * machine rather than two.
+         */
+        guard let interface = config.bridgedInterface, state == .stopped else {
+            start(adopting: false)
+            return
+        }
         let r = VMRunner(vm: self)
+        state = .starting
+        bridge.start(interface: interface, helperSocket: r.bridgeHelperPath,
+                     emulatorSocket: r.bridgeEmulatorPath) { [weak self] problem in
+            guard let self else { return }
+            self.state = .stopped              // start(adopting:) insists on it
+            if let problem {
+                self.lastError = problem
+                return
+            }
+            self.pendingBridgeMAC = self.bridge.macAddress
+            self.start(adopting: false)
+        }
+    }
+
+    /// PowerEmu quit unexpectedly while this virtual Mac was running, and
+    /// the emulator carried on: take it back, rather than leave a machine
+    /// nobody can see or shut down.  The guest's screen and PowerEmu Tools
+    /// reconnect by themselves once these sockets are listening again.
+    func adoptIfLeftRunning() {
+        guard state == .stopped else { return }
+        start(adopting: true)
+    }
+
+    private func start(adopting: Bool) {
+        guard state == .stopped else { return }
+        let r = VMRunner(vm: self)
+        if adopting && !r.isLeftRunning() { return }
+        lastError = nil
+        if config.shareOnNetwork {
+            r.sharedPorts = share.choosePorts(avoiding: Set([config.sshPort, config.monitorPort].compactMap { $0 }))
+        }
+        r.bridgeMAC = pendingBridgeMAC
         runner = r
         state = .starting
         do {
@@ -90,23 +140,57 @@ final class VirtualMachine: ObservableObject, Identifiable {
             let ck = ClockServer(socketPath: r.clockPath)
             try? ck.start()
             clock = ck
+            if config.gamepad {
+                let g = GamepadServer(socketPath: r.gamepadPath)
+                try? g.start()
+                gamepad = g
+            }
+            if config.shareOnNetwork { share.advertise(machineNamed: config.name) }
             if config.embeddedDisplay {
                 let ch = DisplayChannel(socketPath: r.displayPath)
                 try ch.start()
                 display = ch
                 let w = VMWindowController.show(self, channel: ch)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                    MainActor.assumeIsolated { w.display.showPerformanceForTesting() }
+                }
                 if config.startFullscreen { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { w.window?.toggleFullScreen(nil) } }
             }
             // Views watch the machine; pass the agent's changes on.
             agentWatch = a.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
-            if config.bootChime { Chime.play(config.chimeSound, file: config.chimeFile) }
-            try r.launch { [weak self] status in
-                Task { @MainActor in self?.processEnded(status: status) }
+            r.wake = asleep
+            if config.bootChime && !adopting && !asleep { Chime.play(config.chimeSound, file: config.chimeFile) }
+            if adopting {
+                r.adopt { [weak self] status in
+                    Task { @MainActor in self?.processEnded(status: status) }
+                }
+                r.askIfPaused { [weak self] paused in
+                    Task { @MainActor in
+                        guard let self, paused, self.state == .running else { return }
+                        self.state = .paused
+                    }
+                }
+            } else {
+                try r.launch { [weak self] status in
+                    Task { @MainActor in self?.processEnded(status: status) }
+                }
             }
             state = .running
+            if asleep {
+                /*
+                 * The saved copy is thrown away once the machine is back on
+                 * its feet: keeping it would let a later start restore
+                 * memory that no longer matches what is on the disk.
+                 */
+                asleep = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in
+                    MainActor.assumeIsolated { self?.runner?.forgetSleep() }
+                }
+            }
             sshPortInUse = r.sshPort
             monitorPortInUse = r.monitorPort
             startDiscPolling()
+            startAliveChecking()
         } catch {
             agent?.stop()
             agent = nil
@@ -114,6 +198,10 @@ final class VirtualMachine: ObservableObject, Identifiable {
             dav = nil
             shareWatcher?.stop()
             shareWatcher = nil
+            gamepad?.stop()
+            gamepad = nil
+            share.stop()
+            bridge.stop(helperSocket: r.bridgeHelperPath)
             clock?.stop()
             clock = nil
             display?.stop()
@@ -137,9 +225,97 @@ final class VirtualMachine: ObservableObject, Identifiable {
         }
     }
 
+    /*
+     * Pausing.  The emulator stops the guest's processor: no instruction
+     * runs, the screen keeps its last frame, and the guest's own clock
+     * stops with it -- PowerEmu Tools' clock puts the time right again
+     * once it starts, so a long pause doesn't leave Mac OS X in the past.
+     * Disks and memory are untouched, so this is not a way to save a
+     * machine for later: quitting while paused still ends it.
+     */
+    /*
+     * Sleep, as a real Mac does: everything the machine is doing goes into
+     * its startup disk and the emulator quits.  Starting it again puts it
+     * back exactly where it was, with the same programs open.
+     *
+     * Unlike pausing, this survives quitting PowerEmu and restarting this
+     * Mac.  It costs disk space (the machine's memory) and a little time,
+     * and the disk must not be touched in between: waking a machine whose
+     * disk has changed underneath it would corrupt it.
+     */
+    func sleep() {
+        guard state == .running || state == .paused, let runner else { return }
+        state = .sleeping
+        lastError = nil
+        runner.sleep { [weak self] err in
+            Task { @MainActor in
+                guard let self else { return }
+                if let err {
+                    self.lastError = "The virtual Mac could not be put to sleep. \(err)"
+                    self.state = .running
+                    return
+                }
+                self.asleep = true
+                runner.terminate()          // processEnded() tidies the rest
+            }
+        }
+    }
+
+    /// Whether this machine was put to sleep and is waiting to be woken.
+    @Published private(set) var asleep = false
+
+    /// Ask the disk, when PowerEmu opens: a machine may have been left
+    /// asleep in an earlier run.
+    func checkForSleep() {
+        guard state == .stopped, let disk = startupDiskURL,
+              let img = VMRunner.helperURL?.appendingPathComponent("Contents/MacOS/qemu-img") else { return }
+        // Off the main thread: this asks qemu-img, and a tool that waits on
+        // a disk must never be able to hold up the window.
+        DispatchQueue.global(qos: .utility).async {
+            let found = VMRunner.hasSleep(disk: disk, qemuImg: img)
+            Task { @MainActor [weak self] in
+                guard let self, self.state == .stopped, found != self.asleep else { return }
+                self.asleep = found
+            }
+        }
+    }
+
+    var startupDiskURL: URL? {
+        config.startupDiskConfig.map { disksURL.appendingPathComponent($0.file) }
+    }
+
+    /// Throw the saved machine away without waking it: the next start boots
+    /// Mac OS X from the beginning, as if it had been powered off.
+    func discardSleep() {
+        guard asleep, state == .stopped, let disk = startupDiskURL,
+              let img = VMRunner.helperURL?.appendingPathComponent("Contents/MacOS/qemu-img") else { return }
+        asleep = false
+        VMRunner.forgetSleep(disk: disk, qemuImg: img) {}
+    }
+
+    func pause() {
+        guard state == .running, let runner else { return }
+        runner.pause { [weak self] err in
+            Task { @MainActor in
+                guard let self else { return }
+                if let err { self.lastError = err } else { self.state = .paused }
+            }
+        }
+    }
+
+    func resume() {
+        guard state == .paused, let runner else { return }
+        runner.resume { [weak self] err in
+            Task { @MainActor in
+                guard let self else { return }
+                if let err { self.lastError = err } else { self.state = .running }
+            }
+        }
+    }
+
     /// Bring the virtual Mac's window forward (it only hides when closed).
     func showWindow() {
-        guard let display, state == .running else { return }
+        guard let display, state == .running || state == .paused else { return }
         _ = VMWindowController.show(self, channel: display)
         NSApp.activate(ignoringOtherApps: true)
     }
@@ -236,7 +412,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
 
     /// Pull the plug.  Mac OS X's disk may need repair afterwards.
     func forcePowerOff() {
-        guard state == .running || state == .stopping else { return }
+        guard state == .running || state == .paused || state == .stopping else { return }
         state = .stopping
         runner?.terminate()
     }
@@ -326,7 +502,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
 
     func forgetDisc(_ path: String) {
         config.discs.removeAll { $0 == path }
-        if config.insertedDisc == path && state != .running { config.insertedDisc = nil }
+        if config.insertedDisc == path && state == .stopped { config.insertedDisc = nil }
         try? save()
     }
 
@@ -355,6 +531,34 @@ final class VirtualMachine: ObservableObject, Identifiable {
     }
 
     /// Keep the drive's state in step with the guest, which can eject too.
+    /*
+     * Notice a machine that has gone without saying so.
+     *
+     * PowerEmu learns that an emulator it started has finished from the
+     * process itself, and that an adopted one has finished by watching its
+     * socket -- but neither covers a machine killed from outside, and the
+     * page then offers Shut Down and Force Power Off for something that is
+     * no longer there.  This asks, twice over, whether the machine still
+     * answers, and lets go when it doesn't.
+     */
+    private func startAliveChecking() {
+        aliveCheck?.invalidate()
+        missedAlive = 0
+        aliveCheck = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.state != .stopped, let runner = self.runner else { return }
+                if runner.isAlive() {
+                    self.missedAlive = 0
+                    return
+                }
+                self.missedAlive += 1
+                if self.missedAlive >= 2 {
+                    self.processEnded(status: 0)
+                }
+            }
+        }
+    }
+
     private func startDiscPolling() {
         discPoll?.invalidate()
         discPoll = Timer.scheduledTimer(withTimeInterval: 4, repeats: true) { [weak self] _ in
@@ -381,6 +585,8 @@ final class VirtualMachine: ObservableObject, Identifiable {
     private func processEnded(status: Int32) {
         discPoll?.invalidate()
         discPoll = nil
+        aliveCheck?.invalidate()
+        aliveCheck = nil
         agent?.stop()
         agent = nil
         agentWatch = nil
@@ -388,6 +594,10 @@ final class VirtualMachine: ObservableObject, Identifiable {
         dav = nil
         shareWatcher?.stop()
         shareWatcher = nil
+        gamepad?.stop()
+        gamepad = nil
+        share.stop()
+        if let r = runner { bridge.stop(helperSocket: r.bridgeHelperPath) }
         clock?.stop()
         clock = nil
         display?.stop()
