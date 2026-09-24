@@ -51,20 +51,46 @@ codesign --verify --deep --strict "$TMP/PowerEmu.app"
 echo "   ok: $(codesign -dv "$TMP/PowerEmu.app" 2>&1 | sed -n 's/^TeamIdentifier=/team /p')"
 
 URL="https://github.com/$REPO/releases/download/v$VERSION/PowerEmu-$VERSION.zip"
-/usr/bin/python3 - "$VERSION" "$BUILD" "$SHA" "$URL" "$NOTES" > "$ROOT/appcast.json" <<'PY'
-import json, sys, datetime
-version, build, sha, url, notes = sys.argv[1:6]
+# The feed carries the release before it as well, so What's New has a
+# changelog to show without a second file to keep up to date.
+/usr/bin/python3 - "$ROOT/appcast.json" "$VERSION" "$BUILD" "$SHA" "$URL" "$NOTES" <<'PY'
+import json, os, sys, datetime
+path, version, build, sha, url, notes = sys.argv[1:7]
+now = (datetime.datetime.now(datetime.timezone.utc)
+       .replace(microsecond=0).isoformat().replace("+00:00", "Z"))
+
+old = {}
+if os.path.exists(path):
+    try:
+        old = json.load(open(path))
+    except ValueError:
+        old = {}
+
+history = old.get("history", [])
+if old.get("version"):
+    history.insert(0, {"version": old["version"], "build": old.get("build", 0),
+                       "published": old.get("published", ""),
+                       "notes": old.get("notes", "")})
+# Keep the last twenty: enough to read back through, small enough to fetch.
+seen, trimmed = set(), []
+for h in history:
+    if h.get("build") in seen:
+        continue
+    seen.add(h.get("build"))
+    trimmed.append(h)
+history = trimmed[:20]
+
 json.dump({
     "version": version,
     "build": int(build),
-    "published": datetime.datetime.now(datetime.timezone.utc)
-                  .replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+    "published": now,
     "minimumSystem": "14.0",
     "notes": notes,
     "url": url,
     "sha256": sha,
-}, sys.stdout, indent=2)
-sys.stdout.write("\n")
+    "history": history,
+}, open(path, "w"), indent=2)
+open(path, "a").write("\n")
 PY
 
 echo "== publishing"

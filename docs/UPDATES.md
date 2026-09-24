@@ -31,7 +31,11 @@ or, for one run, `POWEREMU_UPDATE_FEED` in the environment.
   "minimumSystem": "14.0",
   "notes": "What changed, in plain words. Shown to the reader as it is.",
   "url": "https://example.com/downloads/PowerEmu-0.2.zip",
-  "sha256": "…"
+  "sha256": "…",
+  "history": [
+    { "version": "0.1", "build": 1, "published": "2026-09-20T10:00:00Z",
+      "notes": "The first one." }
+  ]
 }
 ```
 
@@ -44,6 +48,29 @@ or, for one run, `POWEREMU_UPDATE_FEED` in the environment.
   damaged. It is not what makes this safe — see below.
 * `minimumSystem` is optional. A version needing a newer macOS than this Mac
   has says so and cannot be installed.
+
+`history` is what **What's New** reads: the releases before this one,
+newest first, kept to the last twenty. `scripts/release.sh` rolls it
+forward, so there is no second file to maintain and one fetch answers both
+"is there something newer" and "what changed, and what changed before
+that".
+
+Notes are plain text with three conveniences: a blank line separates
+paragraphs, a line starting with `- ` or `* ` is a point, and a line
+starting with `#` is a heading. Deliberately not full Markdown -- these
+are read far more often than they are written, and anything that does not
+render is worse than plain text.
+
+## What's New
+
+Shown once, the first time a newer PowerEmu than last time is opened, and
+from PowerEmu -> What's New in PowerEmu whenever it is wanted. It shows
+the notes for the version actually running -- not the one being offered --
+and the releases before it. A first-ever run says nothing: there is no
+"since" to talk about.
+
+The notes come from the feed, so a copy that has never looked has nothing
+to show until it does; the window offers to look.
 
 ## What PowerEmu checks before installing
 
@@ -86,6 +113,7 @@ The app takes two arguments, which is how the above was tested:
 ```
 PowerEmu.app/Contents/MacOS/PowerEmu --update-check
 PowerEmu.app/Contents/MacOS/PowerEmu --update-install
+PowerEmu.app/Contents/MacOS/PowerEmu --whats-new
 ```
 
 Point `POWEREMU_UPDATE_FEED` at a local file server, and run the second one

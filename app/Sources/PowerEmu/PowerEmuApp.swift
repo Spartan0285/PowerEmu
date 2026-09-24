@@ -26,6 +26,7 @@ struct PowerEmuApp: App {
             CommandGroup(replacing: .appInfo) {
                 Button("About PowerEmu") { AboutWindowController.present() }
                 Button("Check for Updates\u{2026}") { UpdateWindowController.checkNow(library: library) }
+                Button("What\u{2019}s New in PowerEmu") { WhatsNewWindowController.present() }
             }
             CommandGroup(replacing: .help) {
                 Button("Send Feedback…") { FeedbackWindowController.present() }
@@ -105,6 +106,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if MainActor.assumeIsolated({ Updater.runCommandLine(CommandLine.arguments, library: lib) }) {
             return                      // --update-check / --update-install
         }
+        // Opened for the first time since an update: say what changed.
+        MainActor.assumeIsolated { WhatsNewWindowController.presentIfJustUpdated() }
         Task {
             try? await Task.sleep(for: .seconds(8))
             await Updater.checkInBackground(library: lib)

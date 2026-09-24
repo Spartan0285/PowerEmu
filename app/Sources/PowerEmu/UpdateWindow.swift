@@ -122,10 +122,7 @@ struct UpdateView: View {
             }
             if !update.notes.isEmpty {
                 ScrollView {
-                    Text(update.notes)
-                        .font(.callout)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .textSelection(.enabled)
+                    ReleaseNotesView(text: update.notes)
                 }
                 .frame(height: 170)
                 .padding(8)

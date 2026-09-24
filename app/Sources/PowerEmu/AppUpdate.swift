@@ -10,6 +10,15 @@ import Foundation
 import AppKit
 import CryptoKit
 
+/// One release: the newest, or one that has been and gone.
+struct ReleaseNote: Sendable, Identifiable {
+    let version: String
+    let build: Int
+    let published: Date?
+    let notes: String
+    var id: Int { build }
+}
+
 /// What the feed says the newest build is.
 struct AppUpdate: Sendable {
     let version: String            // "0.2", shown to the reader
@@ -103,13 +112,31 @@ enum Updater {
     static func runCommandLine(_ args: [String], library: VMLibrary?) -> Bool {
         let wantsCheck = args.contains("--update-check")
         let wantsInstall = args.contains("--update-install")
-        guard wantsCheck || wantsInstall else { return false }
+        let wantsNotes = args.contains("--whats-new")
+        guard wantsCheck || wantsInstall || wantsNotes else { return false }
 
         @Sendable func say(_ s: String) {
             FileHandle.standardError.write((s + "\n").data(using: .utf8)!)
         }
         say("PowerEmu \(runningVersion) (\(runningBuild))")
         say("feed: \(feedURL.absoluteString)")
+
+        if wantsNotes {
+            say("last opened as build \(UserDefaults.standard.integer(forKey: lastRunBuildKey))")
+            if let c = notesForRunningBuild() {
+                say("")
+                say("What's new in \(c.version):")
+                for l in c.notes.components(separatedBy: .newlines) { say("  " + l) }
+            } else {
+                say("no notes held for this build yet")
+            }
+            let older = history().filter { $0.build < runningBuild }
+            if !older.isEmpty {
+                say("")
+                say("Earlier: " + older.map { "\($0.version) (\($0.build))" }.joined(separator: ", "))
+            }
+            if !wantsCheck && !wantsInstall { exit(0) }
+        }
 
         Task { @MainActor in
             do {
@@ -165,7 +192,63 @@ enum Updater {
                           minimumSystem: j["minimumSystem"] as? String,
                           published: published)
         UserDefaults.standard.set(Date(), forKey: lastCheckKey)
+        /*
+         * Keep what came back, so What's New has something to show when a
+         * reader asks for it -- including for the version they are running,
+         * which is not the one the feed is offering.
+         */
+        cacheHistory(from: j, current: u)
         return u.isNewer ? u : nil
+    }
+
+    // MARK: what changed
+
+    private static let historyKey = "PEUpdateHistory"
+    private static let lastRunBuildKey = "PELastRunBuild"
+
+    /// Every release the feed knows about, newest first.  The feed carries
+    /// its own entry and the ones before it, so one fetch answers both
+    /// "what is new" and "what was new".
+    private static func cacheHistory(from j: [String: Any], current: AppUpdate) {
+        var rows: [[String: Any]] = [["version": current.version,
+                                      "build": current.build,
+                                      "notes": current.notes,
+                                      "published": (j["published"] as? String) ?? ""]]
+        for h in (j["history"] as? [[String: Any]]) ?? [] {
+            guard let v = h["version"] as? String else { continue }
+            let b = (h["build"] as? Int) ?? Int(h["build"] as? String ?? "") ?? 0
+            guard b != current.build else { continue }
+            rows.append(["version": v, "build": b,
+                         "notes": (h["notes"] as? String) ?? "",
+                         "published": (h["published"] as? String) ?? ""])
+        }
+        UserDefaults.standard.set(rows, forKey: historyKey)
+    }
+
+    static func history() -> [ReleaseNote] {
+        let rows = UserDefaults.standard.array(forKey: historyKey) as? [[String: Any]] ?? []
+        let iso = ISO8601DateFormatter()
+        return rows.compactMap { r in
+            guard let v = r["version"] as? String, let b = r["build"] as? Int else { return nil }
+            return ReleaseNote(version: v, build: b,
+                               published: iso.date(from: (r["published"] as? String) ?? ""),
+                               notes: (r["notes"] as? String) ?? "")
+        }.sorted { $0.build > $1.build }
+    }
+
+    /// What this copy is, if the feed has ever mentioned it.
+    static func notesForRunningBuild() -> ReleaseNote? {
+        history().first { $0.build == runningBuild }
+    }
+
+    /// True the first time a newer PowerEmu than last time is opened, so
+    /// what changed can be shown once.  A first-ever run says nothing:
+    /// there is no "since" to talk about.
+    static func justUpdated() -> Bool {
+        let d = UserDefaults.standard
+        let previous = d.integer(forKey: lastRunBuildKey)
+        d.set(runningBuild, forKey: lastRunBuildKey)
+        return previous != 0 && runningBuild > previous
     }
 
     private static let lastCheckKey = "PEUpdateLastCheck"
