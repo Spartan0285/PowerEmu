@@ -12,7 +12,7 @@ import QuartzCore
 /// the same way.  Messages: { u32 type, u32 length } + payload; see the QEMU
 /// file for the list.
 final class DisplayChannel: @unchecked Sendable {
-    enum Kind: UInt32 { case surface = 1, damage = 2, cursor = 3, mouse = 4, key = 10, motion = 11, buttons = 12, wheel = 13, point = 14 }
+    enum Kind: UInt32 { case surface = 1, damage = 2, cursor = 3, mouse = 4, key = 10, motion = 11, buttons = 12, wheel = 13, point = 14, coherence = 15 }
 
     let socketPath: String
     /// Called on the main thread.
@@ -24,6 +24,10 @@ final class DisplayChannel: @unchecked Sendable {
     private var listenFD: Int32 = -1
     private var fd: Int32 = -1
     private let writeLock = NSLock()
+    /// Coherence mode: the emulator hands over frames whose desktop is
+    /// transparent.  Kept here so it can be asked for again after a
+    /// reconnection, which otherwise starts the emulator off opaque.
+    private(set) var coherence = false
 
     // The shared frame from QEMU and our two copies of it.
     private var shm: UnsafeMutableRawPointer?
@@ -66,6 +70,11 @@ final class DisplayChannel: @unchecked Sendable {
 
     // MARK: input to QEMU
 
+    func setCoherence(_ on: Bool) {
+        coherence = on
+        send(.coherence, [on ? 1 : 0])
+    }
+
     func send(_ kind: Kind, _ values: [Int32]) {
         var msg = [UInt32(kind.rawValue), UInt32(values.count * 4)]
         msg += values.map { UInt32(bitPattern: $0) }
@@ -91,6 +100,7 @@ final class DisplayChannel: @unchecked Sendable {
         var one: Int32 = 1
         setsockopt(c, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int32>.size))
         writeLock.lock(); fd = c; writeLock.unlock()
+        if coherence { send(.coherence, [1]) }
 
         var buf = Data()
         var fds: [Int32] = []
@@ -307,6 +317,21 @@ final class VMDisplayView: NSView {
     private var synthesized = Set<UInt16>()          // modifiers pressed on an event's behalf
     private var motion = CGPoint.zero                 // fractions not yet sent
     private var scroll: CGFloat = 0
+
+    /// Coherence mode: the emulator sends frames whose desktop is
+    /// transparent, and the window lets this Mac's own desktop through
+    /// behind the guest's windows.
+    var coherence = false {
+        didSet {
+            guard coherence != oldValue else { return }
+            layer?.backgroundColor = (coherence ? NSColor.clear : NSColor.black).cgColor
+            screen.isOpaque = !coherence
+            window?.isOpaque = !coherence
+            window?.backgroundColor = coherence ? .clear : .black
+            window?.hasShadow = !coherence          // one shadow per guest window, not one around them all
+            channel.setCoherence(coherence)
+        }
+    }
 
     init(channel: DisplayChannel) {
         self.channel = channel
@@ -828,6 +853,7 @@ final class VMDisplayView: NSView {
         case 5: ungrab(); return true                                  // G
         case 3: onToggleFullScreen?(); return true                     // F
         case 35: togglePerformance(); return true                      // P
+        case 8: coherence.toggle(); return true                        // C
         default: return false
         }
     }

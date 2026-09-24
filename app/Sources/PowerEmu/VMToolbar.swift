@@ -65,6 +65,9 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
             labelledButton("moon.fill", "Sleep", "Save the virtual Mac as it is and close it", #selector(sleepMachine)),
             menuButton("power", "Power", "Shut down, restart or force off", power),
             OverlayBar.space(),
+            labelledButton("macwindow.on.rectangle", "Coherence",
+                           "Show the virtual Mac's windows on this Mac's desktop, without its wallpaper (Control-Option-C)",
+                           #selector(toggleCoherence)),
             labelledButton("speedometer", "Stats", "Show what the virtual Mac and this Mac are doing (Control-Option-P)", #selector(togglePerf)),
             labelledButton("arrow.up.left.and.arrow.down.right", "Full Screen", "Fill the screen (Control-Option-F)", #selector(fullScreen)),
         ]
@@ -395,6 +398,11 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
     }
 
     // MARK: the rest
+
+    @objc private func toggleCoherence() {
+        display?.coherence.toggle()
+        refocus()
+    }
 
     @objc private func togglePerf() { display?.togglePerformance(); refocus() }
     @objc private func pauseOrResume() {
