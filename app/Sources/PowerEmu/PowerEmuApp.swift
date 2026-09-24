@@ -25,6 +25,7 @@ struct PowerEmuApp: App {
             // alpha sentence or what PowerEmu is not, so it draws its own.
             CommandGroup(replacing: .appInfo) {
                 Button("About PowerEmu") { AboutWindowController.present() }
+                Button("Check for Updates\u{2026}") { UpdateWindowController.checkNow(library: library) }
             }
             CommandGroup(replacing: .help) {
                 Button("Send Feedback…") { FeedbackWindowController.present() }
@@ -94,6 +95,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         MainActor.assumeIsolated { ServicesHub.shared.start() }
+        /*
+         * Look for a newer PowerEmu, quietly: at most once a day, never for
+         * a version the reader has skipped, and only ever offering.  A
+         * little after opening, so it is not competing with the machines
+         * that start with the app.
+         */
+        let lib = MainActor.assumeIsolated { library }
+        if MainActor.assumeIsolated({ Updater.runCommandLine(CommandLine.arguments, library: lib) }) {
+            return                      // --update-check / --update-install
+        }
+        Task {
+            try? await Task.sleep(for: .seconds(8))
+            await Updater.checkInBackground(library: lib)
+        }
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -166,6 +181,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 struct AppSettingsView: View {
     @State private var status = SMAppService.mainApp.status
     @State private var problem: String?
+    @State private var checksForUpdates =
+        UserDefaults.standard.object(forKey: Updater.automaticKey) as? Bool ?? true
 
     var body: some View {
         Form {
@@ -188,6 +205,13 @@ struct AppSettingsView: View {
                 Text(problem).font(.caption).foregroundStyle(.red)
             }
             Text("Virtual Macs with “Start when PowerEmu opens” turned on (in their Startup settings) start with it.")
+                .font(.caption).foregroundStyle(.secondary)
+            Divider()
+            Toggle("Look for new versions of PowerEmu", isOn: $checksForUpdates)
+                .onChange(of: checksForUpdates) { _, on in
+                    UserDefaults.standard.set(on, forKey: Updater.automaticKey)
+                }
+            Text("Checked at most once a day, and never installed without asking. Use PowerEmu \u{2192} Check for Updates to look now.")
                 .font(.caption).foregroundStyle(.secondary)
         }
         .formStyle(.grouped)

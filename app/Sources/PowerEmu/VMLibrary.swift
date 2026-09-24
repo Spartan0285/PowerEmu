@@ -27,6 +27,13 @@ final class VMLibrary: ObservableObject {
 
     let folder: URL
 
+    /// ~/Library/Application Support/PowerEmu: the machines, the icons, the
+    /// downloads.  Named once so everything that needs it agrees.
+    nonisolated static var applicationSupport: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("PowerEmu", isDirectory: true)
+    }
+
     init() {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         folder = base.appendingPathComponent("PowerEmu/Virtual Machines", isDirectory: true)

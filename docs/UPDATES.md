@@ -1,0 +1,74 @@
+# Updating PowerEmu
+
+PowerEmu looks for new versions itself. This is what has to be put on the
+web for that to work, and what PowerEmu does with it.
+
+## The feed
+
+A JSON file, fetched at most once a day. By default:
+
+    https://www.cytrusretro.com/api/poweremu/appcast.json
+
+That address can be changed without a rebuild, the same way the feedback
+endpoint can:
+
+    defaults write com.spartan0285.poweremu PEUpdateFeed https://example.com/appcast.json
+
+or, for one run, `POWEREMU_UPDATE_FEED` in the environment.
+
+```json
+{
+  "version": "0.2",
+  "build": 2,
+  "published": "2026-10-01T12:00:00Z",
+  "minimumSystem": "14.0",
+  "notes": "What changed, in plain words. Shown to the reader as it is.",
+  "url": "https://example.com/downloads/PowerEmu-0.2.zip",
+  "sha256": "…"
+}
+```
+
+* `build` is the only thing compared; it must go up. `version` is what the
+  reader is shown.
+* `url` is a zip of `PowerEmu.app`, made with `ditto -c -k --keepParent`.
+  Ordinary `zip` does not keep the symlinks inside a bundle and breaks its
+  signature.
+* `sha256` is optional but worth having: it catches a download that arrived
+  damaged. It is not what makes this safe — see below.
+* `minimumSystem` is optional. A version needing a newer macOS than this Mac
+  has says so and cannot be installed.
+
+## What PowerEmu checks before installing
+
+1. The download matches `sha256`, if the feed gave one.
+2. What was downloaded is an app with **PowerEmu's own bundle identifier**.
+3. Its signature is valid, including everything nested inside it.
+4. It was signed by the **same developer as the copy that is running**.
+
+Step 4 is the one that matters. A feed that has been tampered with can serve
+a matching `sha256` for whatever it likes; it cannot sign an app as us.
+Both refusals have been tried: a download that does not match the feed is
+turned away as damaged, and a correctly-checksummed app with one byte
+changed inside it is turned away as not properly signed. In both cases the
+copy already installed is left exactly as it was.
+
+## What happens then
+
+The copy being replaced is moved to the **Trash**, not deleted, so it can be
+dragged back if the new one turns out to be wrong. If putting the new one in
+place fails, the old one is moved straight back.
+
+Virtual Macs must be shut down or asleep first; PowerEmu says so rather than
+replacing itself underneath a running machine.
+
+## Trying it without a release
+
+The app takes two arguments, which is how the above was tested:
+
+```
+PowerEmu.app/Contents/MacOS/PowerEmu --update-check
+PowerEmu.app/Contents/MacOS/PowerEmu --update-install
+```
+
+Point `POWEREMU_UPDATE_FEED` at a local file server, and run the second one
+against a *copy* of the app: it replaces whichever copy is running.
