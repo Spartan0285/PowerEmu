@@ -284,6 +284,8 @@ final class VMDisplayView: NSView {
     /// So the window can say, in its title, that a feature still being
     /// tested is switched on.
     var onHarmonyChanged: ((Bool) -> Void)?
+    /// And so the guest can be asked to put its Dock and desktop away.
+    var onHarmonyGuest: ((Bool) -> Void)?
     /// The control bar floating over the top of the screen.
     weak var controls: VMToolbarController?
     private let screen = CALayer()
@@ -334,6 +336,7 @@ final class VMDisplayView: NSView {
             window?.hasShadow = !harmony          // one shadow per guest window, not one around them all
             channel.setHarmony(harmony)
             onHarmonyChanged?(harmony)
+            onHarmonyGuest?(harmony)
         }
     }
 
@@ -957,6 +960,7 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
         super.init(window: w)
         w.delegate = self
         display.onToggleFullScreen = { [weak w] in w?.toggleFullScreen(nil) }
+        display.onHarmonyGuest = { [weak vm] on in vm?.harmony(on) }
         display.onHarmonyChanged = { [weak w, weak vm] on in
             guard let w, let vm else { return }
             w.title = on ? "\(vm.config.name) \u{2014} Harmony (in testing)" : vm.config.name

@@ -43,12 +43,34 @@
 #define PE_HOST_ADDR     "10.0.2.100"
 #define PE_HOST_PORT     7700
 
+/*
+ * Both can be pointed elsewhere for testing, which is the only way to
+ * exercise the agent on a real PowerPC Mac rather than inside a guest:
+ * 10.0.2.100 only means anything behind QEMU's user-mode networking.
+ */
+static const char *AgentHost(void)
+{
+    const char *h = getenv("PE_AGENT_HOST");
+    return (h && *h) ? h : PE_HOST_ADDR;
+}
+
+static int AgentPort(void)
+{
+    const char *p = getenv("PE_AGENT_PORT");
+    return (p && *p) ? atoi(p) : PE_HOST_PORT;
+}
+
 @interface PEAgent : NSObject {
     int sock;
     NSFileHandle *handle;
     NSMutableData *inbox;
     int lastChangeCount;        /* pasteboard change we have dealt with */
     NSString *lastClip;         /* text last exchanged, to stop echoes */
+    BOOL harmonyRemembered;     /* whether the two below have been read yet */
+    BOOL dockHadAutohide;       /* whether these were set at all before */
+    BOOL dockWasAutohidden;     /* what this Mac looked like before Harmony */
+    BOOL finderHadDesktopKey;
+    BOOL finderDrewDesktop;
 }
 - (void)connect;
 - (void)disconnected;
@@ -57,6 +79,9 @@
 - (void)mount:(NSString *)spec;
 - (void)unmount:(NSString *)name;
 - (void)changed:(NSString *)list;
+- (void)harmony:(BOOL)on;
+- (void)set:(NSString *)domain key:(NSString *)key yes:(BOOL)yes keep:(BOOL)keep;
+- (void)run:(NSString *)tool with:(NSArray *)args;
 @end
 
 /* Where the volume mounted from `from` (a WebDAV URL) is, or nil. */
@@ -142,8 +167,8 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
     memset(&a, 0, sizeof a);
     a.sin_len = sizeof a;
     a.sin_family = AF_INET;
-    a.sin_port = htons(PE_HOST_PORT);
-    a.sin_addr.s_addr = inet_addr(PE_HOST_ADDR);
+    a.sin_port = htons(AgentPort());
+    a.sin_addr.s_addr = inet_addr(AgentHost());
     if (connect(s, (struct sockaddr *)&a, sizeof a) != 0) {
         close(s);
         [self retryLater];
@@ -227,9 +252,90 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
         [self unmount:text];
     } else if ([verb isEqualToString:@"CHANGED"]) {
         [self changed:text];
+    } else if ([verb isEqualToString:@"HARMONY"]) {
+        [self harmony:[text isEqualToString:@"1"]];
     } else if ([verb isEqualToString:@"PING"]) {
         [self send:@"PONG" data:nil];
     }
+}
+
+/*
+ * Harmony: stop drawing the things that are not windows.
+ *
+ * PowerEmu can hide the desktop from the host's side -- it watches what is
+ * copied to the screen and makes everything that is not a window
+ * transparent -- but working out which is which from the copies alone is
+ * guesswork, and the Dock in particular arrives looking exactly like a
+ * window.  It is far better to ask this Mac not to draw them.
+ *
+ * SetSystemUIMode is no use here: it applies to the application that calls
+ * it, and this agent is never the front one.  So the Dock is told to hide
+ * itself and the Finder to stop drawing the desktop, which is what somebody
+ * would do by hand, and both are put back afterwards.
+ */
+- (void)run:(NSString *)tool with:(NSArray *)args
+{
+    NSTask *t = [[NSTask alloc] init];
+    [t setLaunchPath:tool];
+    [t setArguments:args];
+    NS_DURING
+        [t launch];
+        [t waitUntilExit];
+    NS_HANDLER
+        /* A Mac without the tool is not a reason to take the agent down. */
+    NS_ENDHANDLER
+    [t release];
+}
+
+- (void)set:(NSString *)domain key:(NSString *)key yes:(BOOL)yes keep:(BOOL)keep
+{
+    NSString *defaults = @"/usr/bin/defaults";
+    if (keep) {
+        [self run:defaults with:[NSArray arrayWithObjects:@"write", domain, key,
+            @"-bool", yes ? @"true" : @"false", nil]];
+    } else {
+        [self run:defaults with:[NSArray arrayWithObjects:@"delete", domain, key, nil]];
+    }
+}
+
+- (void)harmony:(BOOL)on
+{
+    NSString *killall = @"/usr/bin/killall";
+
+    /*
+     * Remember what this Mac looked like before, once, so turning Harmony
+     * off puts back what the reader had rather than what we assume they had.
+     */
+    if (!harmonyRemembered) {
+        NSUserDefaults *u = [NSUserDefaults standardUserDefaults];
+        NSDictionary *dock = [u persistentDomainForName:@"com.apple.dock"];
+        NSDictionary *finder = [u persistentDomainForName:@"com.apple.finder"];
+        dockHadAutohide = [dock objectForKey:@"autohide"] != nil;
+        dockWasAutohidden = [[dock objectForKey:@"autohide"] boolValue];
+        finderHadDesktopKey = [finder objectForKey:@"CreateDesktop"] != nil;
+        finderDrewDesktop = !finderHadDesktopKey
+                          || [[finder objectForKey:@"CreateDesktop"] boolValue];
+        harmonyRemembered = YES;
+    }
+
+    /*
+     * Turning Harmony off puts this Mac back as it was, and a setting that
+     * was never there is removed rather than written: a Mac that had no
+     * opinion about its Dock should not be left with one because PowerEmu
+     * borrowed it for an afternoon.
+     */
+    [self set:@"com.apple.dock" key:@"autohide"
+          yes:on ? YES : dockWasAutohidden
+         keep:on || dockHadAutohide];
+    [self run:killall with:[NSArray arrayWithObject:@"Dock"]];
+
+    [self set:@"com.apple.finder" key:@"CreateDesktop"
+          yes:on ? NO : finderDrewDesktop
+         keep:on || finderHadDesktopKey];
+    [self run:killall with:[NSArray arrayWithObject:@"Finder"]];
+
+    [self send:@"LOG" data:[(on ? @"harmony on" : @"harmony off")
+                            dataUsingEncoding:NSUTF8StringEncoding]];
 }
 
 /* Mount a shared folder the way Connect to Server does. */

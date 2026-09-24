@@ -372,6 +372,23 @@ final class VirtualMachine: ObservableObject, Identifiable {
     }
 
     /// Restart through PowerEmu Tools (there is no key for it otherwise).
+    /*
+     * Harmony: ask the guest to stop drawing what is not a window.
+     *
+     * PowerEmu can hide the desktop from this side -- it watches what the
+     * guest copies to its screen and makes everything that is not a window
+     * transparent -- but telling which is which from the copies alone is
+     * guesswork, and the Dock arrives looking exactly like a window.  The
+     * guest knows perfectly well what its own Dock and desktop are, so it
+     * is asked to put them away, and to put them back afterwards.
+     *
+     * Without PowerEmu Tools installed there is nobody to ask, and Harmony
+     * falls back to the mask alone, which is what it did before.
+     */
+    func harmony(_ on: Bool) {
+        agent?.send("HARMONY", on ? "1" : "0")
+    }
+
     func requestRestart() {
         guard state == .running, let agent, agent.connected else { return }
         agent.send("RESTART")
