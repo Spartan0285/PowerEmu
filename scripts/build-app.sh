@@ -37,7 +37,7 @@ ditto "$ROOT/build/PowerEmu VM.app" "$OUT/Contents/Helpers/PowerEmu VM.app"
 # and it does nothing but carry ethernet frames for a bridged virtual Mac.
 cc -O2 -Wall -o "$OUT/Contents/Helpers/poweremu-netd" "$ROOT/helper/poweremu-netd.c" \
    -framework vmnet -framework Foundation
-cp "$ROOT/LICENSE" "$ROOT/COPYING" "$ROOT/THIRD-PARTY-NOTICES.md" "$OUT/Contents/Resources/"
+cp "$ROOT/LICENSE" "$ROOT/COPYING" "$ROOT/THIRD-PARTY-NOTICES.md" "$ROOT/TERMS.md" "$OUT/Contents/Resources/"
 cp "$ROOT/app/Resources/cytruslogo.png" "$ROOT/app/Resources/cytruslogo-dark.png" "$OUT/Contents/Resources/"
 # Machine icons macOS no longer has (the Cube); the rest come from the system.
 cp "$ROOT"/app/Resources/Models/*.png "$OUT/Contents/Resources/" 2>/dev/null || true

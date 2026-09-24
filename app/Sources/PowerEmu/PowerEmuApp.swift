@@ -95,6 +95,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     weak var library: VMLibrary?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Before anything else, and before any machine starts: using
+        // something is not the same as having been told what it does.
+        MainActor.assumeIsolated { TermsWindowController.presentIfNeeded() }
         MainActor.assumeIsolated { ServicesHub.shared.start() }
         /*
          * Look for a newer PowerEmu, quietly: at most once a day, never for
@@ -216,6 +219,12 @@ struct AppSettingsView: View {
                 }
             Text("Checked at most once a day, and never installed without asking. Use PowerEmu \u{2192} Check for Updates to look now.")
                 .font(.caption).foregroundStyle(.secondary)
+            Divider()
+            HStack {
+                Text("Terms and Conditions")
+                Spacer()
+                Button("Read\u{2026}") { TermsWindowController.present() }
+            }
         }
         .formStyle(.grouped)
         .frame(width: 440)
