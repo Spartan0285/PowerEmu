@@ -37,6 +37,9 @@ enum InstallPlan {
         var additionalLanguages = false
         var printerDrivers = false
         var additionalFonts = false
+        /// Install X11.  Mac OS X's installer never selects it, so unlike
+        /// the others this one has to be turned on rather than left alone.
+        var x11 = false
         /// Apply Apple's 10.4.11 combo update before Setup Assistant.
         var update10411 = false
         /// How About This Mac and System Profiler describe the Mac.
@@ -136,7 +139,9 @@ enum InstallPlan {
         /// What these options install, in order.
         func packages(_ o: Options) -> [(name: String, kb: Int)] {
             let off = InstallPlan.choicesOff(o)
-            return InstallPlan.packagesInOrder(dist: InstallPlan.turnOff(off, in: dist), off: off, sizes: sizes)
+            let on = InstallPlan.choicesOn(o)
+            let d = InstallPlan.turnOn(on, in: InstallPlan.turnOff(off, in: dist))
+            return InstallPlan.packagesInOrder(dist: d, off: off, on: on, sizes: sizes)
         }
     }
 
@@ -151,13 +156,75 @@ enum InstallPlan {
         }
         let version = plist["ProductUserVisibleVersion"] as? String ?? "?"
         let build = plist["ProductBuildVersion"] as? String ?? "?"
-        let rc = (try? String(contentsOf: root.appendingPathComponent("etc/rc.cdrom"), encoding: .utf8)) ?? ""
-        let pkg = root.appendingPathComponent("System/Installation/Packages/OSInstall.mpkg/Contents/OSInstall.dist")
-        let dist = (try? String(contentsOf: pkg, encoding: .utf8)) ?? ""
+        /*
+         * What makes a disc drivable: it must run /etc/rc.cdrom.local, which
+         * is where PowerEmu's own script goes, and read /etc/minstallconfig.xml,
+         * which is where the answers go.  Tiger keeps both in etc/rc.cdrom;
+         * Leopard moved most of that file into etc/rc.install and kept the
+         * hooks, so both are read.
+         */
+        let rc = ["etc/rc.cdrom", "etc/rc.install"]
+            .map { (try? String(contentsOf: root.appendingPathComponent($0), encoding: .utf8)) ?? "" }
+            .joined(separator: "\n")
+        let dist = (try? choices(at: root)) ?? ""
         if version.hasPrefix("10.4") { DiscIcons.save(fromDiscAt: root) }
         let automatable = rc.contains("minstallconfig") && rc.contains("rc.cdrom.local") && !dist.isEmpty
         return DiscInfo(version: version, build: build, automatable: automatable, dist: dist,
                         sizes: packageSizes(root.appendingPathComponent("System/Installation/Packages")))
+    }
+
+    /// The installer's choices document.
+    ///
+    /// Tiger's OSInstall.mpkg is a folder with the document inside it.
+    /// Leopard's is a single flat archive (xar), with the document under the
+    /// name "Distribution" -- so it has to be taken out to be read, and put
+    /// back to be changed.
+    static func mpkgURL(_ root: URL) -> URL {
+        root.appendingPathComponent("System/Installation/Packages/OSInstall.mpkg")
+    }
+
+    static func isFlatPackage(_ url: URL) -> Bool {
+        var dir: ObjCBool = false
+        return FileManager.default.fileExists(atPath: url.path, isDirectory: &dir) && !dir.boolValue
+    }
+
+    static func choices(at root: URL) throws -> String {
+        let mpkg = mpkgURL(root)
+        if !isFlatPackage(mpkg) {
+            return try String(contentsOf: mpkg.appendingPathComponent("Contents/OSInstall.dist"), encoding: .utf8)
+        }
+        let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("poweremu-dist-\(UUID().uuidString.prefix(8))")
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        _ = try run("/usr/bin/xar", ["-x", "-f", mpkg.path, "-C", tmp.path, "Distribution"])
+        return try String(contentsOf: tmp.appendingPathComponent("Distribution"), encoding: .utf8)
+    }
+
+    /// Put a changed choices document back where it came from.
+    static func writeChoices(_ dist: String, at root: URL) throws {
+        let mpkg = mpkgURL(root)
+        if !isFlatPackage(mpkg) {
+            try dist.write(to: mpkg.appendingPathComponent("Contents/OSInstall.dist"),
+                           atomically: false, encoding: .utf8)
+            return
+        }
+        // A flat archive has to be unpacked, changed and packed again: it is
+        // under a megabyte, so this costs nothing worth saving.
+        let fm = FileManager.default
+        let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("poweremu-mpkg-\(UUID().uuidString.prefix(8))")
+        try fm.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: tmp) }
+        _ = try run("/usr/bin/xar", ["-x", "-f", mpkg.path, "-C", tmp.path])
+        try dist.write(to: tmp.appendingPathComponent("Distribution"), atomically: false, encoding: .utf8)
+        let rebuilt = tmp.appendingPathComponent("rebuilt.mpkg")
+        // --distribution keeps it a distribution package rather than a plain
+        // archive, which is what the Installer will open.
+        _ = try run("/usr/bin/xar", ["-c", "-f", rebuilt.path, "--distribution", "-C", tmp.path,
+                                     "Distribution", "Resources"])
+        try? fm.removeItem(at: mpkg)
+        try fm.moveItem(at: rebuilt, to: mpkg)
     }
 
     // MARK: Preparing the disc
@@ -180,13 +247,13 @@ enum InstallPlan {
         let mount = try Mount(image: dest, readWrite: true)
         defer { mount.detach() }
         let root = mount.point
-        let distURL = root.appendingPathComponent("System/Installation/Packages/OSInstall.mpkg/Contents/OSInstall.dist")
-        guard var dist = try? String(contentsOf: distURL, encoding: .utf8) else {
+        guard var dist = try? choices(at: root) else {
             throw InstallError.notInstallDisc
         }
         let off = choicesOff(options)
         dist = turnOff(off, in: dist)
-        try dist.write(to: distURL, atomically: false, encoding: .utf8)
+        dist = turnOn(choicesOn(options), in: dist)
+        try writeChoices(dist, at: root)
 
         let etc = root.appendingPathComponent("etc")
         try minstallConfig(language: options.language).write(to: etc.appendingPathComponent("minstallconfig.xml"),
@@ -229,12 +296,45 @@ enum InstallPlan {
             for l in languages { if let c = l.choice, c != lang?.choice { off.insert(c) } }
         }
         if !o.additionalFonts { off.insert("AdditionalFonts") }
+        // Leopard selects X11 by default; Tiger does not.  Saying so either
+        // way costs nothing and means the switch means the same thing on both.
+        if !o.x11 { off.insert("X11") }
         if !o.printerDrivers {
             for p in ["Brother", "Canon", "EFI", "Epson", "HP", "Lexmark", "Gimp", "Ricoh", "Xerox"] {
                 off.insert(p + "_Printer_Drivers")
             }
         }
         return off
+    }
+
+    /// Choices to switch on that Mac OS X would leave off.
+    static func choicesOn(_ o: Options) -> Set<String> {
+        o.x11 ? ["X11"] : []
+    }
+
+    /// Set start_selected and selected to "true" on these choices: the
+    /// mirror of turnOff, for the things the Installer ships switched off.
+    static func turnOn(_ on: Set<String>, in dist: String) -> String {
+        guard !on.isEmpty else { return dist }
+        let re = try! NSRegularExpression(pattern: #"<choice\s[^>]*>"#, options: [.dotMatchesLineSeparators])
+        let ns = dist as NSString
+        var out = ""
+        var last = 0
+        for m in re.matches(in: dist, range: NSRange(location: 0, length: ns.length)) {
+            out += ns.substring(with: NSRange(location: last, length: m.range.location - last))
+            var el = ns.substring(with: m.range)
+            if let id = firstMatch(#"id="([^"]+)""#, in: el), on.contains(id) {
+                el = replace(#"start_selected\s*=\s*"[^"]*""#, in: el, with: #"start_selected="true""#)
+                el = replace(#"(?<!start_)selected\s*=\s*"[^"]*""#, in: el, with: #"selected="true""#)
+                if !el.contains("start_selected") {
+                    el = el.replacingOccurrences(of: "<choice", with: #"<choice start_selected="true""#)
+                }
+            }
+            out += el
+            last = m.range.location + m.range.length
+        }
+        out += ns.substring(from: last)
+        return out
     }
 
     /// Set start_selected and selected to "false" on these choices.
@@ -266,24 +366,44 @@ enum InstallPlan {
     static func packageSizes(_ dir: URL) -> [String: Int] {
         var sizes: [String: Int] = [:]
         for name in (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? [] where name.hasSuffix(".pkg") {
-            let info = dir.appendingPathComponent("\(name)/Contents/Info.plist")
-            if let kb = NSDictionary(contentsOf: info)?["IFPkgFlagInstalledSize"] as? Int {
-                sizes[String(name.dropLast(4))] = kb
+            let pkg = dir.appendingPathComponent(name)
+            let key = String(name.dropLast(4))
+            if !isFlatPackage(pkg) {
+                if let kb = NSDictionary(contentsOf: pkg.appendingPathComponent("Contents/Info.plist"))?["IFPkgFlagInstalledSize"] as? Int {
+                    sizes[key] = kb
+                }
+                continue
             }
+            // Flat (Leopard): the size is an attribute in PackageInfo.
+            if let kb = flatPackageKB(pkg) { sizes[key] = kb }
         }
         return sizes
     }
 
-    static func packagesInOrder(dist: String, off: Set<String>, sizes: [String: Int]) -> [(name: String, kb: Int)] {
+    /// installKBytes from a flat package's PackageInfo.
+    private static func flatPackageKB(_ pkg: URL) -> Int? {
+        let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("poweremu-pkginfo-\(UUID().uuidString.prefix(8))")
+        try? FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        guard (try? run("/usr/bin/xar", ["-x", "-f", pkg.path, "-C", tmp.path, "PackageInfo"])) != nil,
+              let text = try? String(contentsOf: tmp.appendingPathComponent("PackageInfo"), encoding: .utf8),
+              let kb = firstMatch(#"installKBytes="(\d+)""#, in: text) else { return nil }
+        return Int(kb)
+    }
+
+    static func packagesInOrder(dist: String, off: Set<String>, on: Set<String> = [],
+                                sizes: [String: Int]) -> [(name: String, kb: Int)] {
         // pkg-ref id -> file name
         var files: [String: String] = [:]
-        let refRE = try! NSRegularExpression(pattern: #"<pkg-ref\s+id="([^"]+)"[^>]*>\s*file:\.\./([^<]+?)\.pkg\s*</pkg-ref>"#)
+        // Tiger writes file:../Foo.pkg, Leopard file:./Foo.pkg.
+        let refRE = try! NSRegularExpression(pattern: #"<pkg-ref\s+id="([^"]+)"[^>]*>\s*file:\.{1,2}/([^<]+?)\.pkg\s*</pkg-ref>"#)
         let ns = dist as NSString
         for m in refRE.matches(in: dist, range: NSRange(location: 0, length: ns.length)) {
             files[ns.substring(with: m.range(at: 1))] = ns.substring(with: m.range(at: 2))
         }
-        // choices never selected by default whatever we do
-        let neverOn: Set<String> = ["X11"]
+        // Choices the Installer leaves off unless they were asked for.
+        let neverOn = Set(["X11"]).subtracting(on)
         let choiceRE = try! NSRegularExpression(pattern: #"<choice\s([^>]*)>(.*?)</choice>"#, options: [.dotMatchesLineSeparators])
         var seen: Set<String> = []
         var order: [(String, Int)] = []
@@ -717,21 +837,32 @@ final class Mount {
 
     /// Mount, trying once more after a moment: an image that was just
     /// detached (by another copy of PowerEmu, say) can briefly refuse.
+    ///
+    /// Then, if it is still refused, once more as a plain disk.  A hybrid
+    /// install DVD -- an Apple partition map with an HFS+ volume on it and
+    /// an ISO 9660 filesystem beside it, which is what a retail Mac OS X
+    /// DVD is -- is turned away as "not recognized" unless it is opened
+    /// that way.  Leopard's disc is one of these.
     convenience init(image: URL, readWrite: Bool) throws {
         do { try self.init(once: image, readWrite: readWrite) } catch {
             Thread.sleep(forTimeInterval: 1.5)
-            try self.init(once: image, readWrite: readWrite)
+            do { try self.init(once: image, readWrite: readWrite) } catch {
+                try self.init(once: image, readWrite: readWrite, raw: true)
+            }
         }
     }
 
-    private init(once image: URL, readWrite: Bool) throws {
+    private init(once image: URL, readWrite: Bool, raw: Bool = false) throws {
         let requested = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("poweremu-disc-\(UUID().uuidString.prefix(8))")
         point = requested
         try FileManager.default.createDirectory(at: requested, withIntermediateDirectories: true)
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/hdiutil")
-        p.arguments = ["attach", readWrite ? "-readwrite" : "-readonly", "-nobrowse", "-noverify", "-noautofsck",
-                       "-plist", "-mountpoint", requested.path, image.path]
+        var args = ["attach", readWrite ? "-readwrite" : "-readonly", "-nobrowse", "-noverify", "-noautofsck",
+                    "-plist", "-mountpoint", requested.path]
+        if raw { args += ["-imagekey", "diskimage-class=CRawDiskImage"] }
+        args.append(image.path)
+        p.arguments = args
         let out = Pipe(), err = Pipe()
         p.standardOutput = out
         p.standardError = err

@@ -67,6 +67,7 @@ struct NewMachineSheet: View {
     @State private var additionalLanguages = false
     @State private var printerDrivers = false
     @State private var additionalFonts = false
+    @State private var installX11 = false
     @State private var update10411 = true
     @State private var model = MacModel.standard.id
     /// CPUConfig.id; nil = the model's usual one.
@@ -85,7 +86,14 @@ struct NewMachineSheet: View {
     private var languageName: String {
         InstallPlan.languages.first { $0.value == chosenLanguage }?.name ?? chosenLanguage
     }
-    private var automatic: Bool { info?.automatable == true }
+    /// Whether PowerEmu can do the installing itself.  Only Tiger: the
+    /// package choices are read from Tiger's own OSInstall.dist, and a
+    /// Leopard disc would be driven with answers written for another
+    /// system.  A Leopard disc installs the ordinary way, by starting its
+    /// own installer.
+    private var automatic: Bool {
+        info?.automatable == true && info?.version.hasPrefix("10.4") == true
+    }
     /// The update only applies to Tiger discs older than 10.4.11.
     private var updateApplies: Bool {
         guard let v = info?.version else { return false }
@@ -93,12 +101,14 @@ struct NewMachineSheet: View {
     }
     private var version: String { info.map { $0.version == "10.4" ? "10.4.0" : $0.version } ?? "10.4" }
 
-    private func options(languages: Bool? = nil, printers: Bool? = nil, fonts: Bool? = nil) -> InstallPlan.Options? {
+    private func options(languages: Bool? = nil, printers: Bool? = nil, fonts: Bool? = nil,
+                         x11: Bool? = nil) -> InstallPlan.Options? {
         guard let disc else { return nil }
         return InstallPlan.Options(disc: disc, diskGB: diskGB, language: chosenLanguage,
                                    additionalLanguages: languages ?? additionalLanguages,
                                    printerDrivers: printers ?? printerDrivers,
                                    additionalFonts: fonts ?? additionalFonts,
+                                   x11: x11 ?? installX11,
                                    update10411: update10411 && updateApplies)
     }
 
@@ -108,9 +118,11 @@ struct NewMachineSheet: View {
     }
 
     /// What turning an option on adds, e.g. "+1.3 GB".
-    private func extra(languages: Bool? = nil, printers: Bool? = nil, fonts: Bool? = nil) -> String {
-        let base = installedKB(options(languages: false, printers: false, fonts: false))
-        let with = installedKB(options(languages: languages ?? false, printers: printers ?? false, fonts: fonts ?? false))
+    private func extra(languages: Bool? = nil, printers: Bool? = nil, fonts: Bool? = nil,
+                       x11: Bool? = nil) -> String {
+        let base = installedKB(options(languages: false, printers: false, fonts: false, x11: false))
+        let with = installedKB(options(languages: languages ?? false, printers: printers ?? false,
+                                       fonts: fonts ?? false, x11: x11 ?? false))
         let d = max(with - base, 0)
         return d >= 1_048_576 ? String(format: "+%.1f GB", Double(d) / 1_048_576) : "+\(d / 1024) MB"
     }
@@ -325,7 +337,7 @@ struct NewMachineSheet: View {
     private var explanation: String {
         switch page {
         case .disc:
-            return "PowerEmu installs Mac OS X for you from your own install disc. Choose the disc image of a Mac OS X 10.4 Tiger install DVD for PowerPC Macs, or drag it here."
+            return "PowerEmu installs Mac OS X for you from your own install disc. Choose the disc image of a Mac OS X 10.4 Tiger or 10.5 Leopard install DVD for PowerPC Macs, or drag it here. Tiger PowerEmu installs by itself; with a Leopard disc the virtual Mac starts the installer and you answer it."
         case .machine:
             return "Name your virtual Mac, choose the Mac it looks like, and give it a hard disk. Mac OS X sees the size you pick here, while the disk takes up space on your Mac only as it fills \u{2014} so pick a roomy one. It can be made larger later, but not smaller."
         case .about:
@@ -611,6 +623,9 @@ struct NewMachineSheet: View {
             optionToggle("Additional languages", extra(languages: true), $additionalLanguages)
             optionToggle("Printer drivers", extra(printers: true), $printerDrivers)
             optionToggle("Additional fonts", extra(fonts: true), $additionalFonts)
+            optionToggle("X11", extra(x11: true), $installX11)
+            Text("X11 runs Unix programs with windows of their own. Mac OS X leaves it out unless it is asked for.")
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -718,12 +733,14 @@ struct NewMachineSheet: View {
             await MainActor.run {
                 inspecting = false
                 switch result {
-                case .success(let i) where !i.version.hasPrefix("10.4"):
-                    discProblem = "This is a Mac OS X \(i.version) disc. PowerEmu installs Mac OS X 10.4 Tiger; other versions aren’t supported yet."
+                case .success(let i) where !i.version.hasPrefix("10.4") && !i.version.hasPrefix("10.5"):
+                    discProblem = "This is a Mac OS X \(i.version) disc. PowerEmu installs Mac OS X 10.4 Tiger and 10.5 Leopard; other versions aren’t supported yet."
                 case .success(let i):
                     info = i
                     let major = i.version.split(separator: ".").prefix(2).joined(separator: ".")
-                    if name == "Tiger" || name.isEmpty { name = major == "10.4" ? "Tiger" : "Mac OS X \(major)" }
+                    if name == "Tiger" || name.isEmpty {
+                        name = major == "10.4" ? "Tiger" : (major == "10.5" ? "Leopard" : "Mac OS X \(major)")
+                    }
                     // Developer testing: POWEREMU_TEST_SETUP_PAGE=n opens at page n.
                     if let n = ProcessInfo.processInfo.environment["POWEREMU_TEST_SETUP_PAGE"].flatMap(Int.init),
                        n < pages.count { page = pages[n] }
@@ -733,6 +750,14 @@ struct NewMachineSheet: View {
                 }
             }
         }
+    }
+
+    /// What About This Mac should say, from the disc itself.
+    static func osName(for version: String?) -> String {
+        guard let version else { return "Mac OS X" }
+        if version.hasPrefix("10.4") { return "Mac OS X 10.4 Tiger" }
+        if version.hasPrefix("10.5") { return "Mac OS X 10.5 Leopard" }
+        return "Mac OS X " + version
     }
 
     private func create() {
@@ -745,7 +770,8 @@ struct NewMachineSheet: View {
                                                 discVersion: info.version)
             } else {
                 // A disc PowerEmu can't drive: start its own installer, as before.
-                vm = try library.newMachine(name: name, osName: "Mac OS X 10.4 Tiger", memoryMB: memory,
+                vm = try library.newMachine(name: name, osName: Self.osName(for: info?.version),
+                                            memoryMB: memory,
                                             vramMB: vram, diskGB: diskGB, installDisc: disc)
             }
             vm.config.model = model
