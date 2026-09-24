@@ -33,7 +33,23 @@ struct HostDrive: Identifiable, Hashable {
             let got = QMP.receiveFD(socket: sv[0])
             p.waitUntilExit()
             close(sv[0]); close(sv[1])
-            done(got, got >= 0 ? nil : "Access to \(d.name) was not granted.")
+            if got >= 0 { done(got, nil); return }
+            /*
+             * authopen came back with nothing, and there are two quite
+             * different reasons for that: the reader said no, or the disc
+             * could not be read however much authority was brought to bear.
+             * Saying "access was not granted" for both sends somebody
+             * hunting through Privacy settings for a disc that is simply
+             * blank, which is what happened.
+             */
+            let second = Darwin.open(path, O_RDONLY)
+            if second >= 0 { done(second, nil); return }
+            if errno == EACCES || errno == EPERM {
+                done(-1, "Access to \(d.name) was not granted.")
+            } else {
+                done(-1, "\(d.name) could not be read: "
+                       + String(cString: strerror(errno)) + ".")
+            }
         }
     }
 }
@@ -80,8 +96,21 @@ final class HostDriveMonitor: ObservableObject {
         let volume = desc[kDADiskDescriptionVolumeNameKey as String] as? String
             ?? desc[kDADiskDescriptionMediaNameKey as String] as? String
 
+        /*
+         * A blank disc has nothing to lend.  DiskArbitration says so by
+         * leaving the content empty -- the same disc that `diskutil info`
+         * reports as "Content (IOContent): None" and "File System: None".
+         * Offering one anyway ends with the raw device refusing to open at
+         * all (ENXIO, "Device not configured"), which PowerEmu used to
+         * report as a refused authorisation: the reader is sent to look for
+         * a permission problem that was never there.
+         */
+        let content = desc[kDADiskDescriptionMediaContentKey as String] as? String ?? ""
+        let blank = content.isEmpty
+
         let kind: HostDrive.Kind
         if ["IOCDMedia", "IODVDMedia", "IOBDMedia"].contains(mediaKind) {
+            if blank { return }
             kind = .optical
         } else if removable && size > 0 && size <= 2_949_120 {
             kind = .floppy              // up to 2.88 MB: 400K/800K/1.44M disks
