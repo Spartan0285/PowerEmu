@@ -66,7 +66,7 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
             menuButton("power", "Power", "Shut down, restart or force off", power),
             OverlayBar.space(),
             labelledButton("macwindow.on.rectangle", "Coherence",
-                           "Show the virtual Mac's windows on this Mac's desktop, without its wallpaper (Control-Option-C)",
+                           "In testing: show the virtual Mac's windows on this Mac's desktop, without its wallpaper (Control-Option-C)",
                            #selector(toggleCoherence)),
             labelledButton("speedometer", "Stats", "Show what the virtual Mac and this Mac are doing (Control-Option-P)", #selector(togglePerf)),
             labelledButton("arrow.up.left.and.arrow.down.right", "Full Screen", "Fill the screen (Control-Option-F)", #selector(fullScreen)),
@@ -399,8 +399,45 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
 
     // MARK: the rest
 
+    /*
+     * Coherence is in testing, and the first time it is switched on says so
+     * -- once, and never again on this Mac.  It is worth a warning rather
+     * than a footnote: every frame costs more work, and what is drawn is
+     * worked out by watching the guest rather than being told, so it can be
+     * wrong in ways an ordinary setting cannot.
+     */
     @objc private func toggleCoherence() {
-        display?.coherence.toggle()
+        guard let display else { return }
+        if !display.coherence && !UserDefaults.standard.bool(forKey: "PECoherenceWarned") {
+            let a = NSAlert()
+            a.messageText = "Coherence is still being tested"
+            a.informativeText = """
+                The virtual Mac's windows are shown on this Mac's desktop and \
+                its wallpaper is left out. Two things to expect.
+
+                It is slower. Every frame is worked over again to decide which \
+                parts are windows, and on a large screen that is real work \
+                \u{2014} more so while something is moving.
+
+                It can be wrong. Which parts are windows is worked out by \
+                watching what the virtual Mac draws, not by being told, so a \
+                window may take a moment to appear and a patch of its desktop \
+                may linger. Turning coherence off puts everything back.
+
+                Clicks anywhere in the window still go to the virtual Mac, \
+                including where you can see through it.
+                """
+            a.addButton(withTitle: "Turn On Coherence")
+            a.addButton(withTitle: "Cancel")
+            a.showsSuppressionButton = true
+            a.suppressionButton?.title = "Don\u{2019}t show this again"
+            let r = a.runModal()
+            if a.suppressionButton?.state == .on {
+                UserDefaults.standard.set(true, forKey: "PECoherenceWarned")
+            }
+            guard r == .alertFirstButtonReturn else { refocus(); return }
+        }
+        display.coherence.toggle()
         refocus()
     }
 

@@ -281,6 +281,9 @@ final class VMStatusView: NSView {
 final class VMDisplayView: NSView {
     let channel: DisplayChannel
     var onToggleFullScreen: (() -> Void)?
+    /// So the window can say, in its title, that a feature still being
+    /// tested is switched on.
+    var onCoherenceChanged: ((Bool) -> Void)?
     /// The control bar floating over the top of the screen.
     weak var controls: VMToolbarController?
     private let screen = CALayer()
@@ -330,6 +333,7 @@ final class VMDisplayView: NSView {
             window?.backgroundColor = coherence ? .clear : .black
             window?.hasShadow = !coherence          // one shadow per guest window, not one around them all
             channel.setCoherence(coherence)
+            onCoherenceChanged?(coherence)
         }
     }
 
@@ -953,6 +957,10 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
         super.init(window: w)
         w.delegate = self
         display.onToggleFullScreen = { [weak w] in w?.toggleFullScreen(nil) }
+        display.onCoherenceChanged = { [weak w, weak vm] on in
+            guard let w, let vm else { return }
+            w.title = on ? "\(vm.config.name) \u{2014} Coherence (in testing)" : vm.config.name
+        }
         display.mouseMode = VMDisplayView.MouseMode(rawValue: vm.config.mouseMode) ?? .seamless
         toolbar = VMToolbarController(self)
         display.controls = toolbar
