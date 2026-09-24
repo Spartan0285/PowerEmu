@@ -5,10 +5,12 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$ROOT/build/PowerEmu.app"
-VERSION=0.1
+# A release sets these (see scripts/release.sh); a development build keeps
+# the defaults so it always looks older than anything published.
+VERSION="${POWEREMU_VERSION:-0.1}"
 # The build number is what an updater compares and what a feedback report
 # carries, so it is a whole number and it goes up on every release.
-BUILD_NUMBER=1
+BUILD_NUMBER="${POWEREMU_BUILD:-1}"
 # The stage, in one place: it shows in the About badge and travels with every
 # feedback report. Empty it when this is no longer an alpha and it disappears
 # from both. Never put it in VERSION -- that string ends up in file names and

@@ -5,9 +5,16 @@ web for that to work, and what PowerEmu does with it.
 
 ## The feed
 
-A JSON file, fetched at most once a day. By default:
+A JSON file, fetched at most once a day, served from this repository:
 
-    https://www.cytrusretro.com/api/poweremu/appcast.json
+    https://raw.githubusercontent.com/Spartan0285/PowerEmu/main/appcast.json
+
+It sits next to the source and points at a release asset on the same
+repository, so there is one place to keep up to date and it is the same
+place anyone can get the source from -- which is what the GPL asks of us
+anyway. That does mean the repository has to be public: a private one
+serves neither the feed nor the download without a token, and a token in
+a shipped app is not a secret.
 
 That address can be changed without a rebuild, the same way the feedback
 endpoint can:
@@ -60,6 +67,17 @@ place fails, the old one is moved straight back.
 
 Virtual Macs must be shut down or asleep first; PowerEmu says so rather than
 replacing itself underneath a running machine.
+
+## Cutting a release
+
+    scripts/release.sh 0.2 2 "What changed, in plain words."
+
+It builds at that version, packs the app with `ditto`, checks the
+signature survived the packing (a release that fails this would be
+refused by every copy out there), attaches the zip to a GitHub release,
+writes `appcast.json` and pushes it. It refuses a build number that is not
+higher than the one already published, because that is what the updater
+compares.
 
 ## Trying it without a release
 

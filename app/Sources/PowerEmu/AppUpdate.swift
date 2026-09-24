@@ -68,12 +68,20 @@ enum UpdateError: LocalizedError {
 }
 
 enum Updater {
+    /// The repository PowerEmu is published from serves its own update
+    /// feed: the file sits next to the source, and the download it points
+    /// at is a release asset on the same repository.  Nothing else has to
+    /// be kept up, and it is the same place anyone can get the source
+    /// from, which is what the GPL asks of us anyway.
+    static let defaultFeed =
+        "https://raw.githubusercontent.com/Spartan0285/PowerEmu/main/appcast.json"
+
     /// Overridable without a rebuild, the same way the feedback endpoint is.
     static var feedURL: URL {
         let s = UserDefaults.standard.string(forKey: "PEUpdateFeed")
             ?? ProcessInfo.processInfo.environment["POWEREMU_UPDATE_FEED"]
-            ?? "https://www.cytrusretro.com/api/poweremu/appcast.json"
-        return URL(string: s) ?? URL(string: "https://www.cytrusretro.com/api/poweremu/appcast.json")!
+            ?? defaultFeed
+        return URL(string: s) ?? URL(string: defaultFeed)!
     }
 
     static var runningVersion: String {
