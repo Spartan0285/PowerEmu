@@ -91,7 +91,11 @@ final class VMLibrary: ObservableObject {
         try vm.save()
     }
 
-    /// A new empty hard disk (qcow2: grows as it fills) in the machine's package.
+    /// A new empty hard disk (qcow2: grows as it fills) in the machine's package,
+    /// already carrying an Apple partition map and an empty Mac OS Extended
+    /// (Journaled) volume.  An unpartitioned disk is not just untidy: Mac OS X
+    /// installs onto it happily and then cannot bless it, so the install fails
+    /// on its last step.  Formatting costs about a second.
     func createBlankDisk(named name: String, gigabytes: Int, in vm: VirtualMachine) throws {
         guard let helper = VMRunner.helperURL else { throw PackageError.missing("The emulator (PowerEmu VM.app)") }
         let tool = helper.appendingPathComponent("Contents/MacOS/qemu-img")
@@ -112,6 +116,20 @@ final class VMLibrary: ObservableObject {
             throw NSError(domain: "PowerEmu", code: Int(p.terminationStatus),
                           userInfo: [NSLocalizedDescriptionKey: "Could not create the disk. \(msg)"])
         }
+        /*
+         * Lay the disk out the way Disk Utility would.  If this Mac will not
+         * do it -- hdiutil or diskutil refusing for some reason of its own --
+         * the plain disk is still usable: the guest can erase it itself, which
+         * is what had to happen before.
+         */
+        let img = vm.disksURL.appendingPathComponent(file)
+        do {
+            try InstallPlan.formatDisk(img, gigabytes: gigabytes, named: name, qemuImg: tool)
+        } catch {
+            NSLog("PowerEmu: %@ could not be formatted, leaving it blank: %@",
+                  file, error.localizedDescription)
+        }
+
         vm.config.disks.append(DiskConfig(file: file, label: name))
         if vm.config.startupDisk == nil { vm.config.startupDisk = vm.config.disks.last?.id }
         try vm.save()

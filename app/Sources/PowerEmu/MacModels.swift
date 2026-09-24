@@ -121,28 +121,56 @@ struct MacModel: Identifiable, Hashable {
     }
 }
 
-/// The Tiger pictures PowerEmu keeps from the reader's own install disc.
+/// The pictures PowerEmu keeps from the reader's own install disc, one set
+/// per system: Tiger's installer and Leopard's do not look alike, and the
+/// wizard should show whichever disc is in front of the reader.
 enum DiscIcons {
     static var folder: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("PowerEmu/Icons", isDirectory: true)
     }
-    static var installDisc: URL { folder.appendingPathComponent("tiger-install-disc.icns") }
-    static var hardDisk: URL { folder.appendingPathComponent("tiger-hard-disk.icns") }
 
-    static var installDiscImage: NSImage? { NSImage(contentsOf: installDisc) }
-    static var hardDiskImage: NSImage? { NSImage(contentsOf: hardDisk) }
+    /// "10.4.11" -> "10.4": one set per system, not per point release.
+    static func family(_ version: String?) -> String {
+        let v = version ?? "10.4"
+        return v.split(separator: ".").prefix(2).joined(separator: ".")
+    }
 
-    /// Copy the install and hard disk icons off a mounted Tiger disc.
-    static func save(fromDiscAt root: URL) {
+    private static func name(_ family: String) -> String {
+        family == "10.5" ? "leopard" : "tiger"
+    }
+
+    static func installDisc(_ version: String?) -> URL {
+        folder.appendingPathComponent("\(name(family(version)))-install-disc.icns")
+    }
+    static func hardDisk(_ version: String?) -> URL {
+        folder.appendingPathComponent("\(name(family(version)))-hard-disk.icns")
+    }
+
+    static func installDiscImage(_ version: String?) -> NSImage? {
+        NSImage(contentsOf: installDisc(version))
+    }
+    static func hardDiskImage(_ version: String?) -> NSImage? {
+        NSImage(contentsOf: hardDisk(version)) ?? NSImage(contentsOf: hardDisk("10.4"))
+    }
+
+    /// Copy the install and hard disk icons off a mounted disc.
+    ///
+    /// Tiger keeps its installer in a folder called "Install Mac OS X";
+    /// Leopard's is an application bundle, "Install Mac OS X.app".  Both
+    /// are looked for, so either disc gives the wizard its own picture.
+    static func save(fromDiscAt root: URL, version: String?) {
         let fm = FileManager.default
         try? fm.createDirectory(at: folder, withIntermediateDirectories: true)
-        let installer = root.appendingPathComponent("Install Mac OS X/Contents/Resources/Install Mac OS X.icns")
+        let installer = [
+            "Install Mac OS X/Contents/Resources/Install Mac OS X.icns",
+            "Install Mac OS X.app/Contents/Resources/Install Mac OS X.icns",
+        ].map { root.appendingPathComponent($0) }.first { fm.fileExists(atPath: $0.path) }
         let disk = [
             "System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/Internal.icns",
             "System/Library/Extensions/IOStorageFamily.kext/Contents/Resources/Internal.icns",
         ].map { root.appendingPathComponent($0) }.first { fm.fileExists(atPath: $0.path) }
-        for (src, dst) in [(installer, installDisc), (disk, hardDisk)] {
+        for (src, dst) in [(installer, installDisc(version)), (disk, hardDisk(version))] {
             guard let src, fm.fileExists(atPath: src.path) else { continue }
             try? fm.removeItem(at: dst)
             try? fm.copyItem(at: src, to: dst)

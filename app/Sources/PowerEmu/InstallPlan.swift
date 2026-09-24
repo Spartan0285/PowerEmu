@@ -167,7 +167,7 @@ enum InstallPlan {
             .map { (try? String(contentsOf: root.appendingPathComponent($0), encoding: .utf8)) ?? "" }
             .joined(separator: "\n")
         let dist = (try? choices(at: root)) ?? ""
-        if version.hasPrefix("10.4") { DiscIcons.save(fromDiscAt: root) }
+        DiscIcons.save(fromDiscAt: root, version: version)
         let automatable = rc.contains("minstallconfig") && rc.contains("rc.cdrom.local") && !dist.isEmpty
         return DiscInfo(version: version, build: build, automatable: automatable, dist: dist,
                         sizes: packageSizes(root.appendingPathComponent("System/Installation/Packages")))
@@ -221,7 +221,13 @@ enum InstallPlan {
         let rebuilt = tmp.appendingPathComponent("rebuilt.mpkg")
         // --distribution keeps it a distribution package rather than a plain
         // archive, which is what the Installer will open.
+        // --prop-include: xar leaves ownership and creation times out of a
+        // new archive unless asked, and the original carries them for all
+        // of its files.  A package that arrives with everything owned by
+        // whoever repacked it is not what the Installer was given.
         _ = try run("/usr/bin/xar", ["-c", "-f", rebuilt.path, "--distribution", "-C", tmp.path,
+                                     "--prop-include", "uid", "--prop-include", "gid",
+                                     "--prop-include", "ctime",
                                      "Distribution", "Resources"])
         try? fm.removeItem(at: mpkg)
         try fm.moveItem(at: rebuilt, to: mpkg)
@@ -251,13 +257,32 @@ enum InstallPlan {
             throw InstallError.notInstallDisc
         }
         let off = choicesOff(options)
-        dist = turnOff(off, in: dist)
-        dist = turnOn(choicesOn(options), in: dist)
-        try writeChoices(dist, at: root)
+        let on = choicesOn(options)
+        /*
+         * How the options are applied depends on the installer's shape.
+         *
+         * Tiger's package is a folder, and its choices document is edited
+         * in place -- it has always worked and there is no reason to change
+         * it.  Leopard's is a single flat archive, and a package this Mac
+         * has unpacked and packed again is refused outright, so its options
+         * go in a choice-changes file instead and the package is left
+         * exactly as Apple shipped it.
+         */
+        let flat = isFlatPackage(mpkgURL(root))
+        if flat {
+            let cc = root.appendingPathComponent(choiceChangesPath)
+            try? fm.createDirectory(at: cc.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try choiceChanges(off: off, on: on).write(to: cc, atomically: false, encoding: .utf8)
+        } else {
+            dist = turnOff(off, in: dist)
+            dist = turnOn(on, in: dist)
+            try writeChoices(dist, at: root)
+        }
 
         let etc = root.appendingPathComponent("etc")
-        try minstallConfig(language: options.language).write(to: etc.appendingPathComponent("minstallconfig.xml"),
-                                                            atomically: false, encoding: .utf8)
+        try minstallConfig(language: options.language, choiceChanges: flat)
+            .write(to: etc.appendingPathComponent("minstallconfig.xml"),
+                   atomically: false, encoding: .utf8)
         let hook = etc.appendingPathComponent("rc.cdrom.local")
         try hookScript.write(to: hook, atomically: false, encoding: .utf8)
         try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: hook.path)
@@ -300,7 +325,12 @@ enum InstallPlan {
         // way costs nothing and means the switch means the same thing on both.
         if !o.x11 { off.insert("X11") }
         if !o.printerDrivers {
-            for p in ["Brother", "Canon", "EFI", "Epson", "HP", "Lexmark", "Gimp", "Ricoh", "Xerox"] {
+            // Both systems' vendors: Tiger has EFI and Gimp, Leopard has
+            // Guten, FujiXerox and Samsung instead.  A choice that a disc
+            // does not have is simply never found, so naming all of them
+            // costs nothing and keeps one list.
+            for p in ["Brother", "Canon", "EFI", "Epson", "HP", "Lexmark", "Gimp",
+                      "Ricoh", "Xerox", "Guten", "FujiXerox", "Samsung"] {
                 off.insert(p + "_Printer_Drivers")
             }
         }
@@ -456,18 +486,26 @@ enum InstallPlan {
     // MARK: Erasing "Macintosh HD" on the host
 
     /// Replace `disk` (a qcow2) with an erased one: an Apple partition map
-    /// and one Mac OS Extended (Journaled) volume named "Macintosh HD",
-    /// made by this Mac's own diskutil on a sparse raw image and converted.
-    /// A second or two, the same for every install disc, and it fails here
-    /// rather than inside a guest nobody can see.
-    static func formatDisk(_ disk: URL, gigabytes: Int, qemuImg: URL) throws {
+    /// and one Mac OS Extended (Journaled) volume, made by this Mac's own
+    /// diskutil on a sparse raw image and converted.  A second or two, the
+    /// same for every install disc, and it fails here rather than inside a
+    /// guest nobody can see.
+    ///
+    /// The partition map matters more than it looks: `diskutil` lays a disk
+    /// out the way Disk Utility does on the guest, and an installed Mac OS X
+    /// will only bless a disk laid out that way.  A disk that arrives with
+    /// no map at all -- or with one from `hdiutil create -layout SPUD` --
+    /// takes the whole install and then fails on the last step with "could
+    /// not make the computer start up from the volume".
+    static func formatDisk(_ disk: URL, gigabytes: Int, named volume: String = "Macintosh HD",
+                           qemuImg: URL) throws {
         let fm = FileManager.default
         let raw = disk.deletingPathExtension().appendingPathExtension("erase.img")
         try? fm.removeItem(at: raw)
         defer { try? fm.removeItem(at: raw) }
         guard fm.createFile(atPath: raw.path, contents: nil),
               let h = try? FileHandle(forWritingTo: raw) else {
-            throw InstallError.failed("“Macintosh HD” could not be created.")
+            throw InstallError.failed("“\(volume)” could not be created.")
         }
         try h.truncate(atOffset: UInt64(gigabytes) << 30)       // sparse
         try h.close()
@@ -476,13 +514,13 @@ enum InstallPlan {
                                                    "-imagekey", "diskimage-class=CRawDiskImage", raw.path])
         let plist = (try? PropertyListSerialization.propertyList(from: attach, format: nil)) as? [String: Any]
         guard let dev = (plist?["system-entities"] as? [[String: Any]])?.compactMap({ $0["dev-entry"] as? String }).first else {
-            throw InstallError.failed("“Macintosh HD” could not be attached for erasing.")
+            throw InstallError.failed("“\(volume)” could not be attached for erasing.")
         }
         do {
-            _ = try run("/usr/sbin/diskutil", ["partitionDisk", dev, "1", "APM", "JHFS+", "Macintosh HD", "100%"])
+            _ = try run("/usr/sbin/diskutil", ["partitionDisk", dev, "1", "APM", "JHFS+", volume, "100%"])
         } catch {
             _ = try? run("/usr/bin/hdiutil", ["detach", "-force", dev])
-            throw InstallError.failed("“Macintosh HD” could not be erased. \(error.localizedDescription)")
+            throw InstallError.failed("“\(volume)” could not be erased. \(error.localizedDescription)")
         }
         _ = try? run("/usr/bin/hdiutil", ["detach", dev])
         let tmp = disk.deletingPathExtension().appendingPathExtension("new.qcow2")
@@ -556,7 +594,42 @@ enum InstallPlan {
 
     // MARK: Files put on the disc
 
-    static func minstallConfig(language: String) -> String {
+    /// The options, as a list of changes rather than a rewritten package.
+    ///
+    /// Mac OS X 10.5's Installer reads a "choice changes" file -- the same
+    /// thing `installer -applyChoiceChangesXML` takes -- and applies it to
+    /// the package's own choices.  That is much safer than editing the
+    /// package: 10.5's Installer would not read one this Mac had unpacked
+    /// and packed again, and said only "there was a problem with the
+    /// automated installation", which is also what it says when the disk is
+    /// too small or the target is missing.
+    static func choiceChanges(off: Set<String>, on: Set<String>) -> String {
+        var body = ""
+        for (ids, setting) in [(off.sorted(), 0), (on.sorted(), 1)] {
+            for id in ids {
+                body += "\t<dict>\n"
+                body += "\t\t<key>choiceIdentifier</key>\n\t\t<string>\(id)</string>\n"
+                body += "\t\t<key>choiceAttribute</key>\n\t\t<string>selected</string>\n"
+                body += "\t\t<key>attributeSetting</key>\n\t\t<integer>\(setting)</integer>\n"
+                body += "\t</dict>\n"
+            }
+        }
+        return """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <array>
+        \(body)</array>
+        </plist>
+
+        """
+    }
+
+    /// Where the choice-changes file goes on the disc.  The Installer looks
+    /// for it by this name, and is told the path in the automation file.
+    static let choiceChangesPath = "private/var/db/MacOSXInstaller.choiceChanges"
+
+    static func minstallConfig(language: String, choiceChanges: Bool = false) -> String {
         """
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -570,7 +643,7 @@ enum InstallPlan {
         \t<string>/System/Installation/Packages/OSInstall.mpkg</string>
         \t<key>Target</key>
         \t<string>/Volumes/Macintosh HD</string>
-        </dict>
+        \(choiceChanges ? "\t<key>Choice Changes File Location</key>\n\t<string>/" + choiceChangesPath + "</string>\n" : "")</dict>
         </plist>
 
         """
@@ -627,7 +700,8 @@ enum InstallPlan {
     } > /var/tmp/pe-part.txt 2>&1
     out < /var/tmp/pe-part.txt
     if [ ! -d "/Volumes/Macintosh HD" ]; then r "PARTFAIL"; exit 0; fi
-    if [ "$CO" = "1" ]; then r "PARTOK COMBO"; else r "PARTOK"; fi
+    if [ "$CO" = "1" ]; then ST="PARTOK COMBO"; else ST="PARTOK"; fi
+    r "$ST"
     # Report how full the disk is. For the 10.4.11 update, put its item on
     # the disk once the Installer has laid down /Library (it replaces
     # /Library/StartupItems wholesale, so anything put there first is lost),
@@ -640,7 +714,8 @@ enum InstallPlan {
           mkdir -p "$I" && cp -R /System/Installation/PowerEmu/PEPersonalize "$I/"
         fi
         if [ "$CO" = "1" ] && [ -d "/Volumes/Macintosh HD/Library/Receipts/BaseSystem.pkg" ] && [ ! -x "$I/PEUpdate/PEUpdate" ]; then
-          mkdir -p "$I" && cp -R /System/Installation/PowerEmu/PEUpdate "$I/" && r "PARTOK COMBOITEM"
+          mkdir -p "$I" && cp -R /System/Installation/PowerEmu/PEUpdate "$I/" \
+            && { ST="PARTOK COMBOITEM"; r "$ST"; }
         fi
         # No login window during the update's startup: Setup Assistant
         # starting underneath the update leaves Apple's installer waiting on
@@ -649,6 +724,29 @@ enum InstallPlan {
         if [ "$CO" = "1" ] && [ -f "$TT" ] && perl -ne '$f=1 if /^console\s.*loginwindow.*\son\s/; END { exit($f ? 0 : 1) }' "$TT"; then
           [ -f "$TT.pe-orig" ] || cp -p "$TT" "$TT.pe-orig"
           perl -pi -e 's/^(console\s.*loginwindow.*\s)on(\s)/${1}off$2/' "$TT"
+        fi
+        # Bless the new system ourselves.
+        #
+        # The Installer's own last step is `bless --setBoot`, which asks Open
+        # Firmware for its variables; this machine cannot answer, so bless
+        # dies on the error and the Installer reports "could not make the
+        # computer start up from the volume" over a system that is complete
+        # and correct.  Blessing without --setBoot works, and the startup
+        # disk is PowerEmu's to choose anyway.  Doing it as soon as the files
+        # are down means the volume is bootable whatever the Installer then
+        # says.  If the Installer manages it first, BootX is already there
+        # and this does nothing.
+        V="/Volumes/Macintosh HD"
+        if [ -f "$V/var/log/OSInstall.custom" ] && [ ! -f "$V/System/Library/CoreServices/BootX" ] \
+           && [ -f "$V/usr/standalone/ppc/bootx.bootinfo" ]; then
+          bless --folder "$V/System/Library/CoreServices" \
+                --bootinfo "$V/usr/standalone/ppc/bootx.bootinfo" >/var/tmp/pe-bless.txt 2>&1
+          case "$ST" in *BLESS*) ;; *) ST="$ST BLESSED" ;; esac
+          if [ ! -f "$V/System/Library/CoreServices/BootX" ]; then
+            ST="${ST% BLESSED} BLESSFAIL"
+            out < /var/tmp/pe-bless.txt      # only worth the log space when it fails
+          fi
+          r "$ST"
         fi
         sleep 4
       done ) &

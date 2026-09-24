@@ -57,7 +57,9 @@ struct NewMachineSheet: View {
     @State private var link = ""
     @State private var source: Source = .have
     enum Source: String, CaseIterable {
-        case have = "Disc image", drive = "DVD in this Mac", link = "Download"
+        // Not "DVD": Tiger came on CDs too, and no Mac has had an optical
+        // drive for years -- the reader's disc is whatever they can attach.
+        case have = "Disc image", drive = "Physical Media", link = "Download"
     }
     @State private var info: InstallPlan.DiscInfo?
     @State private var inspecting = false
@@ -86,13 +88,17 @@ struct NewMachineSheet: View {
     private var languageName: String {
         InstallPlan.languages.first { $0.value == chosenLanguage }?.name ?? chosenLanguage
     }
-    /// Whether PowerEmu can do the installing itself.  Only Tiger: the
-    /// package choices are read from Tiger's own OSInstall.dist, and a
-    /// Leopard disc would be driven with answers written for another
-    /// system.  A Leopard disc installs the ordinary way, by starting its
-    /// own installer.
+    /// Whether PowerEmu can do the installing itself.
+    ///
+    /// Both systems, now.  10.5 drives its installer exactly as 10.4 does
+    /// -- /etc/rc.install still runs /etc/rc.cdrom.local and still reads
+    /// /etc/minstallconfig.xml -- and its choices carry the same names for
+    /// the things the wizard turns off.  What differs is the shape of the
+    /// package (a flat archive rather than a folder, handled in
+    /// InstallPlan) and its list of printer vendors.
     private var automatic: Bool {
-        info?.automatable == true && info?.version.hasPrefix("10.4") == true
+        guard info?.automatable == true, let v = info?.version else { return false }
+        return v.hasPrefix("10.4") || v.hasPrefix("10.5")
     }
     /// The update only applies to Tiger discs older than 10.4.11.
     private var updateApplies: Bool {
@@ -100,6 +106,14 @@ struct NewMachineSheet: View {
         return v.hasPrefix("10.4") && v != "10.4.11"
     }
     private var version: String { info.map { $0.version == "10.4" ? "10.4.0" : $0.version } ?? "10.4" }
+
+    /// The wizard wears the colour of the system being installed: Tiger's
+    /// blue, Leopard's purple.  Before a disc is chosen it is the Mac's own
+    /// accent colour, so the first screen looks like the rest of the app.
+    private var theme: Color {
+        guard let v = info?.version else { return .accentColor }
+        return v.hasPrefix("10.5") ? Color(red: 0.45, green: 0.31, blue: 0.64) : .accentColor
+    }
 
     private func options(languages: Bool? = nil, printers: Bool? = nil, fonts: Bool? = nil,
                          x11: Bool? = nil) -> InstallPlan.Options? {
@@ -125,6 +139,31 @@ struct NewMachineSheet: View {
                                        fonts: fonts ?? false, x11: x11 ?? false))
         let d = max(with - base, 0)
         return d >= 1_048_576 ? String(format: "+%.1f GB", Double(d) / 1_048_576) : "+\(d / 1024) MB"
+    }
+
+    /// What Mac OS X will take, in GB.  Exact when PowerEmu can read the
+    /// package list; otherwise what the system usually takes.
+    private var takenGB: Double {
+        let kb = installedKB(options())
+        if kb > 0 { return Double(kb) / 1_048_576.0 }
+        return info?.version.hasPrefix("10.5") == true ? 9.0 : 4.0
+    }
+
+    /// Mac OS X's installer wants room to work in, not just room to fit:
+    /// it checks the target before it starts and refuses with "not enough
+    /// room on the target volume" if the margin is thin -- forty minutes
+    /// after the reader walked away.  Better to say so on this page.
+    private var headroomGB: Double { 3 }
+    private var diskTooSmall: Bool { Double(diskGB) < takenGB + headroomGB }
+
+    /// "Mac OS X takes 6.1 GB, leaving about 34 GB free."
+    private var spaceAfterInstall: String {
+        let free = Double(diskGB) - takenGB
+        if diskTooSmall {
+            return String(format: "Mac OS X needs about %.1f GB here, and room to work in \u{2014} choose a larger disk.", takenGB)
+        }
+        let about = installedKB(options()) > 0 ? "" : "about "
+        return String(format: "Mac OS X takes %@%.1f GB, leaving about %.0f GB free.", about, takenGB, free)
     }
 
     private var estimateSeconds: Double? {
@@ -154,7 +193,7 @@ struct NewMachineSheet: View {
     private var canContinue: Bool {
         switch page {
         case .disc: return disc != nil && !inspecting && info != nil
-        case .machine: return !name.trimmingCharacters(in: .whitespaces).isEmpty
+        case .machine: return !name.trimmingCharacters(in: .whitespaces).isEmpty && !diskTooSmall
         default: return true
         }
     }
@@ -271,7 +310,7 @@ struct NewMachineSheet: View {
     /// installer icon once a Tiger disc is recognised, the chosen Mac.
     private var pageIcon: NSImage? {
         switch page {
-        case .disc: return automatic ? DiscIcons.installDiscImage : nil
+        case .disc: return DiscIcons.installDiscImage(info?.version)
         case .machine, .summary: return MacModel.named(model)?.image
         default: return nil
         }
@@ -337,7 +376,7 @@ struct NewMachineSheet: View {
     private var explanation: String {
         switch page {
         case .disc:
-            return "PowerEmu installs Mac OS X for you from your own install disc. Choose the disc image of a Mac OS X 10.4 Tiger or 10.5 Leopard install DVD for PowerPC Macs, or drag it here. Tiger PowerEmu installs by itself; with a Leopard disc the virtual Mac starts the installer and you answer it."
+            return "PowerEmu installs Mac OS X for you from your own install disc. Choose the disc image of a Mac OS X 10.4 Tiger or 10.5 Leopard install DVD for PowerPC Macs, or drag it here. PowerEmu installs either of them by itself; a disc it doesn\u{2019}t recognise still works, with the virtual Mac starting the installer for you to answer."
         case .machine:
             return "Name your virtual Mac, choose the Mac it looks like, and give it a hard disk. Mac OS X sees the size you pick here, while the disk takes up space on your Mac only as it fills \u{2014} so pick a roomy one. It can be made larger later, but not smaller."
         case .about:
@@ -534,13 +573,20 @@ struct NewMachineSheet: View {
                 TextField("Name", text: $name).textFieldStyle(.roundedBorder).frame(width: 200)
             }
             LabeledContent {
-                Picker("", selection: $diskGB) {
-                    ForEach([10, 20, 40, 80, 120], id: \.self) { Text("\($0) GB").tag($0) }
+                VStack(alignment: .leading, spacing: 4) {
+                    Picker("", selection: $diskGB) {
+                        ForEach([10, 20, 40, 80, 120], id: \.self) { Text("\($0) GB").tag($0) }
+                    }
+                    .labelsHidden().frame(width: 200)
+                    // What the reader is really choosing: how much room is
+                    // left once Mac OS X is on it.
+                    Text(spaceAfterInstall)
+                        .font(.caption)
+                        .foregroundStyle(diskTooSmall ? Color.orange : Color.secondary)
                 }
-                .labelsHidden().frame(width: 200)
             } label: {
                 HStack(spacing: 6) {
-                    if let hd = DiscIcons.hardDiskImage { Image(nsImage: hd).resizable().frame(width: 18, height: 18) }
+                    if let hd = DiscIcons.hardDiskImage(info?.version) { Image(nsImage: hd).resizable().frame(width: 18, height: 18) }
                     Text("Hard disk")
                 }
             }
@@ -559,9 +605,9 @@ struct NewMachineSheet: View {
                             .frame(width: 40, height: 40)
                             .padding(5)
                             .background(RoundedRectangle(cornerRadius: 8)
-                                .fill(model == m.id ? Color.accentColor.opacity(0.35) : Color.white.opacity(0.06)))
+                                .fill(model == m.id ? theme.opacity(0.35) : Color.white.opacity(0.06)))
                             .overlay(RoundedRectangle(cornerRadius: 8)
-                                .strokeBorder(model == m.id ? Color.accentColor : .clear, lineWidth: 1.5))
+                                .strokeBorder(model == m.id ? theme : .clear, lineWidth: 1.5))
                         }
                         .buttonStyle(.plain)
                         .help(m.name)
@@ -667,7 +713,7 @@ struct NewMachineSheet: View {
         Button { update10411 = value } label: {
             HStack(spacing: 10) {
                 Image(systemName: update10411 == value ? "largecircle.fill.circle" : "circle")
-                    .font(.title3).foregroundStyle(update10411 == value ? Color.accentColor : .secondary)
+                    .font(.title3).foregroundStyle(update10411 == value ? theme : .secondary)
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text(title).font(.headline)

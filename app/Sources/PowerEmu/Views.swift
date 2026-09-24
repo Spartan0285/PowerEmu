@@ -633,7 +633,7 @@ struct DisksSection: View {
         Section {
             ForEach(vm.config.hardDisks) { d in
                 HStack {
-                    if let hd = DiscIcons.hardDiskImage {
+                    if let hd = DiscIcons.hardDiskImage(vm.config.osName.contains("10.5") ? "10.5" : "10.4") {
                         Image(nsImage: hd).resizable().frame(width: 24, height: 24)
                     } else {
                         Image(systemName: "internaldrive")
