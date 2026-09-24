@@ -371,6 +371,8 @@ final class VMDisplayView: NSView {
     private let started = Date()
     private var firmwareHidden = true
     private var firmwareTimer: Timer?
+    /// The last frame that arrived while the screen was held black.
+    private var held: (surface: IOSurfaceRef, width: Int, height: Int)?
     private static let firmwareBlank: TimeInterval = 2.5
 
     /// A machine being woken has no firmware to hide: the first thing it
@@ -398,17 +400,30 @@ final class VMDisplayView: NSView {
         if firmwareHidden {
             let left = Self.firmwareBlank - Date().timeIntervalSince(started)
             if left > 0 {
+                // Held back, not thrown away.  A machine that stops drawing
+                // during the blank -- the firmware reaching its own prompt
+                // and waiting, which is what a disc that will not boot
+                // leaves on the screen -- would otherwise leave the window
+                // black for ever, because no later frame ever arrives to
+                // replace the ones that were dropped.
+                held = (s, w, h)
                 if firmwareTimer == nil {
                     firmwareTimer = Timer.scheduledTimer(withTimeInterval: left, repeats: false) { [weak self] _ in
                         MainActor.assumeIsolated {
-                            self?.firmwareHidden = false
-                            self?.firmwareTimer = nil
+                            guard let self else { return }
+                            self.firmwareHidden = false
+                            self.firmwareTimer = nil
+                            if let h = self.held {
+                                self.held = nil
+                                self.show(h.surface, h.width, h.height)
+                            }
                         }
                     }
                 }
-                return                      /* keep the window black for now */
+                return
             }
             firmwareHidden = false
+            held = nil
         }
         if statusUntilFrame { clearStatus() }
         let size = CGSize(width: w, height: h)
@@ -654,9 +669,18 @@ final class VMDisplayView: NSView {
         // and the guest's own cursor cannot be moved onto it -- it stops at
         // the top of its screen and stays there, which left the bar
         // impossible to aim at.
+        // And only while the guest is actually drawing a pointer.  Mac OS X
+        // 10.4 draws its own through the hardware cursor PowerEmu's NDRV
+        // provides, so this Mac's has to be out of the way.  10.5's ATI
+        // driver takes the card over and never uses it, so nothing is drawn
+        // at all -- and hiding this Mac's pointer as well left the reader
+        // clicking blind, with no way to tell where they were pointing.
         mouseMode == .seamless && !grabbed && screenRect.contains(p)
-            && !onPerf(p) && !onBar(p)
+            && !onPerf(p) && !onBar(p) && guestDrawsPointer
     }
+
+    /// Whether the guest has given us a pointer to draw.
+    private var guestDrawsPointer: Bool { cursor.contents != nil }
 
     /// Whether `p` is on the toolbar while it is down.
     private func onBar(_ p: CGPoint) -> Bool {
