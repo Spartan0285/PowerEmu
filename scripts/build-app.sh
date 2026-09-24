@@ -103,17 +103,26 @@ EOF
 SIGN=${POWEREMU_SIGN_IDENTITY:-}
 [ -z "$SIGN" ] && [ -f "$ROOT/scripts/signing.local" ] && SIGN=$(head -1 "$ROOT/scripts/signing.local")
 SIGN=${SIGN:--}
+# The hardened runtime is what notarising requires, so it is on for every
+# build -- a development build that did not have it would not be exercising
+# what a release does, and the first thing to break under it is the
+# emulator's JIT, which is the whole machine.  The secure timestamp needs
+# Apple's server, so it is only asked for when a release is being cut.
+RUNTIME="--options runtime"
+TIMESTAMP="--timestamp=none"
+[ -n "${POWEREMU_RELEASE:-}" ] && TIMESTAMP="--timestamp"
 HELPER="$OUT/Contents/Helpers/PowerEmu VM.app"
 if [ "$SIGN" != "-" ]; then
     for f in "$HELPER"/Contents/Frameworks/*.dylib "$HELPER/Contents/MacOS/qemu-img"; do
-        [ -f "$f" ] && codesign --force --sign "$SIGN" --timestamp=none "$f" >/dev/null
+        [ -f "$f" ] && codesign --force --sign "$SIGN" $TIMESTAMP $RUNTIME "$f" >/dev/null
     done
-    codesign --force --sign "$SIGN" --timestamp=none --entitlements "${POWEREMU_QEMU:-$HOME/Developer/poweremu-qemu}/accel/hvf/entitlements.plist" \
+    codesign --force --sign "$SIGN" $TIMESTAMP $RUNTIME \
+        --entitlements "$ROOT/app/Resources/PowerEmuVM.entitlements" \
         "$HELPER/Contents/MacOS/qemu-system-ppc" >/dev/null
-    codesign --force --sign "$SIGN" --timestamp=none "$HELPER" >/dev/null
+    codesign --force --sign "$SIGN" $TIMESTAMP $RUNTIME --entitlements "$ROOT/app/Resources/PowerEmuVM.entitlements" "$HELPER" >/dev/null
 fi
-codesign --force --sign "$SIGN" --timestamp=none "$OUT/Contents/Helpers/poweremu-netd" >/dev/null
-codesign --force --sign "$SIGN" --timestamp=none "$OUT/Contents/MacOS/PowerEmu" >/dev/null
-codesign --force --sign "$SIGN" --timestamp=none "$OUT" >/dev/null
+codesign --force --sign "$SIGN" $TIMESTAMP $RUNTIME "$OUT/Contents/Helpers/poweremu-netd" >/dev/null
+codesign --force --sign "$SIGN" $TIMESTAMP $RUNTIME --entitlements "$ROOT/app/Resources/PowerEmu.entitlements" "$OUT/Contents/MacOS/PowerEmu" >/dev/null
+codesign --force --sign "$SIGN" $TIMESTAMP $RUNTIME --entitlements "$ROOT/app/Resources/PowerEmu.entitlements" "$OUT" >/dev/null
 echo "signed: $SIGN"
 echo "built $OUT ($(du -sh "$OUT" | cut -f1))"

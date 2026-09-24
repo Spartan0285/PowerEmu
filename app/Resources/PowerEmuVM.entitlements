@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	    The emulator itself.  It translates PowerPC into arm64 as it runs
+	    and executes what it wrote: tcg/region.c asks for MAP_JIT, which
+	    the hardened runtime refuses without this.  Notarising requires the
+	    hardened runtime, so without this a notarised build would start a
+	    virtual Mac and die on the spot.
+	-->
+	<key>com.apple.security.cs.allow-jit</key>
+	<true/>
+	<!--
+	    Kept from QEMU's own signing: it does nothing for a PowerPC guest,
+	    which is translated rather than virtualised, but the same binary
+	    carries the hypervisor accelerator for guests that match the host.
+	-->
+	<key>com.apple.security.hypervisor</key>
+	<true/>
+</dict>
+</plist>

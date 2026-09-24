@@ -31,23 +31,41 @@ if [ "$BUILD" -le "$CURRENT" ]; then
 fi
 
 echo "== building $VERSION ($BUILD)"
-POWEREMU_VERSION="$VERSION" POWEREMU_BUILD="$BUILD" sh "$ROOT/scripts/build-app.sh"
+POWEREMU_RELEASE=1 POWEREMU_VERSION="$VERSION" POWEREMU_BUILD="$BUILD" sh "$ROOT/scripts/build-app.sh"
 
+APP="$ROOT/build/PowerEmu.app"
 ZIP="$ROOT/build/PowerEmu-$VERSION.zip"
-rm -f "$ZIP"
+TMP=$(mktemp -d)
+trap 'rm -rf "$TMP"' EXIT
+
 # ditto, not zip: a bundle's symlinks have to survive or its signature does not.
+pack() { rm -f "$ZIP"; (cd "$ROOT/build" && ditto -c -k --keepParent PowerEmu.app "$ZIP"); }
 echo "== packing"
-(cd "$ROOT/build" && ditto -c -k --keepParent PowerEmu.app "$ZIP")
+pack
+
+# Anyone downloading this gets it quarantined, and without notarising
+# macOS refuses to open it -- not a warning they can click past on a
+# current system.  notarytool needs credentials kept in the keychain:
+#   xcrun notarytool store-credentials PowerEmu --apple-id … --team-id 7B2D3VV69V --password …
+echo "== notarising (this takes a few minutes)"
+xcrun notarytool submit "$ZIP" --keychain-profile "${POWEREMU_NOTARY_PROFILE:-PowerEmu}" --wait
+
+# Stapling puts the ticket inside the app, so it opens even on a Mac that
+# cannot reach Apple.  It changes the app, so the zip has to be made again
+# afterwards -- the stapled one is what gets published.
+echo "== stapling"
+xcrun stapler staple "$APP"
+pack
 SHA=$(shasum -a 256 "$ZIP" | awk '{print $1}')
 
 # Prove the thing being published is the thing that will be accepted: the
 # updater refuses anything not signed by the same developer as the copy in
 # use, so a release that fails this check would be rejected by every reader.
-echo "== checking the signature survived packing"
-TMP=$(mktemp -d)
-trap 'rm -rf "$TMP"' EXIT
+echo "== checking what will actually be downloaded"
 ditto -x -k "$ZIP" "$TMP"
 codesign --verify --deep --strict "$TMP/PowerEmu.app"
+xcrun stapler validate "$TMP/PowerEmu.app"
+spctl --assess --type execute --verbose=2 "$TMP/PowerEmu.app"
 echo "   ok: $(codesign -dv "$TMP/PowerEmu.app" 2>&1 | sed -n 's/^TeamIdentifier=/team /p')"
 
 URL="https://github.com/$REPO/releases/download/v$VERSION/PowerEmu-$VERSION.zip"

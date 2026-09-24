@@ -95,6 +95,37 @@ place fails, the old one is moved straight back.
 Virtual Macs must be shut down or asleep first; PowerEmu says so rather than
 replacing itself underneath a running machine.
 
+## Notarising
+
+A Developer ID signature is not enough on its own. Anything downloaded
+carries a quarantine flag, and macOS refuses to open a quarantined app
+that has not been **notarised** -- not a warning to click past, a refusal.
+Before this was set up, `spctl --assess` on a build said exactly that:
+
+    build/PowerEmu.app: rejected
+    source=Unnotarized Developer ID
+
+Notarising requires the **hardened runtime**, which is now on for every
+build -- including development ones, deliberately: the first thing it
+breaks is the emulator's JIT, and that is the whole machine, so it is not
+something to discover while cutting a release. The emulator translates
+PowerPC into arm64 and runs what it wrote (`tcg/region.c` asks for
+`MAP_JIT`), which the hardened runtime refuses without
+`com.apple.security.cs.allow-jit`. That entitlement is in
+`app/Resources/PowerEmuVM.entitlements`, and a guest has been booted to
+its desktop with it on.
+
+The credentials live in the keychain, once per Mac:
+
+    xcrun notarytool store-credentials PowerEmu \
+        --apple-id you@example.com --team-id 7B2D3VV69V --password APP-SPECIFIC-PASSWORD
+
+`release.sh` then submits, waits, staples the ticket into the app so it
+opens on a Mac that cannot reach Apple, packs it **again** (stapling
+changes the app, so the zip made before it is the wrong one), and checks
+what will actually be downloaded with `codesign`, `stapler validate` and
+`spctl`.
+
 ## Cutting a release
 
     scripts/release.sh 0.2 2 "What changed, in plain words."

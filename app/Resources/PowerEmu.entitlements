@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	    The emulator translates PowerPC into arm64 while it runs and writes
+	    the result into memory it then executes: tcg/region.c asks for
+	    MAP_JIT.  Under the hardened runtime, which notarising requires,
+	    that is refused without this and the virtual Mac dies the instant it
+	    starts.
+	-->
+	<key>com.apple.security.cs.allow-jit</key>
+	<true/>
+</dict>
+</plist>
