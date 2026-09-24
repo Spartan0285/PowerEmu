@@ -12,7 +12,7 @@ import QuartzCore
 /// the same way.  Messages: { u32 type, u32 length } + payload; see the QEMU
 /// file for the list.
 final class DisplayChannel: @unchecked Sendable {
-    enum Kind: UInt32 { case surface = 1, damage = 2, cursor = 3, mouse = 4, key = 10, motion = 11, buttons = 12, wheel = 13, point = 14, coherence = 15 }
+    enum Kind: UInt32 { case surface = 1, damage = 2, cursor = 3, mouse = 4, key = 10, motion = 11, buttons = 12, wheel = 13, point = 14, harmony = 15 }
 
     let socketPath: String
     /// Called on the main thread.
@@ -24,10 +24,10 @@ final class DisplayChannel: @unchecked Sendable {
     private var listenFD: Int32 = -1
     private var fd: Int32 = -1
     private let writeLock = NSLock()
-    /// Coherence mode: the emulator hands over frames whose desktop is
+    /// Harmony mode: the emulator hands over frames whose desktop is
     /// transparent.  Kept here so it can be asked for again after a
     /// reconnection, which otherwise starts the emulator off opaque.
-    private(set) var coherence = false
+    private(set) var harmony = false
 
     // The shared frame from QEMU and our two copies of it.
     private var shm: UnsafeMutableRawPointer?
@@ -70,9 +70,9 @@ final class DisplayChannel: @unchecked Sendable {
 
     // MARK: input to QEMU
 
-    func setCoherence(_ on: Bool) {
-        coherence = on
-        send(.coherence, [on ? 1 : 0])
+    func setHarmony(_ on: Bool) {
+        harmony = on
+        send(.harmony, [on ? 1 : 0])
     }
 
     func send(_ kind: Kind, _ values: [Int32]) {
@@ -100,7 +100,7 @@ final class DisplayChannel: @unchecked Sendable {
         var one: Int32 = 1
         setsockopt(c, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int32>.size))
         writeLock.lock(); fd = c; writeLock.unlock()
-        if coherence { send(.coherence, [1]) }
+        if harmony { send(.harmony, [1]) }
 
         var buf = Data()
         var fds: [Int32] = []
@@ -283,7 +283,7 @@ final class VMDisplayView: NSView {
     var onToggleFullScreen: (() -> Void)?
     /// So the window can say, in its title, that a feature still being
     /// tested is switched on.
-    var onCoherenceChanged: ((Bool) -> Void)?
+    var onHarmonyChanged: ((Bool) -> Void)?
     /// The control bar floating over the top of the screen.
     weak var controls: VMToolbarController?
     private let screen = CALayer()
@@ -321,19 +321,19 @@ final class VMDisplayView: NSView {
     private var motion = CGPoint.zero                 // fractions not yet sent
     private var scroll: CGFloat = 0
 
-    /// Coherence mode: the emulator sends frames whose desktop is
+    /// Harmony mode: the emulator sends frames whose desktop is
     /// transparent, and the window lets this Mac's own desktop through
     /// behind the guest's windows.
-    var coherence = false {
+    var harmony = false {
         didSet {
-            guard coherence != oldValue else { return }
-            layer?.backgroundColor = (coherence ? NSColor.clear : NSColor.black).cgColor
-            screen.isOpaque = !coherence
-            window?.isOpaque = !coherence
-            window?.backgroundColor = coherence ? .clear : .black
-            window?.hasShadow = !coherence          // one shadow per guest window, not one around them all
-            channel.setCoherence(coherence)
-            onCoherenceChanged?(coherence)
+            guard harmony != oldValue else { return }
+            layer?.backgroundColor = (harmony ? NSColor.clear : NSColor.black).cgColor
+            screen.isOpaque = !harmony
+            window?.isOpaque = !harmony
+            window?.backgroundColor = harmony ? .clear : .black
+            window?.hasShadow = !harmony          // one shadow per guest window, not one around them all
+            channel.setHarmony(harmony)
+            onHarmonyChanged?(harmony)
         }
     }
 
@@ -857,7 +857,7 @@ final class VMDisplayView: NSView {
         case 5: ungrab(); return true                                  // G
         case 3: onToggleFullScreen?(); return true                     // F
         case 35: togglePerformance(); return true                      // P
-        case 8: coherence.toggle(); return true                        // C
+        case 4: harmony.toggle(); return true                        // H
         default: return false
         }
     }
@@ -957,9 +957,9 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
         super.init(window: w)
         w.delegate = self
         display.onToggleFullScreen = { [weak w] in w?.toggleFullScreen(nil) }
-        display.onCoherenceChanged = { [weak w, weak vm] on in
+        display.onHarmonyChanged = { [weak w, weak vm] on in
             guard let w, let vm else { return }
-            w.title = on ? "\(vm.config.name) \u{2014} Coherence (in testing)" : vm.config.name
+            w.title = on ? "\(vm.config.name) \u{2014} Harmony (in testing)" : vm.config.name
         }
         display.mouseMode = VMDisplayView.MouseMode(rawValue: vm.config.mouseMode) ?? .seamless
         toolbar = VMToolbarController(self)
