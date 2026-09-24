@@ -145,28 +145,41 @@ static void StopAgent(void)
 
 - (void)applicationDidFinishLaunching:(NSNotification *)n
 {
-    window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 460, 240)
+    window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 520, 240)
         styleMask:NSTitledWindowMask | NSClosableWindowMask backing:NSBackingStoreBuffered defer:NO];
     [window setTitle:@"PowerEmu Tools"];
     NSImageView *icon = [[[NSImageView alloc] initWithFrame:NSMakeRect(20, 156, 64, 64)] autorelease];
     [icon setImage:[NSApp applicationIconImage]];
     [[window contentView] addSubview:icon];
-    [self label:@"PowerEmu Tools" frame:NSMakeRect(100, 190, 340, 24) size:16 bold:YES];
+    [self label:@"PowerEmu Tools" frame:NSMakeRect(100, 190, 400, 24) size:16 bold:YES];
     [self label:@"Lets this virtual Mac share the clipboard with your Mac, "
                  "open shared folders, and shut down cleanly when PowerEmu asks. "
                  "They are installed for your account and start when you log in."
-          frame:NSMakeRect(100, 114, 340, 64) size:12 bold:NO];
-    status = [[self label:@"" frame:NSMakeRect(100, 52, 340, 34) size:11 bold:NO] retain];
+          frame:NSMakeRect(100, 114, 400, 64) size:12 bold:NO];
+    status = [[self label:@"" frame:NSMakeRect(100, 52, 400, 34) size:11 bold:NO] retain];
 
-    clockBox = [[NSButton alloc] initWithFrame:NSMakeRect(98, 88, 350, 22)];
+    /*
+     * Off to begin with, and deliberately.  Everything else here installs
+     * for one account and asks for no password, which is what the disc's
+     * Read Me promises -- but the clock is a LaunchDaemon and needs an
+     * administrator.  On by default, the promise is broken by a box nobody
+     * chose to tick: 10.5 stops the install with a password prompt, and
+     * somebody who has no password to hand is stuck with a dialog they
+     * cannot dismiss.  Whoever wants the clock can ask for it.
+     *
+     * The window is 60pt wider than it was because at Leopard's
+     * small-system-font metrics this title is cut off mid-word --
+     * "(needs an administrato" -- and there was no room for it before.
+     */
+    clockBox = [[NSButton alloc] initWithFrame:NSMakeRect(98, 88, 420, 22)];
     [clockBox setButtonType:NSSwitchButton];
     [clockBox setTitle:@"Keep the clock in step with PowerEmu (needs an administrator)"];
     [[clockBox cell] setControlSize:NSSmallControlSize];
     [clockBox setFont:[NSFont systemFontOfSize:[NSFont smallSystemFontSize]]];
-    [clockBox setState:NSOnState];
+    [clockBox setState:NSOffState];
     [[window contentView] addSubview:clockBox];
 
-    NSButton *install = [[[NSButton alloc] initWithFrame:NSMakeRect(340, 14, 106, 32)] autorelease];
+    NSButton *install = [[[NSButton alloc] initWithFrame:NSMakeRect(400, 14, 106, 32)] autorelease];
     [install setTitle:@"Install"];
     [install setBezelStyle:NSRoundedBezelStyle];
     [install setKeyEquivalent:@"\r"];
@@ -174,7 +187,7 @@ static void StopAgent(void)
     [install setAction:@selector(install:)];
     [[window contentView] addSubview:install];
 
-    removeButton = [[NSButton alloc] initWithFrame:NSMakeRect(234, 14, 106, 32)];
+    removeButton = [[NSButton alloc] initWithFrame:NSMakeRect(294, 14, 106, 32)];
     [removeButton setTitle:@"Remove"];
     [removeButton setBezelStyle:NSRoundedBezelStyle];
     [removeButton setTarget:self];
