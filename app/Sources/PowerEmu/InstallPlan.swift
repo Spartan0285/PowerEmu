@@ -725,17 +725,18 @@ enum InstallPlan {
           [ -f "$TT.pe-orig" ] || cp -p "$TT" "$TT.pe-orig"
           perl -pi -e 's/^(console\s.*loginwindow.*\s)on(\s)/${1}off$2/' "$TT"
         fi
-        # Bless the new system ourselves.
+        # Bless the new system ourselves, if the Installer has not.
         #
-        # The Installer's own last step is `bless --setBoot`, which asks Open
-        # Firmware for its variables; this machine cannot answer, so bless
-        # dies on the error and the Installer reports "could not make the
-        # computer start up from the volume" over a system that is complete
-        # and correct.  Blessing without --setBoot works, and the startup
-        # disk is PowerEmu's to choose anyway.  Doing it as soon as the files
-        # are down means the volume is bootable whatever the Installer then
-        # says.  If the Installer manages it first, BootX is already there
-        # and this does nothing.
+        # It used to be that it never could: its last step is
+        # `bless --setBoot`, which asks Open Firmware for its variables, and
+        # the emulator could not answer, so bless died on the error and a
+        # complete, correct install was reported as "could not make the
+        # computer start up from the volume".  The emulator answers now, but
+        # this stays: blessing without --setBoot costs nothing, the startup
+        # disk is PowerEmu's to choose anyway, and an install that gets all
+        # the way to the end should not be thrown away by its last step.
+        # If the Installer managed it, BootX is already there and this does
+        # nothing.
         V="/Volumes/Macintosh HD"
         if [ -f "$V/var/log/OSInstall.custom" ] && [ ! -f "$V/System/Library/CoreServices/BootX" ] \
            && [ -f "$V/usr/standalone/ppc/bootx.bootinfo" ]; then

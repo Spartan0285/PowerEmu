@@ -168,6 +168,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
             // Views watch the machine; pass the agent's changes on.
             agentWatch = a.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
             r.wake = asleep
+            waking = asleep
             if config.bootChime && !adopting && !asleep { Chime.play(config.chimeSound, file: config.chimeFile) }
             if adopting {
                 r.adopt { [weak self] status in
@@ -276,6 +277,9 @@ final class VirtualMachine: ObservableObject, Identifiable {
 
     /// Whether this machine was put to sleep and is waiting to be woken.
     @Published private(set) var asleep = false
+    /// This run is a wake, so a failure means the saved machine could not be
+    /// read back rather than that Mac OS X stopped.  See `processEnded`.
+    private var waking = false
 
     /// Ask the disk, when PowerEmu opens: a machine may have been left
     /// asleep in an earlier run.
@@ -622,11 +626,40 @@ final class VirtualMachine: ObservableObject, Identifiable {
         monitorPortInUse = nil
         state = .stopped
         runner = nil
+        let wasWaking = waking
+        waking = false
+        if status != 0 && wasWaking {
+            /*
+             * The saved machine could not be read back.  A machine saved by
+             * an older PowerEmu can do this: what the emulator writes into a
+             * saved machine has to match the hardware it starts, and when a
+             * piece of that hardware changes -- the NVRAM did -- an older
+             * saving no longer fits.  Rather than leave the reader with an
+             * error and a machine that will not start, throw the saving away
+             * and start Mac OS X from the beginning, which is what powering
+             * off and on would have done anyway.
+             */
+            discardSleepAfterFailedWake()
+            lastError = "“\(config.name)” could not be woken, so it has been started fresh. "
+                      + "Anything that was open when it went to sleep is gone."
+            start()
+            return
+        }
         if status != 0 {
             let log = (try? String(contentsOf: logsURL.appendingPathComponent("qemu.log"), encoding: .utf8)) ?? ""
             let tail = log.split(separator: "\n").suffix(3).joined(separator: "\n")
             lastError = "The virtual Mac stopped unexpectedly (status \(status)).\(tail.isEmpty ? "" : "\n" + tail)"
         }
+    }
+
+    /// Wipe a saved machine that would not load.  `discardSleep` insists the
+    /// machine is still marked asleep; by the time a wake has failed it is
+    /// not, because starting clears the flag.
+    private func discardSleepAfterFailedWake() {
+        guard let disk = startupDiskURL,
+              let img = VMRunner.helperURL?.appendingPathComponent("Contents/MacOS/qemu-img") else { return }
+        asleep = false
+        VMRunner.forgetSleep(disk: disk, qemuImg: img) {}
     }
 }
 
