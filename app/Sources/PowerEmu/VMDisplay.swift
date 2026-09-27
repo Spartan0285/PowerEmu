@@ -35,6 +35,8 @@ final class DisplayChannel: @unchecked Sendable {
     func deliverFocused(_ id: Int) { onFocused?(id) }
     var onOcclusion: (([Int: [CGRect]]) -> Void)?
     func deliverOcclusion(_ o: [Int: [CGRect]]) { onOcclusion?(o) }
+    var onAppIcon: ((Int, Data) -> Void)?
+    func deliverAppIcon(_ pid: Int, _ png: Data) { onAppIcon?(pid, png) }
     var onMenuBar: ((Int, String, [(index: Int, title: String)]) -> Void)?
     func deliverMenuBar(_ pid: Int, _ app: String, _ t: [(index: Int, title: String)]) { onMenuBar?(pid, app, t) }
     var onMenuItems: ((Int, String, [HarmonyMenuItem]) -> Void)?
@@ -339,6 +341,9 @@ final class VMDisplayView: NSView {
     /// Rootless Harmony: raise a guest window (id), or move it (id, x, y top-left).
     var onHarmonyRaise: ((Int) -> Void)?
     var onHarmonyRaiseHard: ((Int) -> Void)?
+    /// Ask the guest for one of its applications' icons, and quit one.
+    var onWantAppIcon: ((Int) -> Void)?
+    var onQuitGuestApp: ((Int) -> Void)?
     var onHarmonyMove: ((Int, Int, Int) -> Void)?
     var onHarmonyRaiseAt: ((Int, Int, Int) -> Void)?
     var onHarmonyMoveDrag: ((Int, Int, Int, Int, Int) -> Void)?
@@ -504,6 +509,7 @@ final class VMDisplayView: NSView {
                 screen.isHidden = true
                 if showsPerformance { layoutHUDWindow() }   // the overlay needs its own window now
                 updatePointerTicker()
+                guestDock.start()
                 beginPointerCalibration()
                 // The clean copy of each window is taken once the guest's
                 // window list has settled (see HarmonyWindowManager).
@@ -521,6 +527,7 @@ final class VMDisplayView: NSView {
                 updatePointerTicker()
                 harmonyWindows = []; harmonyWindowList = []; harmonyHasWindows = false
                 harmonyMenus.remove()                  // this Mac's own menus back
+                guestDock.stop()                       // and its Dock
             }
             window?.invalidateCursorRects(for: self)
             onHarmonyChanged?(harmony)
@@ -533,6 +540,8 @@ final class VMDisplayView: NSView {
     /// Rootless Harmony: the front guest application's menus, in this Mac's
     /// menu bar.
     let harmonyMenus = HarmonyMenuBar()
+    /// The guest's applications in this Mac's Dock, one tile each.
+    let guestDock = GuestDock()
     /// Old path (kept for reference): one sublayer per window. Unused now.
     private let harmonyContainer = CALayer()
     private var harmonyLayers: [Int: CALayer] = [:]
@@ -819,7 +828,10 @@ final class VMDisplayView: NSView {
             self?.cursorPos = CGPoint(x: x, y: y); self?.cursorOn = on; self?.placeCursor()
         }
         channel.onWindows = { [weak self] rects in self?.setHarmonyWindows(rects) }
-        channel.onWindowApps = { [weak self] apps in self?.guestWindowApps = apps }
+        channel.onWindowApps = { [weak self] apps in
+            self?.guestWindowApps = apps
+            self?.guestDock.setApps(apps.map { (pid: $0.pid, name: $0.app) })
+        }
         channel.onMinimized = { [weak self] m in
             self?.minimizedGuestWindows = m
             self?.harmonyManager.minimizedEntries = m
@@ -846,6 +858,10 @@ final class VMDisplayView: NSView {
         harmonyMenus.send = { [weak self] verb, text in self?.channel.sendToAgent?(verb, text) }
         channel.onFocused = { [weak self] id in self?.harmonyManager.focusedGuestWindow = id }
         channel.onOcclusion = { [weak self] o in self?.harmonyManager.setOcclusion(o) }
+        channel.onAppIcon = { [weak self] pid, png in self?.guestDock.setIcon(pid: pid, png: png) }
+        guestDock.wantIcon = { [weak self] pid in self?.onWantAppIcon?(pid) }
+        guestDock.activate = { [weak self] pid in self?.onActivateGuestApp?(pid) }
+        guestDock.quit = { [weak self] pid in self?.onQuitGuestApp?(pid) }
     }
 
     /// A key event from a focused proxy window: run it through the same key
@@ -1789,6 +1805,8 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
         display.onHarmonyResolution = { [weak vm] w, h in vm?.setGuestResolution(w, h) }
         display.onHarmonyRaise = { [weak vm] id in vm?.raiseGuestWindow(id) }
         display.onHarmonyRaiseHard = { [weak vm] id in vm?.raiseGuestWindowHard(id) }
+        display.onWantAppIcon = { [weak vm] pid in vm?.guestAppIcon(pid) }
+        display.onQuitGuestApp = { [weak vm] pid in vm?.quitGuestApp(pid) }
         display.onHarmonyMove = { [weak vm] id, x, y in vm?.moveGuestWindow(id, x, y) }
         display.onHarmonyRaiseAt = { [weak vm] id, x, y in vm?.raiseGuestWindowAt(id, x, y) }
         display.onActivateGuestApp = { [weak vm] pid in vm?.activateGuestApp(pid) }

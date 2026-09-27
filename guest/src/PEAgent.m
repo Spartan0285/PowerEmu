@@ -79,7 +79,7 @@ extern CGError CGSConnectionGetPID(CGSConnectionID cid, pid_t *pid, CGSConnectio
 #include <dirent.h>
 #include <dlfcn.h>
 
-#define PE_AGENT_VERSION "1.5"
+#define PE_AGENT_VERSION "1.6"
 
 extern CGError CGSGetConnectionIDForPSN(CGSConnectionID cid, ProcessSerialNumber *psn,
                                         CGSConnectionID *out);
@@ -174,6 +174,7 @@ static int AgentPort(void)
 - (void)moveWindow:(NSString *)args;
 - (void)set:(NSString *)domain key:(NSString *)key yes:(BOOL)yes keep:(BOOL)keep;
 - (void)run:(NSString *)tool with:(NSArray *)args;
+- (void)sendAppIcon:(NSString *)pidStr;
 - (void)reportMenuBarFor:(pid_t)pid;
 - (void)reportMenuItems:(NSString *)args;
 - (void)pickMenuItem:(NSString *)args;
@@ -601,6 +602,25 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
                 if (GetProcessForPID(pid, &psn) == noErr) SetFrontProcess(&psn);
             }
         }
+    } else if ([verb isEqualToString:@"QUITAPP"]) {
+        /* Somebody quit the application's tile in this Mac's Dock. */
+        pid_t qp = (pid_t)[text intValue];
+        ProcessSerialNumber qpsn;
+        if (qp > 0 && GetProcessForPID(qp, &qpsn) == noErr) {
+            AppleEvent ev, reply;
+            AEDesc target;
+            if (AECreateDesc(typeProcessSerialNumber, &qpsn, sizeof(qpsn), &target) == noErr) {
+                if (AECreateAppleEvent(kCoreEventClass, kAEQuitApplication, &target,
+                                       kAutoGenerateReturnID, kAnyTransactionID, &ev) == noErr) {
+                    AESend(&ev, &reply, kAENoReply, kAENormalPriority,
+                           kAEDefaultTimeout, NULL, NULL);
+                    AEDisposeDesc(&ev);
+                }
+                AEDisposeDesc(&target);
+            }
+        }
+    } else if ([verb isEqualToString:@"APPICON"]) {
+        [self sendAppIcon:text];
     } else if ([verb isEqualToString:@"MENUS"]) {
         menuBarPid = 0;                      /* force the next tick to re-read */
     } else if ([verb isEqualToString:@"MENUITEMS"]) {
@@ -826,6 +846,51 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
         [self send:@"LOG" text:[NSString stringWithFormat:@"HITTEST available=1 windows=%d\n%@",
                                 n, out]];
     }
+}
+
+/*
+ * The icon of one of the guest's applications, so this Mac can put it in its
+ * own Dock.  "APPICON <pid>" comes back as the pid, a newline, and a PNG.
+ */
+- (void)sendAppIcon:(NSString *)pidStr
+{
+    pid_t pid = (pid_t)[pidStr intValue];
+    ProcessSerialNumber psn;
+    FSRef ref;
+    NSImage *icon = nil;
+    NSMutableData *out;
+
+    if (pid <= 0 || GetProcessForPID(pid, &psn) != noErr) return;
+    if (GetProcessBundleLocation(&psn, &ref) == noErr) {
+        CFURLRef url = CFURLCreateFromFSRef(NULL, &ref);
+        if (url) {
+            NSString *path = [(NSURL *)url path];
+            icon = [[NSWorkspace sharedWorkspace] iconForFile:path];
+            CFRelease(url);
+        }
+    }
+    if (!icon) return;
+
+    /* 128 square: big enough for this Mac's Dock at any size it is set to. */
+    [icon setSize:NSMakeSize(128, 128)];
+    {
+        NSBitmapImageRep *rep;
+        NSData *png;
+        NSImage *flat = [[[NSImage alloc] initWithSize:NSMakeSize(128, 128)] autorelease];
+        [flat lockFocus];
+        [icon drawInRect:NSMakeRect(0, 0, 128, 128)
+                fromRect:NSZeroRect operation:NSCompositeSourceOver fraction:1.0];
+        rep = [[[NSBitmapImageRep alloc]
+                   initWithFocusedViewRect:NSMakeRect(0, 0, 128, 128)] autorelease];
+        [flat unlockFocus];
+        png = [rep representationUsingType:NSPNGFileType properties:nil];
+        if (!png) return;
+        out = [NSMutableData dataWithData:
+                  [[NSString stringWithFormat:@"%d\n", (int)pid]
+                      dataUsingEncoding:NSUTF8StringEncoding]];
+        [out appendData:png];
+    }
+    [self send:@"APPICON" data:out];
 }
 
 - (void)reportFocused

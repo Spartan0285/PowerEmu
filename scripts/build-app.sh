@@ -44,6 +44,11 @@ cp "$BIN" "$OUT/Contents/MacOS/PowerEmu"
 ditto "$ROOT/build/PowerEmu VM.app" "$OUT/Contents/Helpers/PowerEmu VM.app"
 # The network helper: the only piece that ever runs as an administrator,
 # and it does nothing but carry ethernet frames for a bridged virtual Mac.
+# One guest application's place in this Mac's Dock: PowerEmu copies this into
+# a small bundle of its own for each application the guest is running.
+xcrun swiftc -O -target arm64-apple-macos12.0 \
+    "$ROOT/helper/main.swift" -o "$OUT/Contents/Helpers/PowerEmuGuestApp"
+
 cc -O2 -Wall -o "$OUT/Contents/Helpers/poweremu-netd" "$ROOT/helper/poweremu-netd.c" \
    -framework vmnet -framework Foundation
 cp "$ROOT/LICENSE" "$ROOT/COPYING" "$ROOT/THIRD-PARTY-NOTICES.md" "$ROOT/TERMS.md" "$OUT/Contents/Resources/"

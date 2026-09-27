@@ -24,6 +24,8 @@ final class GuestAgent: ObservableObject {
     var onWindowApps: (([(id: Int, pid: Int, app: String)]) -> Void)?
     /// Harmony: the guest's windows that have been put in its Dock.
     var onMinimized: (([(pid: Int, index: Int, title: String)]) -> Void)?
+    /// One of the guest's applications' icons, as a PNG.
+    var onAppIcon: ((Int, Data) -> Void)?
     /// Per window, the rectangles of it that something else is drawn over.
     var onOcclusion: (([Int: [CGRect]]) -> Void)?
     /// The guest window that has the focus: the one nothing is drawn over.
@@ -155,6 +157,12 @@ final class GuestAgent: ObservableObject {
                 }
             }
             onMinimized?(mins)
+        case "APPICON":
+            // "<pid>\n" and then the PNG itself.
+            guard let nl = payload.firstIndex(of: 0x0A) else { return }
+            let head = String(decoding: payload[..<nl], as: UTF8.self)
+            guard let pid = Int(head.trimmingCharacters(in: .whitespaces)) else { return }
+            onAppIcon?(pid, Data(payload[payload.index(after: nl)...]))
         case "OCCLUDE":
             var out: [Int: [CGRect]] = [:]
             for line in text.split(separator: "\n") {

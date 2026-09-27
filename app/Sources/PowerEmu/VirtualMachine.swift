@@ -152,6 +152,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
             a.onMinimized = { [weak self] m in self?.display?.deliverMinimized(m) }
             a.onFocused = { [weak self] id in self?.display?.deliverFocused(id) }
             a.onOcclusion = { [weak self] o in self?.display?.deliverOcclusion(o) }
+            a.onAppIcon = { [weak self] pid, png in self?.display?.deliverAppIcon(pid, png) }
             a.onMenuBar = { [weak self] pid, app, tops in self?.display?.deliverMenuBar(pid, app, tops) }
             a.onMenuItems = { [weak self] pid, path, items in self?.display?.deliverMenuItems(pid, path, items) }
             agent = a
@@ -434,6 +435,10 @@ final class VirtualMachine: ObservableObject, Identifiable {
     /// Raise a guest window and bring its application up with it.  Only for the
     /// pass that has to read a window whole; a click must not do this.
     func raiseGuestWindowHard(_ id: Int) { agent?.send("RAISEHARD", "\(id)") }
+    /// Ask the guest for one of its applications' icons.
+    func guestAppIcon(_ pid: Int) { agent?.send("APPICON", "\(pid)") }
+    /// Quit one of the guest's applications.
+    func quitGuestApp(_ pid: Int) { agent?.send("QUITAPP", "\(pid)") }
     /// Take a guest window back out of the guest's Dock.
     func restoreGuestWindow(_ pid: Int, _ index: Int) { agent?.send("UNMINIMIZE", "\(pid) \(index)") }
     /// Bring one of the guest's applications to the front.
