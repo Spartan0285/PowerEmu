@@ -151,6 +151,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
             a.onWindowApps = { [weak self] apps in self?.display?.deliverWindowApps(apps) }
             a.onMinimized = { [weak self] m in self?.display?.deliverMinimized(m) }
             a.onFocused = { [weak self] id in self?.display?.deliverFocused(id) }
+            a.onOcclusion = { [weak self] o in self?.display?.deliverOcclusion(o) }
             a.onMenuBar = { [weak self] pid, app, tops in self?.display?.deliverMenuBar(pid, app, tops) }
             a.onMenuItems = { [weak self] pid, path, items in self?.display?.deliverMenuItems(pid, path, items) }
             agent = a

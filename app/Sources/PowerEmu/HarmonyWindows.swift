@@ -77,6 +77,10 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
         /// the previous picture is kept on screen (stretched a little) until
         /// the guest has painted the window at its new size.
         var lastGood: IOSurfaceRef?
+        /// What was written into the other surface last time.  The pair is
+        /// written in turn, so bringing one up to date means re-applying the
+        /// previous round's regions as well as this round's.
+        var lastRegions: [CGRect] = []
         var front: IOSurfaceRef? { surfaces.isEmpty ? nil : surfaces[1 - back] }
     }
     private var copies: [Int: WindowCopy] = [:]
@@ -95,25 +99,61 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
     /// window list's own order cannot say: it is grouped by connection, so an
     /// application's windows come out next to each other even when another
     /// application's windows sit between them.
+    /// Per window, the parts of it something else is drawn over -- asked of the
+    /// guest's window server directly, a point at a time.
+    private var occluded: [Int: [CGRect]] = [:]
+    func setOcclusion(_ o: [Int: [CGRect]]) { occluded = o; haveOcclusion = true }
+    /// Whether the guest has answered about occlusion at all yet.  Until it
+    /// has, "no rectangles" cannot be told from "not asked".
+    private var haveOcclusion = false
+    /// Show each window's visible part live from the guest's screen, over its
+    /// own stored copy.  Off by default while it is being worked on: with it
+    /// off, every window shows only its own complete copy, which is the
+    /// behaviour that works.
+    /// Absorb only the freshly drawn, uncovered parts of every window, rather
+    /// than copying the one in front whole.  See refreshLiveCopies.
+    var liveAbsorb = false
+    var liveMasking = false {
+        didSet { if !liveMasking { for p in proxies.values { p.hideLive() } } }
+    }
+
+    /// A window's rectangle less the parts covered, in its own coordinates.
+    private func visibleParts(_ id: Int, _ g: CGRect) -> [CGRect] {
+        var parts = [CGRect(x: 0, y: 0, width: g.width, height: g.height)]
+        for o in occluded[id] ?? [] {
+            let cut = CGRect(x: o.minX - g.minX, y: o.minY - g.minY, width: o.width, height: o.height)
+            var next: [CGRect] = []
+            for r in parts {
+                guard r.intersects(cut) else { next.append(r); continue }
+                // What is left of this rectangle once the covered part is out.
+                if cut.minY > r.minY { next.append(CGRect(x: r.minX, y: r.minY, width: r.width, height: cut.minY - r.minY)) }
+                if cut.maxY < r.maxY { next.append(CGRect(x: r.minX, y: cut.maxY, width: r.width, height: r.maxY - cut.maxY)) }
+                let top = max(r.minY, cut.minY), bot = min(r.maxY, cut.maxY)
+                if bot > top {
+                    if cut.minX > r.minX { next.append(CGRect(x: r.minX, y: top, width: cut.minX - r.minX, height: bot - top)) }
+                    if cut.maxX < r.maxX { next.append(CGRect(x: cut.maxX, y: top, width: r.maxX - cut.maxX, height: bot - top)) }
+                }
+            }
+            parts = next
+            if parts.isEmpty { break }
+        }
+        return parts.filter { $0.width >= 1 && $0.height >= 1 }
+    }
+
     var focusedGuestWindow = 0 {
         didSet {
-            guard focusedGuestWindow != oldValue else { return }
             /*
-             * Wait for the guest to actually draw before copying it.
-             *
-             * The guest says which window is in front the moment it is asked to
-             * raise one -- before it has repainted.  Copying then stores the
-             * window that *was* in front as this one's picture, which is the
-             * smearing between windows.  Counting reports instead was both
-             * wrong and slow: reports keep coming whether the guest has drawn
-             * anything or not, so a quarter of a second was spent waiting and
-             * the answer still was not guaranteed.  Frames only arrive when the
-             * guest has actually painted something, so a couple of frames is
-             * both the right thing to wait for and far quicker.
+             * Only a real change of window restarts the wait.  Asking the guest
+             * to raise something clears this to nothing until the guest answers,
+             * and treating that as a change restarted the wait twice per raise
+             * -- and on a busy desktop often faster than it could ever finish.
              */
+            guard focusedGuestWindow != 0, focusedGuestWindow != oldValue else { return }
             framesSinceFocus = 0
+            focusChangedAt = Date()
         }
     }
+    private var focusChangedAt = Date.distantPast
     /// Frames the guest has drawn since the front window changed.
     private var framesSinceFocus = 99
     /// How often the capture pass has failed to get a window to the front.
@@ -178,6 +218,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
             for p in proxies.values { p.orderOut(nil) }; proxies = [:]; order = []
             menuBar?.orderOut(nil); menuBar = nil
             copies = [:]; cleanSnapshots = []; fresh = [:]; lastRect = [:]; wasCovered = [:]
+            occluded = [:]; haveOcclusion = false
             capturedThisSession = false; capturing = false; didSettleCapture = false
             gaveUp.removeAll(); captureMisses.removeAll()
             captureQueue = []; settledIds = []; settledFor = 0
@@ -230,45 +271,64 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
     /// positions, which tied how smoothly a window redraws to how often that
     /// report is sent -- so the report could not be slowed down to save the
     /// guest's time without making everything stutter.
-    func refreshLiveCopies() {
-        /*
-         * The capture pass no longer stops this.  It raises a window so it can
-         * be read whole -- which makes that window the one in front, so this
-         * copies exactly the window the pass wants anyway.  Blocking on it
-         * stopped every window from redrawing for a second and a half per
-         * window in the queue, and a queue that would not drain stopped them
-         * for good.
-         */
+    func refreshLiveCopies(damaged: CGRect) {
         guard active else { return }
+        frames += 1
         /*
-         * Only the window in front is copied.
+         * Every window, not just the one in front.
          *
-         * Every proxy holds one complete picture of its own window and nothing
-         * else.  The window in front is the only one that can be read whole --
-         * nothing is drawn over it -- so it is the only one copied, and every
-         * copy of it is therefore complete.  When another window comes forward
-         * this one simply stops being copied, and the last frame taken while
-         * it was in front stays as its picture.
+         * A pixel is absorbed into a window's picture only where all three of
+         * these hold: the guest says nothing is drawn over it, the guest has
+         * just drawn there, and the pixel belongs to a window rather than the
+         * desktop.  The first says the pixel is this window's to read; the
+         * second says the guest has actually painted it, which is what the
+         * various waits and probations were guessing at; the third keeps the
+         * desktop out when a window has gone but the report has not caught up.
          *
-         * Reading the windows behind as well is what caused the smearing and
-         * the flashes of desktop: what the shared frame holds where another
-         * window covers them is that other window.  Working out which parts
-         * were safe to read, row by row, cost more every frame than the copy
-         * itself and still left the covered parts wrong.
+         * Because that holds for any window, not merely the front one, a
+         * window behind can keep its clock, its progress bar and its game
+         * moving -- which copying only the front window could never do.
          */
-        framesSinceFocus += 1
-        guard let id = frontmostLive, let p = proxies[id] else { return }
-        guard framesSinceFocus >= 3 else { return }   // it has repainted by now
-        // For a few reports after a window moves or is resized the guest has
-        // not painted it where it now is, and the frame still holds whatever
-        // used to be there.
-        guard fresh[id, default: 0] >= 3 else { return }
-        if let snap = snapshot(id, p.guestRect) {
-            p.setOwnSurface(snap)
-            copyCount += 1
+        /*
+         * Off by default.  Absorbing only the drawn, uncovered parts is the
+         * right design and makes every window live, but it depends on the
+         * occlusion report being exactly right at the instant of the frame --
+         * and when it is not, the window quietly keeps a piece of its
+         * neighbour for good.  Until that is trustworthy, one window is copied
+         * whole, which can only ever be right or old, never wrong.
+         */
+        guard liveAbsorb else {
+            guard let id = frontmostLive, let p = proxies[id],
+                  fresh[id, default: 0] >= 3,
+                  haveOcclusion, (occluded[id] ?? []).isEmpty,
+                  Date().timeIntervalSince(focusChangedAt) > 0.2 else { return }
+            if let snap = snapshot(id, p.guestRect, regions: nil) {
+                p.setOwnSurface(snap); copyCount += 1
+            }
+            return
+        }
+        for (id, p) in proxies where !p.isMiniaturized {
+            guard fresh[id, default: 0] >= 3 else { continue }
+            let g = p.guestRect
+            let hit = damaged.intersection(g)
+            guard !hit.isNull, hit.width >= 1, hit.height >= 1 else { continue }
+            // In the window's own coordinates, and only where it is not covered.
+            var regions: [CGRect] = []
+            for v in visibleParts(id, g) {
+                let local = CGRect(x: hit.minX - g.minX, y: hit.minY - g.minY,
+                                   width: hit.width, height: hit.height).intersection(v)
+                if !local.isNull, local.width >= 1, local.height >= 1 { regions.append(local) }
+            }
+            guard !regions.isEmpty else { continue }
+            if let snap = snapshot(id, g, regions: regions) {
+                p.setOwnSurface(snap)
+                copyCount += 1
+            }
         }
     }
 
+    /// Why the window in front was not copied, since the last report.
+    private var frames = 0, skipNoFront = 0, skipTooSoon = 0, skipCovered = 0
     /// Copies made of the window in front, and when counting started.
     private var copyCount = 0
     private var copyCountSince = Date()
@@ -276,10 +336,12 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
     func copyRate() -> String {
         let dt = Date().timeIntervalSince(copyCountSince)
         let r = dt > 0 ? Double(copyCount) / dt : 0
-        let out = String(format: "PERATE %.1f copies/s over %.1fs (front=%d fresh=%d capturing=%d)",
+        let out = String(format: "PERATE %.1f copies/s over %.1fs (front=%d fresh=%d capturing=%d) "
+                         + "frames=%d nofront=%d toosoon=%d covered=%d",
                          r, dt, focusedGuestWindow, fresh[focusedGuestWindow, default: -99],
-                         capturing ? 1 : 0)
+                         capturing ? 1 : 0, frames, skipNoFront, skipTooSoon, skipCovered)
         copyCount = 0; copyCountSince = Date()
+        frames = 0; skipNoFront = 0; skipTooSoon = 0; skipCovered = 0
         return out
     }
 
@@ -631,11 +693,13 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
     /// Only ever called for a window nothing is covering -- the one in front,
     /// or one the capture pass has raised -- so the copy is always a complete
     /// picture of that window and of nothing else.
-    private func snapshot(_ id: Int, _ g: CGRect) -> IOSurfaceRef? {
+    /// Absorb the given parts of a window (in its own coordinates) into its
+    /// stored picture.  Passing nil takes the whole window, for the pass that
+    /// raises one to read it clear.
+    private func snapshot(_ id: Int, _ g: CGRect, regions: [CGRect]?) -> IOSurfaceRef? {
         let w = Int(g.width.rounded()), h = Int(g.height.rounded())
         guard w > 0, h > 0 else { return copies[id]?.front }
         let c = copies[id] ?? { let n = WindowCopy(); copies[id] = n; return n }()
-        // Rebuild the pair whenever the window changes size.
         if c.surfaces.count != 2 || IOSurfaceGetWidth(c.surfaces[0]) != w
             || IOSurfaceGetHeight(c.surfaces[0]) != h {
             cleanSnapshots.remove(id)
@@ -645,44 +709,73 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
                                           kIOSurfacePixelFormat: 0x42475241 /* 'BGRA' */]
             c.surfaces = (0..<2).compactMap { _ in IOSurfaceCreate(props as CFDictionary) }
             c.back = 0
+            c.lastRegions = []
             guard c.surfaces.count == 2 else { return c.lastGood }
         }
         guard let src = surface as! IOSurfaceRef? else { return c.front }
-        let dst = c.surfaces[c.back]
+        let whole = CGRect(x: 0, y: 0, width: CGFloat(w), height: CGFloat(h))
+        let mine = regions ?? [whole]
+        /*
+         * This round's parts and the previous round's, because the two surfaces
+         * are written in turn: without the previous round the one being written
+         * is a round out of date wherever this round does not reach, and the
+         * window alternates between two moments of itself.  Everywhere else is
+         * untouched and still correct, because a part of a window only changes
+         * when the guest draws there and drawing there is what puts it in this
+         * list.
+         */
+        let apply = mine + c.lastRegions
         let sw = IOSurfaceGetWidth(src), sh = IOSurfaceGetHeight(src)
         let gx = Int(g.minX.rounded()), gy = Int(g.minY.rounded())
-        /*
-         * A window can hang off the edges of the guest's screen.  Where it
-         * does there is nothing to read, so the copy starts further into the
-         * window rather than further into the screen -- clamping the source
-         * alone slid the window's contents sideways by however far off the
-         * edge it was.  What is not written is cleared, or it keeps whatever
-         * this buffer held two copies ago and shows as a stale stripe.
-         */
-        let dx = max(0, -gx), dy = max(0, -gy)
-        let ox = max(0, gx), oy = max(0, gy)
-        let cols = max(0, min(w - dx, sw - ox))
-        let rows = max(0, min(h - dy, sh - oy))
+        let dst = c.surfaces[c.back]
 
         IOSurfaceLock(src, .readOnly, nil)
         IOSurfaceLock(dst, [], nil)
         let sb = IOSurfaceGetBaseAddress(src), db = IOSurfaceGetBaseAddress(dst)
         let sbpr = IOSurfaceGetBytesPerRow(src), dbpr = IOSurfaceGetBytesPerRow(dst)
-        if cols < w || rows < h { memset(db, 0, dbpr * h) }      // the part off-screen
-        if cols > 0 {
-            for row in 0..<rows {
-                memcpy(db.advanced(by: (dy + row) * dbpr + dx * 4),
-                       sb.advanced(by: (oy + row) * sbpr + ox * 4), cols * 4)
+        var wrote = false
+        for part in apply {
+            let r = part.intersection(whole)
+            guard !r.isNull else { continue }
+            let px = Int(r.minX), py = Int(r.minY)
+            let pw = min(Int(r.width), w - px), ph = min(Int(r.height), h - py)
+            guard pw > 0, ph > 0 else { continue }
+            // Where the guest has drawn the desktop rather than a window, the
+            // card marks it: absorbing it puts a hole through the picture.
+            if regions != nil, isDesktop(sb, sbpr, sw, sh, gx + px, gy + py, pw, ph) { continue }
+            for row in 0..<ph {
+                let sy = gy + py + row, sx = gx + px
+                guard sy >= 0, sy < sh, sx >= 0 else { continue }
+                let run = max(0, min(pw, sw - sx)) * 4
+                guard run > 0 else { continue }
+                memcpy(db.advanced(by: (py + row) * dbpr + px * 4),
+                       sb.advanced(by: sy * sbpr + sx * 4), run)
             }
+            wrote = true
         }
         IOSurfaceUnlock(dst, [], nil)
         IOSurfaceUnlock(src, .readOnly, nil)
+        guard wrote else { return c.lastGood ?? c.front }
 
+        c.lastRegions = mine
         c.back = 1 - c.back
         let shown = c.surfaces[1 - c.back]
         c.lastGood = shown
-        cleanSnapshots.insert(id)
+        if regions == nil { cleanSnapshots.insert(id) }
         return shown
+    }
+
+    /// Whether the card says this patch is desktop rather than any window.  It
+    /// stamps the alpha of everything it draws; the desktop comes out clear.
+    private func isDesktop(_ base: UnsafeMutableRawPointer, _ bpr: Int, _ sw: Int, _ sh: Int,
+                           _ x: Int, _ y: Int, _ w: Int, _ h: Int) -> Bool {
+        let pts = [(x + 1, y + 1), (x + w / 2, y + h / 2), (x + max(0, w - 2), y + max(0, h - 2))]
+        for (px, py) in pts {
+            guard px >= 0, py >= 0, px < sw, py < sh else { continue }
+            let a = base.load(fromByteOffset: py * bpr + px * 4 + 3, as: UInt8.self)
+            if a != 0 { return false }
+        }
+        return true
     }
 
     /// Start the pass that gives every window a clean copy of itself.
@@ -756,7 +849,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
          * showed it.
          */
         if focusedGuestWindow == id, let p = proxies[id] {
-            _ = snapshot(id, p.guestRect)
+            _ = snapshot(id, p.guestRect, regions: nil)
             harmonyDebug("PECAP took \(id)")
         } else {
             captureMisses[id, default: 0] += 1
@@ -804,15 +897,15 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
     /// Why a window is or is not being copied afresh from every frame, and
     /// how much of it is readable.
     func liveness(_ id: Int) -> String {
-        let over = occluders(id)
-        let area = stack.first(where: { $0.id == id }).map { $0.rect.width * $0.rect.height } ?? 0
-        let hidden = over.reduce(0) { $0 + $1.width * $1.height }
-        let pct = area > 0 ? Int(min(100, hidden / area * 100)) : -1
-        let settled = fresh[id, default: 0] >= 3
-        return "over=\(over.count) hidden~\(pct)% focus=\(focusedGuestWindow == id ? 1 : 0) "
-            + "fresh=\(fresh[id, default: -99]) "
-            + "capturing=\(capturing ? 1 : 0) clean=\(cleanSnapshots.contains(id) ? 1 : 0) "
-            + "live=\((settled && !capturing) ? 1 : 0)"
+        let cover = occluded[id] ?? []
+        let rect = stack.first(where: { $0.id == id })?.rect ?? .zero
+        let parts = rect.isEmpty ? [] : visibleParts(id, rect)
+        let area = rect.width * rect.height
+        let shown = parts.reduce(0) { $0 + $1.width * $1.height }
+        let pct = area > 0 ? Int(shown / area * 100) : -1
+        return "covers=\(cover.count) liveparts=\(parts.count) visible=\(pct)% "
+            + "focus=\(focusedGuestWindow == id ? 1 : 0) fresh=\(fresh[id, default: -99]) "
+            + "clean=\(cleanSnapshots.contains(id) ? 1 : 0)"
     }
 
     /// Write a window's own copy of itself to a PNG, to check by eye that the
@@ -1097,7 +1190,16 @@ final class HarmonyProxy: NSWindow {
     /// Set while this proxy is standing in for a minimised guest window.
     var minimizedPid: Int?
     var minimizedIndex = 0
+    /// The window's own complete picture, taken while nothing covered it.
     private let tex = CALayer()
+    /*
+     * The guest's screen itself, cropped to this window and masked to the part
+     * of it nothing is drawn over.  It sits on top of the complete picture, so
+     * what can be read live is live and the rest falls back to the last good
+     * copy -- rather than the whole window being one or the other.
+     */
+    private let liveTex = CALayer()
+    private let liveMask = CAShapeLayer()
 
     init(id: Int, manager: HarmonyWindowManager) {
         self.id = id
@@ -1131,8 +1233,18 @@ final class HarmonyProxy: NSWindow {
         v.layer?.cornerRadius = 6           // Aqua windows are rounded; the shadow follows this shape
         v.layer?.masksToBounds = true
         v.layer?.addSublayer(tex)
+        v.layer?.addSublayer(liveTex)
+        let still: [String: CAAction] = ["contents": NSNull(), "bounds": NSNull(),
+                                         "position": NSNull(), "contentsRect": NSNull(),
+                                         "path": NSNull(), "hidden": NSNull()]
         tex.contentsGravity = .resize
-        tex.actions = ["contents": NSNull(), "bounds": NSNull(), "position": NSNull(), "contentsRect": NSNull()]
+        tex.actions = still
+        liveTex.contentsGravity = .resize
+        liveTex.actions = still
+        liveTex.mask = liveMask
+        liveMask.actions = still
+        liveMask.fillColor = NSColor.black.cgColor
+        liveTex.isHidden = true
         contentView = v
         delegate = manager
     }
@@ -1157,6 +1269,37 @@ final class HarmonyProxy: NSWindow {
     /// Whether this is already the surface being shown, and at full size.
     func showing(_ s: IOSurfaceRef) -> Bool {
         (tex.contents as AnyObject?) === (s as AnyObject) && tex.contentsRect == CGRect(x: 0, y: 0, width: 1, height: 1)
+    }
+
+    /*
+     * Show the guest's screen through this window, masked to `visible` (in this
+     * window's own coordinates, top-left origin).  `crop` is where this window
+     * sits in that screen, as a unit rectangle.
+     */
+    func setLive(_ screen: IOSurfaceRef, crop: CGRect, visible: [CGRect]) {
+        guard !visible.isEmpty else { liveTex.isHidden = true; return }
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        let b = contentView?.bounds ?? .zero
+        liveTex.frame = b
+        if (liveTex.contents as AnyObject?) !== (screen as AnyObject) { liveTex.contents = screen }
+        liveTex.contentsRect = crop
+        // The mask is in layer coordinates, which run from the bottom; the
+        // guest's rectangles run from the top.
+        let path = CGMutablePath()
+        for r in visible {
+            path.addRect(CGRect(x: r.minX, y: b.height - r.maxY, width: r.width, height: r.height))
+        }
+        liveMask.frame = b
+        liveMask.path = path
+        liveTex.isHidden = false
+        CATransaction.commit()
+    }
+
+    func hideLive() {
+        guard !liveTex.isHidden else { return }
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        liveTex.isHidden = true
+        CATransaction.commit()
     }
 
     func setOwnSurface(_ s: IOSurfaceRef) {

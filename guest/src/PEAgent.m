@@ -77,11 +77,47 @@ extern CGError CGSConnectionGetPID(CGSConnectionID cid, pid_t *pid, CGSConnectio
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <dirent.h>
+#include <dlfcn.h>
 
 #define PE_AGENT_VERSION "1.5"
 
 extern CGError CGSGetConnectionIDForPSN(CGSConnectionID cid, ProcessSerialNumber *psn,
                                         CGSConnectionID *out);
+
+/*
+ * Which window is drawn at a point on the screen.
+ *
+ * This is the one question the window server will answer truthfully about
+ * windows it does not own, and it is the whole of what Harmony needs: for any
+ * patch of a window, is that patch this window, or is something else drawn
+ * over it?  Looked up by name rather than linked against, so an older system
+ * that does not have it simply falls back instead of refusing to launch.
+ */
+typedef CGError (*PEFindWindowFn)(CGSConnectionID cid, int zero, int one, int zero2,
+                                  CGPoint *screenPoint, CGPoint *windowPoint,
+                                  CGSWindowID *outWid, CGSConnectionID *outCid);
+static PEFindWindowFn PEFindWindow(void)
+{
+    static PEFindWindowFn fn;
+    static int looked;
+    if (!looked) {
+        looked = 1;
+        fn = (PEFindWindowFn)dlsym(RTLD_DEFAULT, "CGSFindWindowByGeometry");
+    }
+    return fn;
+}
+
+/* The window drawn at a screen point, or 0 if it cannot be told. */
+static CGSWindowID PEWindowAtPoint(CGSConnectionID cid, CGPoint p)
+{
+    PEFindWindowFn fn = PEFindWindow();
+    CGSWindowID wid = 0;
+    CGSConnectionID owner = 0;
+    CGPoint local;
+    if (!fn) return 0;
+    if (fn(cid, 0, 1, 0, &p, &local, &wid, &owner) != kCGErrorSuccess) return 0;
+    return wid;
+}
 
 #ifndef kSetFrontProcessFrontWindowOnly
 #define kSetFrontProcessFrontWindowOnly (1 << 0)
@@ -121,6 +157,7 @@ static int AgentPort(void)
     int windowReportTick;       /* reports window rectangles while Harmony is on */
     int lastWindowCount;        /* so a window going away is noticed at once */
     BOOL raiseBringsAppForward; /* RAISEHARD: raise the whole application */
+    int hitTestProbed;
     pid_t menuBarPid;           /* application whose menus PowerEmu is showing */
 }
 - (void)connect;
@@ -722,6 +759,70 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
  * PowerEmu believing it, which showed as the window not coming alive and this
  * Mac's menu bar still carrying the application the user had just left.
  */
+/*
+ * What covers what, asked of the window server a point at a time.
+ *
+ * For each window, every other window it overlaps is tested once, at the
+ * middle of the overlap: if the server says some other window is drawn there,
+ * that patch of this window cannot be read out of the shared frame.  Which
+ * other window it is does not matter, so no ordering has to be worked out --
+ * and the window list's order, which is grouped by connection and wrong across
+ * applications, is not needed at all.
+ */
+- (void)reportOcclusion:(CGSWindowID *)ids rects:(CGRect *)rects count:(int)n
+{
+    CGSConnectionID cid = _CGSDefaultConnection();
+    NSMutableString *out = [NSMutableString string];
+    int i, j;
+    if (!PEFindWindow()) return;                /* nothing to say without it */
+    for (i = 0; i < n; i++) {
+        NSMutableString *covers = [NSMutableString string];
+        for (j = 0; j < n; j++) {
+            CGRect hit;
+            CGPoint mid;
+            if (i == j) continue;
+            hit = CGRectIntersection(rects[i], rects[j]);
+            if (CGRectIsEmpty(hit) || hit.size.width < 2 || hit.size.height < 2) continue;
+            mid = CGPointMake(hit.origin.x + hit.size.width / 2,
+                              hit.origin.y + hit.size.height / 2);
+            {
+                CGSWindowID at = PEWindowAtPoint(cid, mid);
+                int k;
+                /*
+                 * Ours, or the server would not say: either way this is not a
+                 * reason to stop reading the window.
+                 */
+                if (at == 0 || at == ids[i]) continue;
+                /*
+                 * Something else is drawn at that point -- but not necessarily
+                 * the window whose overlap was being tested.  Record the
+                 * overlap with whatever is *actually* on top there, which is
+                 * usually far smaller: reporting the whole of i-against-j
+                 * whenever some third window won the point declared most of a
+                 * window covered, and a window declared covered is a window
+                 * that never gets copied.
+                 */
+                for (k = 0; k < n; k++) {
+                    if (ids[k] != at) continue;
+                    hit = CGRectIntersection(rects[i], rects[k]);
+                    break;
+                }
+                if (CGRectIsEmpty(hit) || hit.size.width < 2 || hit.size.height < 2) continue;
+            }
+            [covers appendFormat:@"%s%d,%d,%d,%d", [covers length] ? "|" : "",
+                 (int)hit.origin.x, (int)hit.origin.y,
+                 (int)hit.size.width, (int)hit.size.height];
+        }
+        if ([covers length]) [out appendFormat:@"%d\t%@\n", (int)ids[i], covers];
+    }
+    [self send:@"OCCLUDE" text:out];
+    if (!hitTestProbed) {
+        hitTestProbed = 1;
+        [self send:@"LOG" text:[NSString stringWithFormat:@"HITTEST available=1 windows=%d\n%@",
+                                n, out]];
+    }
+}
+
 - (void)reportFocused
 {
     CGSConnectionID cid = _CGSDefaultConnection();
@@ -784,6 +885,9 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
         return;
     }
     NSMutableString *s = [NSMutableString string];
+    CGSWindowID keptIds[256];
+    CGRect keptRects[256];
+    int kept = 0;
     int i;
     for (i = 0; i < count; i++) {
         int level = 0;
@@ -820,11 +924,13 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
             }
             if (nAbove < 512) above[nAbove++] = r;
         }
+        if (kept < 256) { keptIds[kept] = list[i]; keptRects[kept] = r; kept++; }
         [s appendFormat:@"%d,%d,%d,%d,%d,%d,%d,%d,%d;", (int)list[i],
              (int)r.origin.x, (int)r.origin.y, (int)r.size.width, (int)r.size.height,
              (int)vis.origin.x, (int)vis.origin.y, (int)vis.size.width, (int)vis.size.height];
     }
     [self send:@"WINDOWS" text:s];
+    [self reportOcclusion:keptIds rects:keptRects count:kept];
     [self reportFocused];
     /*
      * A window that has gone may have been minimised, and PowerEmu has only a

@@ -24,6 +24,8 @@ final class GuestAgent: ObservableObject {
     var onWindowApps: (([(id: Int, pid: Int, app: String)]) -> Void)?
     /// Harmony: the guest's windows that have been put in its Dock.
     var onMinimized: (([(pid: Int, index: Int, title: String)]) -> Void)?
+    /// Per window, the rectangles of it that something else is drawn over.
+    var onOcclusion: (([Int: [CGRect]]) -> Void)?
     /// The guest window that has the focus: the one nothing is drawn over.
     var onFocused: ((Int) -> Void)?
     /// The front guest application and the titles across its menu bar.
@@ -153,6 +155,18 @@ final class GuestAgent: ObservableObject {
                 }
             }
             onMinimized?(mins)
+        case "OCCLUDE":
+            var out: [Int: [CGRect]] = [:]
+            for line in text.split(separator: "\n") {
+                let f = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
+                guard f.count >= 2, let id = Int(f[0]) else { continue }
+                out[id] = f[1].split(separator: "|").compactMap { part -> CGRect? in
+                    let n = part.split(separator: ",").compactMap { Double($0) }
+                    guard n.count == 4 else { return nil }
+                    return CGRect(x: n[0], y: n[1], width: n[2], height: n[3])
+                }
+            }
+            onOcclusion?(out)
         case "FOCUSED":
             onFocused?(Int(text.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0)
         case "MENUS":

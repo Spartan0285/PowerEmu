@@ -16,7 +16,8 @@ final class DisplayChannel: @unchecked Sendable {
 
     let socketPath: String
     /// Called on the main thread.
-    var onFrame: ((IOSurfaceRef, Int, Int) -> Void)?
+    /// The frame, and the part of it the guest has just drawn (nil = all of it).
+    var onFrame: ((IOSurfaceRef, Int, Int, CGRect) -> Void)?
     var onCursor: ((CGImage?, Int, Int) -> Void)?          // image, hot spot
     var onMouse: ((Int, Int, Bool) -> Void)?
     var onDisconnect: (() -> Void)?
@@ -32,6 +33,8 @@ final class DisplayChannel: @unchecked Sendable {
     /// one of its menus once it has been asked for.
     var onFocused: ((Int) -> Void)?
     func deliverFocused(_ id: Int) { onFocused?(id) }
+    var onOcclusion: (([Int: [CGRect]]) -> Void)?
+    func deliverOcclusion(_ o: [Int: [CGRect]]) { onOcclusion?(o) }
     var onMenuBar: ((Int, String, [(index: Int, title: String)]) -> Void)?
     func deliverMenuBar(_ pid: Int, _ app: String, _ t: [(index: Int, title: String)]) { onMenuBar?(pid, app, t) }
     var onMenuItems: ((Int, String, [HarmonyMenuItem]) -> Void)?
@@ -53,6 +56,8 @@ final class DisplayChannel: @unchecked Sendable {
     private var width = 0, height = 0, stride = 0
     private var surfaces: [IOSurfaceRef] = []
     private var back = 0
+    /// Per surface, what has been drawn since it was last written.
+    private var dirty: [CGRect] = [.null, .null]
     private let pendingLock = NSLock()
     private var pending = false            // a frame is waiting for the main thread
     /// Frames put on screen since the start (for the overlay).
@@ -172,7 +177,13 @@ final class DisplayChannel: @unchecked Sendable {
             newSurface(fd: f, width: u32(p, 0), height: u32(p, 1), stride: u32(p, 2))
             close(f)
         case .damage:
-            present()
+            // The guest says which part of its screen it drew.  This used to be
+            // thrown away and the whole 7 MB frame copied regardless.
+            if p.count >= 16 {
+                present(CGRect(x: u32(p, 0), y: u32(p, 1), width: u32(p, 2), height: u32(p, 3)))
+            } else {
+                present(nil)
+            }
         case .cursor:
             guard p.count >= 16 else { return }
             let w = u32(p, 0), h = u32(p, 1), hx = u32(p, 2), hy = u32(p, 3)
@@ -203,33 +214,51 @@ final class DisplayChannel: @unchecked Sendable {
                                       kIOSurfaceBytesPerRow: bpr, kIOSurfacePixelFormat: 0x42475241 /* 'BGRA' */]
         surfaces = (0..<2).compactMap { _ in IOSurfaceCreate(props as CFDictionary) }
         back = 0
-        present()
+        dirty = [.null, .null]
+        present(nil)
     }
 
-    /// Copy QEMU's frame into the back surface and show it.  While the main
-    /// thread hasn't shown the last one yet, keep refreshing that one instead.
-    private func present() {
+    /// Copy what the guest has drawn into the back surface and show it.  While
+    /// the main thread hasn't shown the last one yet, keep refreshing that one.
+    ///
+    /// Only the damaged part is copied.  The two surfaces are written in turn,
+    /// so each one has to be brought up to date with everything drawn since it
+    /// was last written, not merely since the last frame -- otherwise they
+    /// drift apart and the picture alternates between two different moments.
+    private func present(_ damage: CGRect?) {
         guard let shm, surfaces.count == 2 else { return }
+        let all = CGRect(x: 0, y: 0, width: width, height: height)
         pendingLock.lock()
         let target = pending ? 1 - back : back
-        let s = surfaces[target]
-        IOSurfaceLock(s, [], nil)
-        let dst = IOSurfaceGetBaseAddress(s), bpr = IOSurfaceGetBytesPerRow(s)
-        if bpr == stride {
-            memcpy(dst, shm, stride * height)
-        } else {
-            for y in 0..<height { memcpy(dst + y * bpr, shm + y * stride, width * 4) }
+        for i in 0..<2 {
+            dirty[i] = dirty[i].isNull ? (damage ?? all) : dirty[i].union(damage ?? all)
         }
-        IOSurfaceUnlock(s, [], nil)
+        let area = dirty[target].intersection(all)
+        dirty[target] = .null
+        let s = surfaces[target]
+        if !area.isNull, area.width >= 1, area.height >= 1 {
+            IOSurfaceLock(s, [], nil)
+            let dst = IOSurfaceGetBaseAddress(s), bpr = IOSurfaceGetBytesPerRow(s)
+            let x0 = max(0, Int(area.minX)), y0 = max(0, Int(area.minY))
+            let x1 = min(width, Int(area.maxX)), y1 = min(height, Int(area.maxY))
+            let run = max(0, x1 - x0) * 4
+            if run > 0 {
+                for y in y0..<max(y0, y1) {
+                    memcpy(dst + y * bpr + x0 * 4, shm + y * stride + x0 * 4, run)
+                }
+            }
+            IOSurfaceUnlock(s, [], nil)
+        }
         let first = !pending
         if first { pending = true; back = 1 - back }
         pendingLock.unlock()
         guard first else { return }
         let w = width, h = height
+        let drawn = damage ?? all
         DispatchQueue.main.async {
             self.pendingLock.lock(); self.pending = false; self.pendingLock.unlock()
             self.framesShown += 1
-            self.onFrame?(s, w, h)
+            self.onFrame?(s, w, h, drawn)
         }
     }
 }
@@ -784,7 +813,7 @@ final class VMDisplayView: NSView {
                 MainActor.assumeIsolated { self?.processDebugCommands() }
             }
         }
-        channel.onFrame = { [weak self] s, w, h in self?.show(s, w, h) }
+        channel.onFrame = { [weak self] s, w, h, drawn in self?.show(s, w, h, drawn) }
         channel.onCursor = { [weak self] img, hx, hy in self?.setCursor(img, hx, hy) }
         channel.onMouse = { [weak self] x, y, on in
             self?.cursorPos = CGPoint(x: x, y: y); self?.cursorOn = on; self?.placeCursor()
@@ -816,6 +845,7 @@ final class VMDisplayView: NSView {
         }
         harmonyMenus.send = { [weak self] verb, text in self?.channel.sendToAgent?(verb, text) }
         channel.onFocused = { [weak self] id in self?.harmonyManager.focusedGuestWindow = id }
+        channel.onOcclusion = { [weak self] o in self?.harmonyManager.setOcclusion(o) }
     }
 
     /// A key event from a focused proxy window: run it through the same key
@@ -877,7 +907,7 @@ final class VMDisplayView: NSView {
         status.hideStatus()
     }
 
-    private func show(_ s: IOSurfaceRef, _ w: Int, _ h: Int) {
+    private func show(_ s: IOSurfaceRef, _ w: Int, _ h: Int, _ drawn: CGRect) {
         if firmwareHidden {
             let left = Self.firmwareBlank - Date().timeIntervalSince(started)
             if left > 0 {
@@ -896,7 +926,10 @@ final class VMDisplayView: NSView {
                             self.firmwareTimer = nil
                             if let h = self.held {
                                 self.held = nil
-                                self.show(h.surface, h.width, h.height)
+                                // Held back over the firmware blank: nothing is
+                                // known about what changed, so take it all.
+                                self.show(h.surface, h.width, h.height,
+                                          CGRect(x: 0, y: 0, width: h.width, height: h.height))
                             }
                         }
                     }
@@ -918,7 +951,8 @@ final class VMDisplayView: NSView {
         lastSurface = s
         if harmony {
             harmonyManager.setSurface(s)
-            harmonyManager.refreshLiveCopies()          // redraw follows the guest's frames
+            // Redraw follows the guest's frames, and only where it drew.
+            harmonyManager.refreshLiveCopies(damaged: drawn)
         }
     }
 
@@ -1322,6 +1356,12 @@ final class VMDisplayView: NSView {
                     .map { "\($0.title)#\($0.pid)/\($0.index)" }.joined(separator: ", "))
             case "testmin" where f.count >= 2:
                 if let id = Int(f[1]) { harmonyDebug("PETESTMIN " + harmonyManager.testMiniaturize(id)) }
+            case "absorb" where f.count >= 2:
+                harmonyManager.liveAbsorb = (f[1] == "on")
+                harmonyDebug("PEABSORB \(harmonyManager.liveAbsorb)")
+            case "mask" where f.count >= 2:
+                harmonyManager.liveMasking = (f[1] == "on")
+                harmonyDebug("PEMASK \(harmonyManager.liveMasking)")
             case "rate":
                 harmonyDebug(harmonyManager.copyRate())
             case "menus":
