@@ -321,12 +321,32 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
          */
         guard !liveAbsorb || occlusionIsCurrent else { return }
         guard liveAbsorb else {
-            guard let id = frontmostLive, let p = proxies[id],
-                  fresh[id, default: 0] >= 3,
-                  haveOcclusion, (occluded[id] ?? []).isEmpty,
-                  Date().timeIntervalSince(focusChangedAt) > 0.2 else { return }
-            if let snap = snapshot(id, p.guestRect, regions: nil) {
-                p.setOwnSurface(snap); copyCount += 1
+            /*
+             * Every window nothing is drawn over, not merely the focused one.
+             *
+             * A window the guest says is wholly clear can be read straight out
+             * of the frame: what is there is its own pixels, whoever happens to
+             * have the keyboard.  Copying only the one believed to be focused
+             * meant a progress bar filling in a dialog, or a piece lighting up
+             * in a game, went unseen whenever that window was not the one we
+             * thought was in front -- and what we think is in front is itself
+             * only a guess the guest sends us.
+             *
+             * Still whole windows only.  Reading part of a window is what
+             * leaves a piece of its neighbour behind, and that is what is
+             * waiting on being able to trust the occlusion completely.
+             */
+            for (id, p) in proxies where !p.isMiniaturized {
+                guard fresh[id, default: 0] >= 3,
+                      haveOcclusion, (occluded[id] ?? []).isEmpty else { continue }
+                // Just after a window takes focus the guest has restacked it
+                // but not yet repainted it.
+                if id == focusedGuestWindow,
+                   Date().timeIntervalSince(focusChangedAt) <= 0.2 { continue }
+                if let snap = snapshot(id, p.guestRect, regions: nil) {
+                    p.setOwnSurface(snap)
+                    copyCount += 1
+                }
             }
             return
         }
