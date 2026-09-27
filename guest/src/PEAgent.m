@@ -731,7 +731,12 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
              * are dragged on the host's side.  Thirty had the guest walking its
              * whole window list -- a CGS round trip each -- often enough to be
              * felt in everything else it was doing. */
-            windowTimer = [[NSTimer scheduledTimerWithTimeInterval:1.0 / 12.0 target:self
+            /* Twenty-four times a second.  It was twelve, to spare the guest
+             * -- but the emulator turns out to be using under half a core even
+             * while the guest holds thirty frames a second, and what this
+             * report costs buys a much tighter answer about what covers what,
+             * which is what decides whether a window may be read at all. */
+            windowTimer = [[NSTimer scheduledTimerWithTimeInterval:1.0 / 24.0 target:self
                 selector:@selector(reportWindows:) userInfo:nil repeats:YES] retain];
         }
         [self reportWindows:nil];

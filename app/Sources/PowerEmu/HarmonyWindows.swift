@@ -102,7 +102,21 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
     /// Per window, the parts of it something else is drawn over -- asked of the
     /// guest's window server directly, a point at a time.
     private var occluded: [Int: [CGRect]] = [:]
-    func setOcclusion(_ o: [Int: [CGRect]]) { occluded = o; haveOcclusion = true }
+    func setOcclusion(_ o: [Int: [CGRect]]) {
+        occluded = o
+        haveOcclusion = true
+        // What the occlusion was worked out for.  The guest sends the window
+        // list and then this, on the same tick, so they agree at the moment
+        // they are made -- and stop agreeing the instant anything moves.
+        occlusionFor = geometryGeneration
+    }
+    private var occlusionFor = -1
+    /// Bumped whenever any window's rectangle changes, or one comes or goes.
+    private var geometryGeneration = 0
+    /// Whether what is known about what covers what describes the screen as it
+    /// is now.  Absorbing parts of a window on the strength of a stale answer
+    /// is how a window ends up keeping a piece of its neighbour.
+    private var occlusionIsCurrent: Bool { occlusionFor == geometryGeneration }
     /// Whether the guest has answered about occlusion at all yet.  Until it
     /// has, "no rectangles" cannot be told from "not asked".
     private var haveOcclusion = false
@@ -297,6 +311,15 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
          * neighbour for good.  Until that is trustworthy, one window is copied
          * whole, which can only ever be right or old, never wrong.
          */
+        /*
+         * Only while what is known about what covers what still describes the
+         * screen.  The guest works that out and sends it with the window list;
+         * the moment a window moves, the answer describes a screen that no
+         * longer exists, and absorbing a part of a window on the strength of it
+         * is exactly how the window ends up keeping a piece of its neighbour --
+         * for good, because nothing afterwards knows to put it right.
+         */
+        guard !liveAbsorb || occlusionIsCurrent else { return }
         guard liveAbsorb else {
             guard let id = frontmostLive, let p = proxies[id],
                   fresh[id, default: 0] >= 3,
@@ -439,6 +462,9 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
          */
         var disturbed: [CGRect] = []
         let nowShown = Set(shown.map { $0.id })
+        if nowShown != Set(lastRect.keys) || shown.contains(where: { lastRect[$0.id] != $0.rect }) {
+            geometryGeneration &+= 1
+        }
         for w in shown {
             if let was = lastRect[w.id] {
                 if was != w.rect { disturbed.append(was.union(w.rect)) }
