@@ -40,6 +40,8 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
     var raiseWindow: ((Int) -> Void)?
     /// Raise a window *and* its application, for the capture pass only.
     var raiseWindowHard: ((Int) -> Void)?
+    /// Files let go of over one of the guest's windows.
+    var dropFiles: (([URL], Int) -> Void)?
     var raiseWindowAt: ((Int, Int, Int) -> Void)?
     var moveWindow: ((Int, Int, Int) -> Void)?
     var moveWindowDrag: ((Int, Int, Int, Int, Int) -> Void)?
@@ -1274,6 +1276,8 @@ final class HarmonyProxy: NSWindow {
         isMovableByWindowBackground = false
         level = .normal
         let v = HarmonyProxyView(proxy: self)
+        // Files can be dragged from this Mac straight onto a guest window.
+        v.registerForDraggedTypes([.fileURL])
         v.wantsLayer = true
         v.layer = CALayer()
         v.layer?.cornerRadius = 6           // Aqua windows are rounded; the shadow follows this shape
@@ -1400,6 +1404,25 @@ final class HarmonyProxyView: NSView {
         guard lines != 0 else { return }
         scrollCarry -= CGFloat(lines)
         m.sendScroll?(lines)
+    }
+
+    /*
+     * A file dragged from this Mac and let go of over a guest window.  The
+     * window is raised first, so what happens next happens in front of the
+     * reader rather than behind whatever they dropped onto.
+     */
+    override func draggingEntered(_ s: NSDraggingInfo) -> NSDragOperation {
+        s.draggingPasteboard.canReadObject(forClasses: [NSURL.self], options: nil) ? .copy : []
+    }
+
+    override func performDragOperation(_ s: NSDraggingInfo) -> Bool {
+        guard let proxy, let m = proxy.manager,
+              let urls = s.draggingPasteboard.readObjects(forClasses: [NSURL.self],
+                                                          options: nil) as? [URL],
+              !urls.isEmpty else { return false }
+        m.proxyRaise(proxy.id)
+        m.dropFiles?(urls, proxy.id)
+        return true
     }
 
     override func keyDown(with e: NSEvent) { proxy?.manager?.forwardKey?(e) }

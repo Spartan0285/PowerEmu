@@ -175,6 +175,7 @@ static int AgentPort(void)
 - (void)set:(NSString *)domain key:(NSString *)key yes:(BOOL)yes keep:(BOOL)keep;
 - (void)run:(NSString *)tool with:(NSArray *)args;
 - (void)sendAppIcon:(NSString *)pidStr;
+- (void)dropFiles:(NSString *)spec;
 - (void)reportMenuBarFor:(pid_t)pid;
 - (void)reportMenuItems:(NSString *)args;
 - (void)pickMenuItem:(NSString *)args;
@@ -602,6 +603,8 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
                 if (GetProcessForPID(pid, &psn) == noErr) SetFrontProcess(&psn);
             }
         }
+    } else if ([verb isEqualToString:@"DROPFILES"]) {
+        [self dropFiles:text];
     } else if ([verb isEqualToString:@"QUITAPP"]) {
         /* Somebody quit the application's tile in this Mac's Dock. */
         pid_t qp = (pid_t)[text intValue];
@@ -891,6 +894,51 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
         [out appendData:png];
     }
     [self send:@"APPICON" data:out];
+}
+
+/*
+ * Files dragged from the host onto one of the guest's windows.
+ *
+ * PowerEmu has already copied them into the folder it shares for the purpose,
+ * which is mounted here like any other share; all that is left is to copy them
+ * out of the mount to wherever they were dropped.  The first line says where;
+ * the rest are the file names.
+ */
+- (void)dropFiles:(NSString *)spec
+{
+    NSArray *lines = [spec componentsSeparatedByString:@"\n"];
+    NSString *dest;
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSString *mount = @"/Volumes/PowerEmu Drop";
+    unsigned i;
+    BOOL any = NO;
+
+    if ([lines count] < 2) return;
+    dest = [[lines objectAtIndex:0] stringByExpandingTildeInPath];
+    if (![dest length]) dest = [@"~/Desktop" stringByExpandingTildeInPath];
+    if (![fm fileExistsAtPath:mount]) {
+        [self send:@"LOG" text:@"DROPFILES: the drop folder is not mounted"];
+        return;
+    }
+    for (i = 1; i < [lines count]; i++) {
+        NSString *name = [lines objectAtIndex:i];
+        NSString *from, *to;
+        if (![name length]) continue;
+        from = [mount stringByAppendingPathComponent:name];
+        to = [dest stringByAppendingPathComponent:name];
+        [fm removeFileAtPath:to handler:nil];
+        if ([fm copyPath:from toPath:to handler:nil]) {
+            any = YES;
+        } else {
+            [self send:@"LOG" text:[NSString stringWithFormat:@"DROPFILES: %@ did not copy", name]];
+        }
+    }
+    if (any) {
+        /* Let the Finder notice, so the icon appears without a refresh. */
+        [[NSWorkspace sharedWorkspace] noteFileSystemChanged:dest];
+    }
+    [self send:@"LOG" text:[NSString stringWithFormat:@"DROPFILES: %@ -> %@",
+                            any ? @"copied" : @"nothing", dest]];
 }
 
 - (void)reportFocused

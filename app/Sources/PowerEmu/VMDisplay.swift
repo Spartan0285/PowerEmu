@@ -343,6 +343,8 @@ final class VMDisplayView: NSView {
     var onHarmonyRaiseHard: ((Int) -> Void)?
     /// Ask the guest for one of its applications' icons, and quit one.
     var onWantAppIcon: ((Int) -> Void)?
+    /// Files dragged from this Mac onto one of the guest's windows.
+    var onDropFiles: (([URL], Int) -> Void)?
     var onQuitGuestApp: ((Int) -> Void)?
     var onHarmonyMove: ((Int, Int, Int) -> Void)?
     var onHarmonyRaiseAt: ((Int, Int, Int) -> Void)?
@@ -842,6 +844,7 @@ final class VMDisplayView: NSView {
         harmonyManager.unminimize = { [weak self] pid, i in self?.onRestoreGuestWindow?(pid, i) }
         harmonyManager.raiseWindow = { [weak self] id in self?.onHarmonyRaise?(id) }
         harmonyManager.raiseWindowHard = { [weak self] id in self?.onHarmonyRaiseHard?(id) }
+        harmonyManager.dropFiles = { [weak self] urls, id in self?.onDropFiles?(urls, id) }
         harmonyManager.moveWindow = { [weak self] id, x, y in self?.onHarmonyMove?(id, x, y) }
         harmonyManager.raiseWindowAt = { [weak self] id, x, y in self?.onHarmonyRaiseAt?(id, x, y) }
         harmonyManager.moveWindowDrag = { [weak self] id, gx, gy, ex, ey in
@@ -1372,6 +1375,11 @@ final class VMDisplayView: NSView {
                     .map { "\($0.title)#\($0.pid)/\($0.index)" }.joined(separator: ", "))
             case "testmin" where f.count >= 2:
                 if let id = Int(f[1]) { harmonyDebug("PETESTMIN " + harmonyManager.testMiniaturize(id)) }
+            case "drop" where f.count >= 2:
+                // The same path a real drag takes, without the drag.
+                let path = f.dropFirst().joined(separator: " ")
+                harmonyDebug("PEDROP test \(path)")
+                onDropFiles?([URL(fileURLWithPath: path)], 0)
             case "absorb" where f.count >= 2:
                 harmonyManager.liveAbsorb = (f[1] == "on")
                 harmonyDebug("PEABSORB \(harmonyManager.liveAbsorb)")
@@ -1806,6 +1814,7 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
         display.onHarmonyRaise = { [weak vm] id in vm?.raiseGuestWindow(id) }
         display.onHarmonyRaiseHard = { [weak vm] id in vm?.raiseGuestWindowHard(id) }
         display.onWantAppIcon = { [weak vm] pid in vm?.guestAppIcon(pid) }
+        display.onDropFiles = { [weak vm] urls, _ in vm?.dropFiles(urls, into: "~/Desktop") }
         display.onQuitGuestApp = { [weak vm] pid in vm?.quitGuestApp(pid) }
         display.onHarmonyMove = { [weak vm] id, x, y in vm?.moveGuestWindow(id, x, y) }
         display.onHarmonyRaiseAt = { [weak vm] id, x, y in vm?.raiseGuestWindowAt(id, x, y) }

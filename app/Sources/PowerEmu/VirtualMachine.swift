@@ -157,7 +157,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
             a.onMenuItems = { [weak self] pid, path, items in self?.display?.deliverMenuItems(pid, path, items) }
             agent = a
             let d = WebDAVServer(socketPath: r.davPath)
-            d.setShares(config.sharedFolders)
+            d.setShares(config.sharedFolders + [Self.dropShare])
             try? d.start()
             dav = d
             let w = SharedFolderWatcher { [weak a] changed in
@@ -477,6 +477,43 @@ final class VirtualMachine: ObservableObject, Identifiable {
 
     private func mountSharedFolders() {
         for f in config.sharedFolders { agent?.send("MOUNT", "\(Self.guestURL(f))\t\(f.name)") }
+        let d = Self.dropShare
+        agent?.send("MOUNT", "\(Self.guestURL(d))\t\(d.name)")
+    }
+
+    /*
+     * Where a file dragged from this Mac onto a guest window is put down.
+     *
+     * It is an ordinary shared folder, mounted in the guest like any other but
+     * never shown in the settings: dropping a file copies it in here, and the
+     * tools then copy it out of the mount to wherever it was dropped.  Going
+     * through the share means the guest reads it over its own network, which
+     * it already knows how to do, rather than needing anything new.
+     */
+    static let dropShare: SharedFolder = {
+        let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("PowerEmu/Drop", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return SharedFolder(path: dir.path, name: "PowerEmu Drop")
+    }()
+
+    /// Put files from this Mac into the guest, at a folder of its choosing.
+    func dropFiles(_ urls: [URL], into where_: String) {
+        let dir = URL(fileURLWithPath: Self.dropShare.path)
+        var names: [String] = []
+        for u in urls {
+            let to = dir.appendingPathComponent(u.lastPathComponent)
+            try? FileManager.default.removeItem(at: to)
+            do {
+                try FileManager.default.copyItem(at: u, to: to)
+                names.append(u.lastPathComponent)
+            } catch {
+                harmonyDebug("PEDROP could not stage \(u.lastPathComponent): \(error.localizedDescription)")
+            }
+        }
+        guard !names.isEmpty else { return }
+        harmonyDebug("PEDROP sending \(names.joined(separator: ", ")) to \(where_)")
+        agent?.send("DROPFILES", "\(where_)\n" + names.joined(separator: "\n"))
     }
 
     func addSharedFolder(_ url: URL) {
@@ -490,7 +527,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
         let f = SharedFolder(path: url.path, name: name)
         config.sharedFolders.append(f)
         try? save()
-        dav?.setShares(config.sharedFolders)
+        dav?.setShares(config.sharedFolders + [Self.dropShare])
         shareWatcher?.watch(config.sharedFolders)
         agent?.send("MOUNT", "\(Self.guestURL(f))\t\(f.name)")
     }
@@ -499,7 +536,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
         agent?.send("UNMOUNT", f.name)
         config.sharedFolders.removeAll { $0.id == f.id }
         try? save()
-        dav?.setShares(config.sharedFolders)
+        dav?.setShares(config.sharedFolders + [Self.dropShare])
         shareWatcher?.watch(config.sharedFolders)
     }
 
@@ -507,7 +544,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
         guard let i = config.sharedFolders.firstIndex(where: { $0.id == f.id }) else { return }
         config.sharedFolders[i].readOnly = ro
         try? save()
-        dav?.setShares(config.sharedFolders)
+        dav?.setShares(config.sharedFolders + [Self.dropShare])
         shareWatcher?.watch(config.sharedFolders)
     }
 
