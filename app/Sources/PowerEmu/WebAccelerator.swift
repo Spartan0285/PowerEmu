@@ -103,6 +103,8 @@ final class WebAccelerator: NSObject, URLSessionDataDelegate, @unchecked Sendabl
     private func fetch(_ r: HTTPRequest, _ c: HTTPConnection, _ s: Settings) -> Bool {
         count { $0.requests += 1 }
         let engine = Engine(r.header("x-poweremu-engine"))
+        harmonyDebug("PEWEB > \(r.method) \(r.target) ae=\(r.header("accept-encoding") ?? "-") "
+            + "eng=\(r.header("x-poweremu-engine") ?? "-") acc=\(r.header("accept") ?? "-")")
         let isPrivate = r.header("x-poweremu-private") == "1"
         guard let url = URL(string: r.target), let host = url.host?.lowercased() else {
             c.drainBody(r)
@@ -110,6 +112,7 @@ final class WebAccelerator: NSObject, URLSessionDataDelegate, @unchecked Sendabl
         }
         if s.blockTrackers, let list = Blocklist.match(host) {
             c.drainBody(r)
+            harmonyDebug("PEWEB < BLOCKED \(list) \(r.target)")
             count { $0.blocked += 1 }
             return c.respond(204, headers: ["X-PowerEmu": "1", "X-PowerEmu-Blocked": list])
         }
@@ -145,6 +148,7 @@ final class WebAccelerator: NSObject, URLSessionDataDelegate, @unchecked Sendabl
         case .response(let x): resp = x
         case .done(let e):
             let msg = Self.describe(e, host: host)
+            harmonyDebug("PEWEB < FAILED \(r.target): \(msg)")
             if !isPrivate { note("Web: \(msg)") }
             return failed(c, (e as? URLError)?.code == .timedOut ? 504 : 502, msg)
         case .data: return failed(c, 502, "no response from \(host)")
@@ -200,9 +204,13 @@ final class WebAccelerator: NSObject, URLSessionDataDelegate, @unchecked Sendabl
                 data = z
             }
             headers.append(("Content-Length", String(data.count)))
+            harmonyDebug("PEWEB < \(status) \(mime) \(data.count)b "
+                + "\(headers.first(where: { $0.0 == "X-PowerEmu-Converted" })?.1 ?? "")"
+                + "\(headers.contains(where: { $0.0 == "Content-Encoding" }) ? " gzipped" : "") \(r.target)")
             return c.writeAll(Self.head(status, headers, extra: nil)) && c.writeAll(data)
         }
 
+        harmonyDebug("PEWEB < \(status) \(mime) streamed \(r.target)")
         // Stream: chunked to HTTP/1.1 clients, until close to HTTP/1.0 ones.
         let chunked = r.version != "HTTP/1.0"
         headers.append(chunked ? ("Transfer-Encoding", "chunked") : ("Connection", "close"))
@@ -317,9 +325,27 @@ final class WebAccelerator: NSObject, URLSessionDataDelegate, @unchecked Sendabl
     }
 
     /// Redirects go back to the browser, which follows them itself.
+    /*
+     * Follow redirects here rather than handing the 3xx back.
+     *
+     * The whole point of this proxy is that the browser on the other side is
+     * twenty years old and cannot speak to today's web directly.  Nearly every
+     * site now answers plain http with a redirect to https, and that browser
+     * cannot follow one -- so a page would arrive (from somewhere that happened
+     * not to redirect) while every stylesheet and image on it came back as a
+     * 301 the browser could do nothing with, and the page looked unstyled and
+     * pictureless.  Following them here means it only ever sees the answer, in
+     * plain http, which is the arrangement it understands.
+     *
+     * URLSession stops after a sensible number of hops, so a redirect loop ends
+     * by itself rather than being chased for ever.
+     */
     func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
                     newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
-        completionHandler(nil)
+        guard let up = upstream(task) else { completionHandler(nil); return }
+        up.redirects += 1
+        guard up.redirects <= 10 else { completionHandler(nil); return }
+        completionHandler(request)
     }
 }
 
@@ -328,6 +354,8 @@ final class WebAccelerator: NSObject, URLSessionDataDelegate, @unchecked Sendabl
 final class UpstreamTask: @unchecked Sendable {
     enum Event { case response(HTTPURLResponse), data(Data), done(Error?) }
     weak var task: URLSessionTask?
+    /// How many redirects have been followed for this request.
+    var redirects = 0
     private var events: [Event] = []
     private var queued = 0
     private var paused = false

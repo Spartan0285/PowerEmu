@@ -50,6 +50,12 @@ struct NewMachineSheet: View {
     @State private var memory = 2048
     @State private var vram = 128
     @State private var diskGB = 40
+    /// Install onto a new virtual disk, or onto a physical external disk of
+    /// this Mac (which the user then installs onto by hand).
+    enum DiskTarget: String, CaseIterable { case virtual = "New virtual disk", external = "External disk" }
+    @State private var diskTarget: DiskTarget = .virtual
+    @State private var externalBSD: String?
+    @ObservedObject private var driveMonitor = HostDriveMonitor.shared
     @State private var disc: URL?
     @StateObject private var download = MediaDownload()
     @StateObject private var discCopy = DiscCopy()
@@ -97,9 +103,15 @@ struct NewMachineSheet: View {
     /// package (a flat archive rather than a folder, handled in
     /// InstallPlan) and its list of printer vendors.
     private var automatic: Bool {
+        // Installing onto a physical external disk is always done by hand --
+        // the unattended installer formats a virtual disk with qemu-img, which
+        // a real device does not have.
+        guard diskTarget != .external else { return false }
         guard info?.automatable == true, let v = info?.version else { return false }
         return v.hasPrefix("10.4") || v.hasPrefix("10.5")
     }
+
+    private var externalDrives: [HostDrive] { driveMonitor.drives.filter { $0.kind == .hardDisk } }
     /// The update only applies to Tiger discs older than 10.4.11.
     private var updateApplies: Bool {
         guard let v = info?.version else { return false }
@@ -193,7 +205,9 @@ struct NewMachineSheet: View {
     private var canContinue: Bool {
         switch page {
         case .disc: return disc != nil && !inspecting && info != nil
-        case .machine: return !name.trimmingCharacters(in: .whitespaces).isEmpty && !diskTooSmall
+        case .machine:
+            let named = !name.trimmingCharacters(in: .whitespaces).isEmpty
+            return named && (diskTarget == .external ? externalBSD != nil : !diskTooSmall)
         default: return true
         }
     }
@@ -573,16 +587,32 @@ struct NewMachineSheet: View {
                 TextField("Name", text: $name).textFieldStyle(.roundedBorder).frame(width: 200)
             }
             LabeledContent {
-                VStack(alignment: .leading, spacing: 4) {
-                    Picker("", selection: $diskGB) {
-                        ForEach([10, 20, 40, 80, 120], id: \.self) { Text("\($0) GB").tag($0) }
+                VStack(alignment: .leading, spacing: 6) {
+                    if !externalDrives.isEmpty {
+                        Picker("", selection: $diskTarget) {
+                            ForEach(DiskTarget.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                        }
+                        .pickerStyle(.segmented).labelsHidden().frame(width: 240)
                     }
-                    .labelsHidden().frame(width: 200)
-                    // What the reader is really choosing: how much room is
-                    // left once Mac OS X is on it.
-                    Text(spaceAfterInstall)
-                        .font(.caption)
-                        .foregroundStyle(diskTooSmall ? Color.orange : Color.secondary)
+                    if diskTarget == .virtual {
+                        Picker("", selection: $diskGB) {
+                            ForEach([10, 20, 40, 80, 120], id: \.self) { Text("\($0) GB").tag($0) }
+                        }
+                        .labelsHidden().frame(width: 200)
+                        // What the reader is really choosing: how much room is
+                        // left once Mac OS X is on it.
+                        Text(spaceAfterInstall)
+                            .font(.caption)
+                            .foregroundStyle(diskTooSmall ? Color.orange : Color.secondary)
+                    } else {
+                        Picker("", selection: $externalBSD) {
+                            Text("Choose a disk…").tag(String?.none)
+                            ForEach(externalDrives) { d in Text(d.name).tag(Optional(d.bsdName)) }
+                        }
+                        .labelsHidden().frame(width: 260)
+                        Text("This disk is erased and Mac OS X installed onto it. You do the install by hand; the virtual Mac boots the installer.")
+                            .font(.caption).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true).frame(width: 280, alignment: .leading)
+                    }
                 }
             } label: {
                 HStack(spacing: 6) {
@@ -810,7 +840,13 @@ struct NewMachineSheet: View {
         error = nil
         do {
             let vm: VirtualMachine
-            if automatic, var o = options(), let info {
+            if diskTarget == .external, let bsd = externalBSD,
+               let ext = externalDrives.first(where: { $0.bsdName == bsd }) {
+                // Install onto a physical external disk, by hand.
+                vm = try library.newMachineOnExternal(name: name, osName: Self.osName(for: info?.version),
+                                                      memoryMB: memory, vramMB: vram,
+                                                      external: ext, installDisc: disc)
+            } else if automatic, var o = options(), let info {
                 o.personalize = personalize
                 vm = try library.installMachine(name: name, memoryMB: memory, vramMB: vram, options: o,
                                                 discVersion: info.version)

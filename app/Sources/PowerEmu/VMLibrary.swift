@@ -173,6 +173,38 @@ final class VMLibrary: ObservableObject {
         }
     }
 
+    /// A new virtual Mac that installs onto a physical external disk of this
+    /// Mac.  It has no internal disk -- the external is its only hard disk --
+    /// boots the install disc, and the person does the install by hand.
+    func newMachineOnExternal(name: String, osName: String, memoryMB: Int, vramMB: Int = 128,
+                              external: HostDrive, installDisc: URL?) throws -> VirtualMachine {
+        let pkg = folder.appendingPathComponent(name + ".poweremu", isDirectory: true)
+        let fm = FileManager.default
+        guard !fm.fileExists(atPath: pkg.path) else { throw PackageError.exists(name) }
+        for sub in ["Disks", "Logs"] {
+            try fm.createDirectory(at: pkg.appendingPathComponent(sub), withIntermediateDirectories: true)
+        }
+        var config = VMConfig(name: name)
+        config.osName = osName
+        config.memoryMB = memoryMB
+        config.vramMB = vramMB
+        if let installDisc {
+            config.discs = [installDisc.path]
+            config.insertedDisc = installDisc.path
+            config.bootFromDisc = true
+        }
+        config.externalDisk = ExternalDisk(bsdName: external.bsdName, label: external.name)
+        do {
+            let vm = VirtualMachine(url: pkg, config: config)
+            try vm.save()
+            reload()
+            return machines.first { $0.url == pkg } ?? vm
+        } catch {
+            try? fm.removeItem(at: pkg)
+            throw error
+        }
+    }
+
     /// A new virtual Mac installed from `options.disc` with nobody at the
     /// keyboard (see InstallPlan). Returns at once; the install runs on.
     func installMachine(name: String, memoryMB: Int, vramMB: Int, options: InstallPlan.Options,

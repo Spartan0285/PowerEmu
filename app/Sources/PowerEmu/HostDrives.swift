@@ -9,15 +9,51 @@ struct HostDrive: Identifiable, Hashable {
     let kind: Kind
     var id: String { bsdName }
 
-    enum Kind { case optical, floppy, image }
+    enum Kind { case optical, floppy, image, hardDisk }
 
-    /// Open /dev/rdiskN read-only.  Raw devices belong to root; when this
-    /// process may not read one, macOS's authopen asks for an administrator's
-    /// approval and hands back the open file (over a socket, SCM_RIGHTS).
-    static func open(_ d: HostDrive, done: @escaping @Sendable (Int32, String?) -> Void) {
-        let path = "/dev/r" + d.bsdName
-        DispatchQueue.global().async {
+    /// Open /dev/diskN read-only -- the *buffered* block node, deliberately
+    /// not the raw /dev/rdiskN character node.  A DVD's physical block is
+    /// 2048 bytes, and reads from the raw node must land on a buffer aligned
+    /// to it; QEMU's raw driver probes the alignment as 512 and hands macOS a
+    /// 512-aligned bounce buffer, so every read past the first few sectors
+    /// comes back EINVAL and the guest sees an unreadable disc.  The buffered
+    /// node goes through the kernel's buffer cache, which does the alignment,
+    /// and an optical read is not fast enough for the extra copy to matter.
+    /// These nodes belong to root; when this process may not read one,
+    /// macOS's authopen asks for an administrator's approval and hands back
+    /// the open file (over a socket, SCM_RIGHTS).
+    /// The device node to read this disc through.  A DVD's whole-disc node is
+    /// already 2048-byte cooked sectors, but a data CD's whole-disc node is
+    /// 2352-byte raw sectors (sync + header + ECC); the guest expects 2048, so
+    /// reading the raw node gives it garbage and it sees an unreadable disc.
+    /// The cooked 2048-byte view lives in the disc's data partition, so when
+    /// the whole-disc node is not 2048 we open the first 2048-byte partition.
+    static func opticalNode(_ bsdName: String) -> String {
+        func blockSize(_ path: String) -> UInt32? {
             let fd = Darwin.open(path, O_RDONLY)
+            guard fd >= 0 else { return nil }
+            defer { close(fd) }
+            var bs: UInt32 = 0
+            let DKIOCGETBLOCKSIZE: UInt = 0x4004_6418   // _IOR('d', 24, uint32)
+            return ioctl(fd, DKIOCGETBLOCKSIZE, &bs) == 0 ? bs : nil
+        }
+        let whole = "/dev/" + bsdName
+        if blockSize(whole) == 2048 { return whole }
+        for i in 1...9 {
+            let part = whole + "s\(i)"
+            if blockSize(part) == 2048 { return part }
+        }
+        return whole
+    }
+
+    static func open(_ d: HostDrive, writable: Bool = false,
+                     done: @escaping @Sendable (Int32, String?) -> Void) {
+        // A hard disk is lent whole (the guest reads its partition table); an
+        // optical disc is read through its 2048-byte cooked node.
+        let path = d.kind == .hardDisk ? "/dev/" + d.bsdName : HostDrive.opticalNode(d.bsdName)
+        let flags: Int32 = writable ? O_RDWR : O_RDONLY
+        DispatchQueue.global().async {
+            let fd = Darwin.open(path, flags)
             if fd >= 0 { done(fd, nil); return }
             guard errno == EACCES || errno == EPERM else {
                 done(-1, "Could not open \(d.name): \(String(cString: strerror(errno)))")
@@ -27,7 +63,7 @@ struct HostDrive: Identifiable, Hashable {
             guard socketpair(AF_UNIX, SOCK_STREAM, 0, &sv) == 0 else { done(-1, "Could not ask for access."); return }
             let p = Process()
             p.executableURL = URL(fileURLWithPath: "/usr/libexec/authopen")
-            p.arguments = ["-stdoutpipe", "-o", String(O_RDONLY), path]
+            p.arguments = ["-stdoutpipe", "-o", String(flags), path]
             p.standardOutput = FileHandle(fileDescriptor: sv[1], closeOnDealloc: false)
             do { try p.run() } catch { close(sv[0]); close(sv[1]); done(-1, error.localizedDescription); return }
             let got = QMP.receiveFD(socket: sv[0])
@@ -42,7 +78,7 @@ struct HostDrive: Identifiable, Hashable {
              * hunting through Privacy settings for a disc that is simply
              * blank, which is what happened.
              */
-            let second = Darwin.open(path, O_RDONLY)
+            let second = Darwin.open(path, flags)
             if second >= 0 { done(second, nil); return }
             if errno == EACCES || errno == EPERM {
                 done(-1, "Access to \(d.name) was not granted.")
@@ -108,6 +144,11 @@ final class HostDriveMonitor: ObservableObject {
         let content = desc[kDADiskDescriptionMediaContentKey as String] as? String ?? ""
         let blank = content.isEmpty
 
+        // Never offer this Mac's own internal disks -- only external drives
+        // (USB/FireWire/Thunderbolt) may be lent, so the host system disk can
+        // never be handed to a guest.
+        let internalDisk = desc[kDADiskDescriptionDeviceInternalKey as String] as? Bool ?? true
+
         let kind: HostDrive.Kind
         if ["IOCDMedia", "IODVDMedia", "IOBDMedia"].contains(mediaKind) {
             if blank { return }
@@ -116,6 +157,11 @@ final class HostDriveMonitor: ObservableObject {
             kind = .floppy              // up to 2.88 MB: 400K/800K/1.44M disks
         } else if includeImages && model == "Disk Image" {
             kind = .image
+        } else if !internalDisk && !blank && size > 2_949_120 {
+            // An external hard disk (or SSD/USB stick): lend it whole so the
+            // guest sees its partition table -- to browse it, install onto it,
+            // or boot from it.
+            kind = .hardDisk
         } else {
             return
         }

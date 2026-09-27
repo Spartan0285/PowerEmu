@@ -20,6 +20,24 @@ final class DisplayChannel: @unchecked Sendable {
     var onCursor: ((CGImage?, Int, Int) -> Void)?          // image, hot spot
     var onMouse: ((Int, Int, Bool) -> Void)?
     var onDisconnect: (() -> Void)?
+    /// Harmony: the guest's windows (id + rectangle), from the agent (not the
+    /// socket); the view sets this and the machine forwards the report here.
+    var onWindows: (([(id: Int, rect: CGRect, visible: CGRect)]) -> Void)?
+    func deliverWindows(_ w: [(id: Int, rect: CGRect, visible: CGRect)]) { onWindows?(w) }
+    var onWindowApps: (([(id: Int, pid: Int, app: String)]) -> Void)?
+    func deliverWindowApps(_ a: [(id: Int, pid: Int, app: String)]) { onWindowApps?(a) }
+    var onMinimized: (([(pid: Int, index: Int, title: String)]) -> Void)?
+    func deliverMinimized(_ m: [(pid: Int, index: Int, title: String)]) { onMinimized?(m) }
+    /// Harmony: the front guest application's menu bar, and the contents of
+    /// one of its menus once it has been asked for.
+    var onFocused: ((Int) -> Void)?
+    func deliverFocused(_ id: Int) { onFocused?(id) }
+    var onMenuBar: ((Int, String, [(index: Int, title: String)]) -> Void)?
+    func deliverMenuBar(_ pid: Int, _ app: String, _ t: [(index: Int, title: String)]) { onMenuBar?(pid, app, t) }
+    var onMenuItems: ((Int, String, [HarmonyMenuItem]) -> Void)?
+    func deliverMenuItems(_ pid: Int, _ path: String, _ i: [HarmonyMenuItem]) { onMenuItems?(pid, path, i) }
+    /// Sends a verb back to the guest agent (set by the machine).
+    var sendToAgent: ((String, String) -> Void)?
 
     private var listenFD: Int32 = -1
     private var fd: Int32 = -1
@@ -286,6 +304,15 @@ final class VMDisplayView: NSView {
     var onHarmonyChanged: ((Bool) -> Void)?
     /// And so the guest can be asked to put its Dock and desktop away.
     var onHarmonyGuest: ((Bool) -> Void)?
+    /// Harmony wants the guest at this Mac's screen resolution so its windows
+    /// land 1:1; (0,0) means put the guest's normal resolution back.
+    var onHarmonyResolution: ((Int, Int) -> Void)?
+    /// Rootless Harmony: raise a guest window (id), or move it (id, x, y top-left).
+    var onHarmonyRaise: ((Int) -> Void)?
+    var onHarmonyRaiseHard: ((Int) -> Void)?
+    var onHarmonyMove: ((Int, Int, Int) -> Void)?
+    var onHarmonyRaiseAt: ((Int, Int, Int) -> Void)?
+    var onHarmonyMoveDrag: ((Int, Int, Int, Int, Int) -> Void)?
     /// The control bar floating over the top of the screen.
     weak var controls: VMToolbarController?
     private let screen = CALayer()
@@ -301,6 +328,57 @@ final class VMDisplayView: NSView {
     private var drawHistory = PerfHistory()
     /// Where the reader dragged the overlay, as a fraction of the view.
     private var perfSpot: CGPoint?
+    /// The last sampled overlay contents, so the pointer line can be redrawn
+    /// between samples without re-measuring everything.
+    private var hudRows: [PerfHUD.Row] = []
+    private var hudLines: [String] = []
+    /// Harmony: the overlay's own window, above the guest's proxy windows.
+    private var hudWindow: NSWindow?
+    private var hudTicker: Timer?
+    private var debugTimer: Timer?
+
+    /*
+     * The guest does not put its pointer where an absolute point is sent.  Its
+     * tablet area is larger than its screen, so what arrives is the point
+     * scaled about the middle of the screen -- measured here at 1.178x, steady
+     * to within a pixel.  It has always been so; it simply never showed,
+     * because in seamless mode the guest draws its own pointer and you aim with
+     * that.  Harmony hides it and you aim with this Mac's, so the error
+     * becomes the whole story.
+     *
+     * Rather than carry a magic number, watch where the guest actually puts its
+     * pointer against where it was sent, fit guest = k*sent + b per axis, and
+     * send the inverse.  Self-correcting, and right again after a mode change.
+     */
+    private struct PointerFit {
+        var n = 0.0, ss = 0.0, sg = 0.0, sss = 0.0, ssg = 0.0
+        mutating func add(_ s: Double, _ g: Double) {
+            n += 1; ss += s; sg += g; sss += s * s; ssg += s * g
+        }
+        /// (scale, offset), once there is enough spread to mean anything.
+        var solved: (k: Double, b: Double)? {
+            guard n >= 6 else { return nil }
+            let den = n * sss - ss * ss
+            guard den > 1e6 else { return nil }          // all samples bunched together
+            let k = (n * ssg - ss * sg) / den
+            guard k > 0.5, k < 2 else { return nil }     // nonsense: leave it alone
+            return (k, (sg - k * ss) / n)
+        }
+        mutating func reset() { self = PointerFit() }
+    }
+    private var fitX = PointerFit(), fitY = PointerFit()
+    /// Calibrating on the way in: a handful of points across the guest's
+    /// screen, so the correction is right from the first click instead of
+    /// waiting for the pointer to wander far enough to work it out.
+    private var probePoints: [CGPoint] = []
+    private var probeAt = 0
+    private var probeTicks = 0
+    private var probeSettled = CGPoint(x: -1, y: -1)
+    private var lastRawSent: CGPoint?
+    private var lastSettleHost = CGPoint(x: -9e9, y: -9e9)
+    private var lastSettleGuest = CGPoint(x: -9e9, y: -9e9)
+    /// What the correction is doing, for the overlay.
+    private(set) var pointerFitText = "measuring"
     private var perfDragFrom: CGPoint?
     private var perfTimer: Timer?
     private var lastPerf: (time: TimeInterval, frames: Double, draws: Double, shown: Int,
@@ -323,21 +401,342 @@ final class VMDisplayView: NSView {
     private var motion = CGPoint.zero                 // fractions not yet sent
     private var scroll: CGFloat = 0
 
-    /// Harmony mode: the emulator sends frames whose desktop is
-    /// transparent, and the window lets this Mac's own desktop through
-    /// behind the guest's windows.
+    /// Harmony click-through: the most recent guest frame -- to read whether
+    /// the pixel under the pointer is one of the guest's windows (opaque) or
+    /// its see-through desktop -- and the pointer monitors that, while harmony
+    /// is on, let a click on the desktop reach this Mac behind the guest.
+    private var lastSurface: IOSurfaceRef?
+    private var harmonyPointerMonitors: [Any] = []
+    private var passingThrough = false
+    /// The window's size and frame before Harmony grew it to cover the screen.
+    private var preHarmonyFrame: NSRect?
+    private var preHarmonyStyle: NSWindow.StyleMask?
+    private var preHarmonyLevel: NSWindow.Level?
+    private var preHarmonyGuestSize: CGSize?          // the guest mode to restore on exit
+
+    /// Harmony mode: each of the guest's windows is drawn as its own layer on
+    /// this Mac's desktop -- so they stack independently and, being their own
+    /// pieces, move without the whole-screen mask's tearing -- and its own
+    /// desktop is simply not drawn.
+    /// Quitting with Harmony still on used to leave the guest in Harmony's
+    /// resolution, which it then remembered and booted into -- a mode its
+    /// firmware does not draw correctly, so the grey Apple came up sheared.
+    /// Put the guest's own resolution back before going.
+    func restoreGuestResolutionIfNeeded() {
+        guard harmony, let s = preHarmonyGuestSize else { return }
+        onHarmonyResolution?(Int(s.width), Int(s.height))
+        preHarmonyGuestSize = nil
+    }
+
+    /// Turn Harmony on or off.  In a full-screen space there is nothing behind
+    /// the guest to harmonise with -- no desktop, no other apps -- so leave
+    /// full screen first and turn it on once the space has gone.
+    func requestHarmony(_ on: Bool) {
+        if on, let w = window, w.styleMask.contains(.fullScreen) {
+            w.toggleFullScreen(nil)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+                guard let self, self.window?.styleMask.contains(.fullScreen) == false else { return }
+                self.harmony = true
+            }
+            return
+        }
+        harmony = on
+    }
+
+    /// The display currently in Harmony, if any -- so the Dock menu can offer
+    /// to leave it (its window is borderless and has no title bar of its own).
+    static weak var harmonized: VMDisplayView?
+
     var harmony = false {
         didSet {
             guard harmony != oldValue else { return }
+            VMDisplayView.harmonized = harmony ? self : (VMDisplayView.harmonized === self ? nil : VMDisplayView.harmonized)
             layer?.backgroundColor = (harmony ? NSColor.clear : NSColor.black).cgColor
             screen.isOpaque = !harmony
             window?.isOpaque = !harmony
             window?.backgroundColor = harmony ? .clear : .black
             window?.hasShadow = !harmony          // one shadow per guest window, not one around them all
-            channel.setHarmony(harmony)
+            if harmony {
+                enterHarmonyScreen()
+                if preHarmonyGuestSize == nil { preHarmonyGuestSize = guestSize }   // restore this on exit
+                if let scr = window?.screen ?? NSScreen.main {
+                    // Switch the guest to this Mac's exact point size, so a guest
+                    // pixel is a host point and the scale is exactly 1.0 -- no
+                    // fractional scaling, no coordinate rounding.  The card's
+                    // EDID advertises this mode (host-native-width/height), and
+                    // the device snaps the 8-px-quantized scan-out width to it.
+                    let targetW = Int(scr.frame.width.rounded())
+                    let targetH = Int(scr.frame.height.rounded())
+                    onHarmonyResolution?(targetW, targetH)
+                    let menuBar = scr.frame.maxY - scr.visibleFrame.maxY   // this Mac's menu bar height
+                    harmonyManager.setActive(true, screenFrame: scr.frame, guestSize: guestSize, hostMenuBar: menuBar)
+                }
+                window?.ignoresMouseEvents = true       // proxies take window clicks; the rest falls to this Mac
+                screen.isHidden = true
+                if showsPerformance { layoutHUDWindow() }   // the overlay needs its own window now
+                updatePointerTicker()
+                beginPointerCalibration()
+                // The clean copy of each window is taken once the guest's
+                // window list has settled (see HarmonyWindowManager).
+            }
+            else {
+                exitHarmonyScreen()
+                if let s = preHarmonyGuestSize {         // put the guest's normal resolution back
+                    onHarmonyResolution?(Int(s.width), Int(s.height))
+                    preHarmonyGuestSize = nil
+                }
+                harmonyManager.setActive(false, screenFrame: .zero, guestSize: guestSize, hostMenuBar: 0)
+                window?.ignoresMouseEvents = false
+                screen.isHidden = false
+                restoreHUDToView()                     // the overlay goes back in the view
+                updatePointerTicker()
+                harmonyWindows = []; harmonyWindowList = []; harmonyHasWindows = false
+                harmonyMenus.remove()                  // this Mac's own menus back
+            }
+            window?.invalidateCursorRects(for: self)
             onHarmonyChanged?(harmony)
             onHarmonyGuest?(harmony)
         }
+    }
+
+    /// Rootless Harmony: each guest window is a real macOS window (Coherence).
+    let harmonyManager = HarmonyWindowManager()
+    /// Rootless Harmony: the front guest application's menus, in this Mac's
+    /// menu bar.
+    let harmonyMenus = HarmonyMenuBar()
+    /// Old path (kept for reference): one sublayer per window. Unused now.
+    private let harmonyContainer = CALayer()
+    private var harmonyLayers: [Int: CALayer] = [:]
+    private var harmonyWindowList: [(id: Int, rect: CGRect, visible: CGRect)] = []
+    /// Just the rectangles (guest points, top-left), for click-through and
+    /// pointer hiding.
+    private var harmonyWindows: [CGRect] = []
+    private var harmonyHasWindows = false
+    /// Which guest application each window belongs to (for this Mac's Dock).
+    private(set) var guestWindowApps: [(id: Int, pid: Int, app: String)] = []
+    /// The guest's applications that have windows, and one window to raise for
+    /// each -- what the Dock menu offers while Harmony is on.
+    var guestApps: [(app: String, pid: Int)] {
+        var seen = Set<String>(); var out: [(app: String, pid: Int)] = []
+        for w in guestWindowApps where !seen.contains(w.app) {
+            seen.insert(w.app); out.append((app: w.app, pid: w.pid))
+        }
+        return out.sorted { $0.app.localizedCaseInsensitiveCompare($1.app) == .orderedAscending }
+    }
+    /// The guest's windows sitting in its (hidden) Dock, so this Mac's Dock
+    /// menu can offer them back.
+    private(set) var minimizedGuestWindows: [(pid: Int, index: Int, title: String)] = []
+    var onRestoreGuestWindow: ((Int, Int) -> Void)?
+    func restoreGuestWindow(_ pid: Int, _ index: Int) { onRestoreGuestWindow?(pid, index) }
+
+    /// Bring a guest application to the front (this Mac's Dock menu).
+    var onActivateGuestApp: ((Int) -> Void)?
+    var onToolsStateQuery: (() -> String)?
+    func activateGuestApp(_ pid: Int) { onActivateGuestApp?(pid) }
+    /// While a window is dragged by its title bar, its layer holds a frozen
+    /// snapshot of the window and follows the pointer -- so its pixels and its
+    /// place move as one and the guest's slower report can't tear them apart.
+    private var dragLayerId: Int?
+    private var dragStartGuest = CGPoint.zero
+    private var dragStartRect = CGRect.zero
+
+    func setHarmonyWindows(_ windows: [(id: Int, rect: CGRect, visible: CGRect)]) {
+        harmonyWindowList = windows
+        harmonyWindows = windows.map { $0.rect }
+        harmonyHasWindows = true
+        if let scr = window?.screen ?? NSScreen.main {
+            harmonyManager.setScreen(scr.frame, guestSize: guestSize)
+        }
+        harmonyManager.update(windows)
+    }
+
+    /// Until the first window report arrives, show the whole screen (so a guest
+    /// without the tools is not simply blanked); after that, only the windows.
+    private func updateHarmonyVisibility() {
+        let usingLayers = harmony && harmonyHasWindows
+        screen.isHidden = usingLayers
+        harmonyContainer.isHidden = !usingLayers
+    }
+
+    /// Lay out one layer per guest window: each shows just that window's part
+    /// of the guest's screen, at its place on this Mac's, stacked front-most on
+    /// top.  Windows that have gone are removed.
+    private func buildHarmonyLayers() {
+        guard harmony, guestSize.width > 0, guestSize.height > 0 else { return }
+        let r = screenRect
+        guard r.width > 0, r.height > 0 else { return }
+        let sx = r.width / guestSize.width, sy = r.height / guestSize.height
+        let gw = guestSize.width, gh = guestSize.height
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        var live = Set<Int>()
+        for (i, win) in harmonyWindowList.enumerated() {
+            live.insert(win.id)
+            if win.id == dragLayerId { continue }        // a dragged window follows the pointer, not the report
+            let g = win.rect
+            let l = harmonyLayers[win.id] ?? {
+                let n = CALayer()
+                n.masksToBounds = true
+                n.magnificationFilter = .linear
+                n.actions = ["contents": NSNull(), "bounds": NSNull(), "position": NSNull(),
+                             "contentsRect": NSNull()]
+                harmonyContainer.addSublayer(n)
+                harmonyLayers[win.id] = n
+                return n
+            }()
+            l.contents = lastSurface
+            // View is bottom-up, guest points top-down.
+            l.frame = CGRect(x: r.minX + g.minX * sx,
+                             y: r.minY + (gh - (g.minY + g.height)) * sy,
+                             width: g.width * sx, height: g.height * sy)
+            // contentsRect is the unit rectangle of the image, y-up.
+            l.contentsRect = CGRect(x: g.minX / gw, y: (gh - (g.minY + g.height)) / gh,
+                                    width: g.width / gw, height: g.height / gh)
+            l.cornerRadius = min(6 * sx, min(l.frame.width, l.frame.height) / 2)
+            l.zPosition = CGFloat(harmonyWindowList.count - i)   // front-most first -> on top
+        }
+        for (id, l) in harmonyLayers where !live.contains(id) {
+            l.removeFromSuperlayer(); harmonyLayers.removeValue(forKey: id)
+        }
+        CATransaction.commit()
+    }
+
+    /// A still image of one window's part of the guest's screen, to hold while
+    /// it is dragged.
+    private func windowSnapshot(_ s: IOSurfaceRef, _ g: CGRect) -> CGImage? {
+        let sw = IOSurfaceGetWidth(s), sh = IOSurfaceGetHeight(s)
+        IOSurfaceLock(s, .readOnly, nil); defer { IOSurfaceUnlock(s, .readOnly, nil) }
+        let info = CGImageAlphaInfo.noneSkipFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+        guard let ctx = CGContext(data: IOSurfaceGetBaseAddress(s), width: sw, height: sh,
+                                  bitsPerComponent: 8, bytesPerRow: IOSurfaceGetBytesPerRow(s),
+                                  space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: info),
+              let full = ctx.makeImage() else { return nil }
+        let clip = g.intersection(CGRect(x: 0, y: 0, width: sw, height: sh))
+        return full.cropping(to: clip)                   // image rows run top-down, as guest points do
+    }
+
+    /// If the pointer went down on a window's title bar, freeze that window's
+    /// layer to a snapshot so it can be dragged smoothly.
+    private func beginHarmonyDrag(_ e: NSEvent) {
+        dragLayerId = nil
+        guard harmony, harmonyHasWindows, let (gx, gy) = guestPoint(e), let s = lastSurface else { return }
+        let pt = CGPoint(x: Int(gx), y: Int(gy))
+        for win in harmonyWindowList where win.rect.contains(pt) {
+            if pt.y <= win.rect.minY + 22, let layer = harmonyLayers[win.id], let snap = windowSnapshot(s, win.rect) {
+                dragLayerId = win.id; dragStartGuest = pt; dragStartRect = win.rect
+                CATransaction.begin(); CATransaction.setDisableActions(true)
+                layer.contents = snap
+                layer.contentsRect = CGRect(x: 0, y: 0, width: 1, height: 1)
+                CATransaction.commit()
+            }
+            return                                        // front-most window under the pointer
+        }
+    }
+
+    /// Move the frozen window with the pointer.
+    private func updateHarmonyDrag(_ e: NSEvent) {
+        guard let id = dragLayerId, let l = harmonyLayers[id], let (gx, gy) = guestPoint(e) else { return }
+        let r = screenRect
+        let sx = r.width / guestSize.width, sy = r.height / guestSize.height
+        let g = dragStartRect.offsetBy(dx: CGFloat(gx) - dragStartGuest.x, dy: CGFloat(gy) - dragStartGuest.y)
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        l.frame = CGRect(x: r.minX + g.minX * sx, y: r.minY + (guestSize.height - (g.minY + g.height)) * sy,
+                         width: g.width * sx, height: g.height * sy)
+        CATransaction.commit()
+    }
+
+    /// Let go: the window goes back to showing the live frame at wherever the
+    /// guest now says it is.
+    private func endHarmonyDrag() {
+        guard let id = dragLayerId, let l = harmonyLayers[id] else { dragLayerId = nil; return }
+        l.contents = lastSurface
+        dragLayerId = nil
+        buildHarmonyLayers()
+    }
+
+    /// Harmony covers this Mac's whole screen with a borderless window on the
+    /// current desktop (not a separate full-screen Space, which would put
+    /// nothing behind the guest to see or click).  So the guest's windows sit
+    /// over this Mac's real desktop and its apps.
+    private func enterHarmonyScreen() {
+        guard let w = window, !w.styleMask.contains(.fullScreen),
+              let screen = w.screen ?? NSScreen.main, preHarmonyFrame == nil else { return }
+        preHarmonyFrame = w.frame
+        preHarmonyStyle = w.styleMask
+        preHarmonyLevel = w.level
+        w.styleMask = [.borderless]
+        w.setFrame(screen.frame, display: true)
+        // Keep this Mac's menu bar showing -- it doubles as the guest's menu
+        // bar (a later stage puts the focused guest app's menus into it), and
+        // the guest starts just below it so nothing is lost.  Only the Dock is
+        // taken out of the way.
+        NSApp.presentationOptions = [.autoHideDock]
+        w.makeKeyAndOrderFront(nil)
+        w.makeFirstResponder(self)
+    }
+
+    private func exitHarmonyScreen() {
+        guard let w = window, let f = preHarmonyFrame else { return }
+        NSApp.presentationOptions = []
+        if let s = preHarmonyStyle { w.styleMask = s }
+        if let l = preHarmonyLevel { w.level = l }
+        w.setFrame(f, display: true)
+        preHarmonyFrame = nil; preHarmonyStyle = nil; preHarmonyLevel = nil
+        w.makeFirstResponder(self)
+    }
+
+    /// While harmony is on, watch the pointer and let the window pass a click
+    /// straight through to this Mac wherever the guest's pixel there is
+    /// see-through (its desktop), and keep it for the guest wherever the pixel
+    /// is one of the guest's windows -- so its windows behave like this Mac's
+    /// own and the desktop behind them is this Mac's, usable.
+    private func startClickThrough() {
+        stopClickThrough()
+        let update: @Sendable (NSEvent) -> Void = { [weak self] _ in
+            MainActor.assumeIsolated { self?.updateClickThrough() }
+        }
+        if let g = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged], handler: update) {
+            harmonyPointerMonitors.append(g)
+        }
+        if let l = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged],
+                                                    handler: { e in update(e); return e }) {
+            harmonyPointerMonitors.append(l)
+        }
+        updateClickThrough()
+    }
+
+    private func stopClickThrough() {
+        for m in harmonyPointerMonitors { NSEvent.removeMonitor(m) }
+        harmonyPointerMonitors = []
+        passingThrough = false
+        window?.ignoresMouseEvents = false
+    }
+
+    private func updateClickThrough() {
+        guard harmony, let window else { return }
+        let viewPt = convert(window.convertPoint(fromScreen: NSEvent.mouseLocation), from: nil)
+        // The control bar is this Mac's, not the guest's: never pass a click
+        // on it through, or it could not be used in harmony.
+        let onBar = (controls?.shown ?? false) && (controls?.bar.frame.contains(viewPt) ?? false)
+        let pass = !onBar && !guestPixelOpaque(atViewPoint: viewPt)
+        if pass != passingThrough {
+            passingThrough = pass
+            window.ignoresMouseEvents = pass
+        }
+    }
+
+    /// Whether a view point is over one of the guest's windows.  Over a window
+    /// the click is the guest's; anywhere else -- its masked-away desktop -- it
+    /// falls through to this Mac.  Before any window is known, keep clicks for
+    /// the guest so a guest without the tools is not made unclickable.
+    private func guestPixelOpaque(atViewPoint p: CGPoint) -> Bool {
+        guard harmonyHasWindows else { return true }
+        let r = screenRect
+        guard r.width > 0, r.height > 0, r.contains(p) else { return false }
+        let gx = (p.x - r.minX) / r.width * guestSize.width
+        let gy = (r.maxY - p.y) / r.height * guestSize.height          // guest top-left origin
+        let pt = CGPoint(x: gx, y: gy)
+        for w in harmonyWindows where w.contains(pt) { return true }
+        return false
     }
 
     init(channel: DisplayChannel) {
@@ -357,7 +756,13 @@ final class VMDisplayView: NSView {
         cursor.isHidden = true
         cursor.magnificationFilter = .nearest
         layer?.addSublayer(screen)
-        screen.addSublayer(cursor)
+        harmonyContainer.isHidden = true
+        harmonyContainer.actions = ["bounds": NSNull(), "position": NSNull()]
+        layer?.addSublayer(harmonyContainer)
+        // The guest's pointer sits above the screen and the window layers, so
+        // it shows over the guest's windows in Harmony (where the screen layer,
+        // which used to hold it, is hidden).
+        layer?.addSublayer(cursor)
         hint.string = "Click to use the mouse in the virtual Mac.  Control-Option-G gives it back."
         hint.fontSize = 12
         hint.alignmentMode = .center
@@ -373,10 +778,54 @@ final class VMDisplayView: NSView {
         layer?.addSublayer(perf)
         addSubview(status)
 
+        // Debug driving: its own timer, so Harmony can be switched on remotely.
+        if harmonyDebugFile != nil {
+            debugTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+                MainActor.assumeIsolated { self?.processDebugCommands() }
+            }
+        }
         channel.onFrame = { [weak self] s, w, h in self?.show(s, w, h) }
         channel.onCursor = { [weak self] img, hx, hy in self?.setCursor(img, hx, hy) }
         channel.onMouse = { [weak self] x, y, on in
             self?.cursorPos = CGPoint(x: x, y: y); self?.cursorOn = on; self?.placeCursor()
+        }
+        channel.onWindows = { [weak self] rects in self?.setHarmonyWindows(rects) }
+        channel.onWindowApps = { [weak self] apps in self?.guestWindowApps = apps }
+        channel.onMinimized = { [weak self] m in
+            self?.minimizedGuestWindows = m
+            self?.harmonyManager.minimizedEntries = m
+        }
+        harmonyManager.sendPoint = { [weak self] x, y in self?.sendGuestPoint(CGPoint(x: x, y: y)) }
+        harmonyManager.sendButton = { [weak self] bit, down in self?.button(bit, down) }
+        harmonyManager.sendScroll = { [weak self] lines in self?.channel.send(.wheel, [lines, 0]) }
+        harmonyManager.unminimize = { [weak self] pid, i in self?.onRestoreGuestWindow?(pid, i) }
+        harmonyManager.raiseWindow = { [weak self] id in self?.onHarmonyRaise?(id) }
+        harmonyManager.raiseWindowHard = { [weak self] id in self?.onHarmonyRaiseHard?(id) }
+        harmonyManager.moveWindow = { [weak self] id, x, y in self?.onHarmonyMove?(id, x, y) }
+        harmonyManager.raiseWindowAt = { [weak self] id, x, y in self?.onHarmonyRaiseAt?(id, x, y) }
+        harmonyManager.moveWindowDrag = { [weak self] id, gx, gy, ex, ey in
+            self?.onHarmonyMoveDrag?(id, gx, gy, ex, ey)
+        }
+        harmonyManager.forwardKey = { [weak self] e in self?.forwardHarmonyKey(e) }
+        channel.onMenuBar = { [weak self] pid, app, tops in
+            guard let self, self.harmony else { return }
+            self.harmonyMenus.setMenuBar(pid: pid, app: app, tops: tops)
+        }
+        channel.onMenuItems = { [weak self] pid, path, items in
+            self?.harmonyMenus.setItems(pid: pid, path: path, items: items)
+        }
+        harmonyMenus.send = { [weak self] verb, text in self?.channel.sendToAgent?(verb, text) }
+        channel.onFocused = { [weak self] id in self?.harmonyManager.focusedGuestWindow = id }
+    }
+
+    /// A key event from a focused proxy window: run it through the same key
+    /// handling as if the guest's screen had it.
+    private func forwardHarmonyKey(_ e: NSEvent) {
+        switch e.type {
+        case .keyDown: keyDown(with: e)
+        case .keyUp: keyUp(with: e)
+        case .flagsChanged: flagsChanged(with: e)
+        default: break
         }
     }
 
@@ -461,10 +910,16 @@ final class VMDisplayView: NSView {
         let size = CGSize(width: w, height: h)
         if size != guestSize {
             guestSize = size
+            fitX.reset(); fitY.reset(); pointerFitText = "measuring"   // scale is per-mode
             (window?.windowController as? VMWindowController)?.guestResized(size)
             needsLayout = true
         }
         screen.contents = s
+        lastSurface = s
+        if harmony {
+            harmonyManager.setSurface(s)
+            harmonyManager.refreshLiveCopies()          // redraw follows the guest's frames
+        }
     }
 
     /// The guest's screen, as large as fits (below the notch in fullscreen),
@@ -484,6 +939,10 @@ final class VMDisplayView: NSView {
         super.layout()
         CATransaction.begin(); CATransaction.setDisableActions(true)
         screen.frame = screenRect
+        if harmony, let scr = window?.screen ?? NSScreen.main {
+            harmonyManager.setScreen(scr.frame, guestSize: guestSize)
+            harmonyManager.update(harmonyWindowList)
+        }
         let exact = screen.frame.width == guestSize.width
         screen.magnificationFilter = exact ? .nearest : .linear
         screen.minificationFilter = .linear
@@ -508,13 +967,37 @@ final class VMDisplayView: NSView {
 
     /// Guest pixels (origin top left) to the screen layer (origin bottom left).
     private func placeCursor() {
-        let scale = guestSize.width > 0 ? screen.bounds.width / guestSize.width : 1
+        // In Harmony the pointer must ride the very transform the windows use
+        // (scale + menu-bar offset, anchored at the screen's top-left) -- not
+        // the fitted/centred screenRect -- or it is drawn off the window it is
+        // actually on, and a click looks like it lands somewhere else.
+        if harmony && harmonyHasWindows {
+            let s = harmonyManager.guestScale
+            let tl = harmonyManager.viewPoint(forGuest: CGPoint(x: cursorPos.x - cursorHot.x,
+                                                                y: cursorPos.y - cursorHot.y))
+            CATransaction.begin(); CATransaction.setDisableActions(true)
+            cursor.bounds = CGRect(origin: .zero, size: CGSize(width: cursorSize.width * s,
+                                                               height: cursorSize.height * s))
+            cursor.position = CGPoint(x: tl.x, y: tl.y - cursorSize.height * s)
+            let overWindow = harmonyWindows.contains { $0.contains(cursorPos) }
+            cursor.isHidden = !cursorOn || cursor.contents == nil || !overWindow
+            CATransaction.commit()
+            return
+        }
+        let r = screenRect
+        let scale = guestSize.width > 0 ? r.width / guestSize.width : 1
         CATransaction.begin(); CATransaction.setDisableActions(true)
         cursor.bounds = CGRect(origin: .zero, size: CGSize(width: cursorSize.width * scale, height: cursorSize.height * scale))
-        let x = (cursorPos.x - cursorHot.x) * scale
+        // The cursor layer now lives in the view, not inside the screen layer,
+        // so its place is offset by where the guest's screen sits in the view.
+        let x = r.minX + (cursorPos.x - cursorHot.x) * scale
         let top = (cursorPos.y - cursorHot.y) * scale
-        cursor.position = CGPoint(x: x, y: screen.bounds.height - top - cursorSize.height * scale)
+        cursor.position = CGPoint(x: x, y: r.minY + r.height - top - cursorSize.height * scale)
+        // In Harmony the guest's pointer belongs only over its own windows;
+        // over the masked-away desktop this Mac's pointer shows instead.
+        let overWindow = harmonyWindows.contains { $0.contains(cursorPos) }
         cursor.isHidden = !cursorOn || cursor.contents == nil
+            || (harmony && harmonyHasWindows && !overWindow)
         CATransaction.commit()
     }
 
@@ -535,6 +1018,8 @@ final class VMDisplayView: NSView {
     func togglePerformance() {
         if let t = perfTimer {
             t.invalidate(); perfTimer = nil; perf.isHidden = true; lastPerf = nil
+            restoreHUDToView()
+            updatePointerTicker()          // Harmony may still need the tick
             return
         }
         fpsHistory.reset(); windowHistory.reset(); emuHistory.reset(); drawHistory.reset()
@@ -544,6 +1029,22 @@ final class VMDisplayView: NSView {
         samplePerformance()
         perfTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.samplePerformance() }
+        }
+        // The pointer readout has to keep up with the mouse, not with the
+        // once-a-second sampling.
+        updatePointerTicker()
+    }
+
+    /// The tick runs while Harmony is on (to keep the pointer correction
+    /// calibrated) or while the overlay is shown; it stops when neither needs it.
+    private func updatePointerTicker() {
+        let want = harmony || showsPerformance
+        if want, hudTicker == nil {
+            hudTicker = Timer.scheduledTimer(withTimeInterval: 1.0 / 15.0, repeats: true) { [weak self] _ in
+                MainActor.assumeIsolated { self?.pointerTick() }
+            }
+        } else if !want {
+            hudTicker?.invalidate(); hudTicker = nil
         }
     }
 
@@ -651,8 +1152,273 @@ final class VMDisplayView: NSView {
                    h.hostBusy, h.load1, h.cores, h.thermalText as NSString),
         ]
         if !warn.isEmpty { lines.append(warn.trimmingCharacters(in: .whitespaces)) }
-        perf.update(rows: rows, lines: lines)
-        layoutPerf()
+        hudRows = rows; hudLines = lines
+        refreshHUD()
+    }
+
+    // MARK: the overlay's pointer readout
+
+    /// Where the pointer is on this Mac, what that maps to in the guest (what a
+    /// click sends), and where the guest says its own pointer is.  When the
+    /// last two disagree the mapping is wrong, and by how much.
+    /// Send a point the guest should end up at, corrected for the guest's own
+    /// scaling of its tablet area.  Everything that points the guest goes
+    /// through here -- Harmony and seamless alike.
+    func sendGuestPoint(_ g: CGPoint) {
+        var out = g
+        if let (kx, bx) = fitX.solved { out.x = (g.x - bx) / kx }
+        if let (ky, by) = fitY.solved { out.y = (g.y - by) / ky }
+        // Never aim outside the guest's screen: it clamps, and a clamped
+        // sample would poison the fit.
+        out.x = min(max(0, out.x), max(0, guestSize.width - 1))
+        out.y = min(max(0, out.y), max(0, guestSize.height - 1))
+        lastRawSent = out
+        channel.send(.point, [Int32(out.x.rounded()), Int32(out.y.rounded())])
+    }
+
+    /// Walk a few points across the guest's screen and watch where its pointer
+    /// actually lands, to measure the tablet's scaling straight away.
+    func beginPointerCalibration() {
+        guard guestSize.width > 1, guestSize.height > 1 else { return }
+        fitX.reset(); fitY.reset()
+        let fx: [CGFloat] = [0.12, 0.88, 0.20, 0.80, 0.50, 0.30, 0.70, 0.40, 0.60, 0.15, 0.85]
+        let fy: [CGFloat] = [0.20, 0.25, 0.80, 0.75, 0.50, 0.65, 0.35, 0.30, 0.70, 0.55, 0.45]
+        probePoints = zip(fx, fy).map { CGPoint(x: guestSize.width * $0, y: guestSize.height * $1) }
+        probeAt = 0; probeTicks = 0
+        pointerFitText = "calibrating"
+    }
+
+    /// One step per tick: send a probe, give the guest a moment, record where
+    /// its pointer ended up, move on.
+    private func stepPointerCalibration() {
+        guard probeAt < probePoints.count else { return }
+        if probeTicks >= 10 { probeSettled = cursorPos }         // remember it a tick early
+        probeTicks += 1
+        if probeTicks == 1 {
+            let g = probePoints[probeAt]
+            lastRawSent = g
+            channel.send(.point, [Int32(g.x.rounded()), Int32(g.y.rounded())])   // uncorrected
+            return
+        }
+        guard probeTicks >= 11 else { return }                  // ~0.7s: the guest is slow to catch up
+        if let sent = lastRawSent,
+           cursorPos.x > 0, cursorPos.y > 0,
+           cursorPos.x < guestSize.width - 1, cursorPos.y < guestSize.height - 1,
+           cursorPos == probeSettled {                          // two ticks the same: it has stopped
+            fitX.add(sent.x, cursorPos.x); fitY.add(sent.y, cursorPos.y)
+            harmonyDebug("PECAL probe sent=(\(Int(sent.x)),\(Int(sent.y))) got=(\(Int(cursorPos.x)),\(Int(cursorPos.y)))")
+        }
+        probeAt += 1; probeTicks = 0
+        if probeAt >= probePoints.count {
+            if let (kx, _) = fitX.solved, let (ky, _) = fitY.solved {
+                pointerFitText = String(format: "k %.3f,%.3f calibrated", kx, ky)
+                harmonyDebug(String(format: "PECAL done kx=%.4f ky=%.4f n=%.0f", kx, ky, fitX.n))
+            } else {
+                pointerFitText = "calibration failed"
+                harmonyDebug("PECAL failed")
+            }
+        }
+    }
+
+    /// Once the pointer and the guest have both stopped moving, the pair
+    /// (what was sent, where it landed) is a clean, lag-free measurement.
+    private func samplePointerFit() {
+        guard probeAt >= probePoints.count, let sent = lastRawSent else { return }
+        let h = NSEvent.mouseLocation
+        defer { lastSettleHost = h; lastSettleGuest = cursorPos }
+        guard h == lastSettleHost, cursorPos == lastSettleGuest else { return }   // still settling
+        // A clamped landing says nothing about the scale.
+        guard cursorPos.x > 0, cursorPos.y > 0,
+              cursorPos.x < guestSize.width - 1, cursorPos.y < guestSize.height - 1 else { return }
+        fitX.add(sent.x, cursorPos.x)
+        fitY.add(sent.y, cursorPos.y)
+        if let (kx, _) = fitX.solved, let (ky, _) = fitY.solved {
+            pointerFitText = String(format: "k %.3f,%.3f from %.0f", kx, ky, fitX.n)
+        }
+    }
+
+    /// POWEREMU_HARMONY_DEBUG=1: the same readout, into the system log, as the
+    /// pointer moves -- so the mapping can be watched from outside the machine
+    /// rather than read off the screen.
+    private var lastLoggedPointer = CGPoint(x: -9e9, y: -9e9)
+    private func logPointer() {
+        guard ProcessInfo.processInfo.environment["POWEREMU_HARMONY_DEBUG"] != nil else { return }
+        // Log every tick, moving or not: the settled reading while the pointer
+        // is held still is the one measurement with no lag in it.
+        let h = NSEvent.mouseLocation
+        lastLoggedPointer = h
+        let want = harmonyManager.guestPointAtCursor()
+        harmonyDebug(String(format: "PEPOINTER mac=%.0f,%.0f sent=%.0f,%.0f guest=%.0f,%.0f off=%+.0f,%+.0f scale=%.3f offY=%.0f surf=%.0fx%.0f harmony=%d",
+              h.x, h.y, want.x, want.y, cursorPos.x, cursorPos.y,
+              cursorPos.x - want.x, cursorPos.y - want.y,
+              harmonyManager.guestScale, harmonyManager.guestOffsetY,
+              guestSize.width, guestSize.height, harmony ? 1 : 0))
+    }
+
+    private func pointerLine() -> String {
+        let h = NSEvent.mouseLocation
+        let want = harmonyManager.guestPointAtCursor()
+        return String(format: "Pointer  this Mac %.0f,%.0f   sent %.0f,%.0f   guest %.0f,%.0f   off %+.0f,%+.0f",
+                      h.x, h.y, want.x, want.y, cursorPos.x, cursorPos.y,
+                      cursorPos.x - want.x, cursorPos.y - want.y)
+    }
+
+    /// Redraw the overlay with a fresh pointer line, in whichever place it
+    /// lives: its own window while Harmony is on (the guest's windows are real
+    /// windows above this one, so a layer in here would be behind them), or
+    /// this view otherwise.
+    /*
+     * POWEREMU_HARMONY_DEBUG=1 only: a command file, so Harmony can be driven
+     * and checked without a hand on the mouse.  Write lines to
+     * /tmp/poweremu-harmony-cmd:
+     *     windows              list the guest's windows into the log
+     *     move <id> <x> <y>    ask the guest to move one
+     *     raise <id>           bring one to the front
+     *     harmony on|off       toggle Harmony
+     *     overlay on|off       toggle the overlay
+     */
+    private func processDebugCommands() {
+        guard harmonyDebugFile != nil else { return }
+        let path = "/tmp/poweremu-harmony-cmd"
+        guard let txt = try? String(contentsOfFile: path, encoding: .utf8) else { return }
+        try? FileManager.default.removeItem(atPath: path)
+        for line in txt.split(separator: "\n") {
+            let f = line.split(separator: " ").map(String.init)
+            guard let cmd = f.first else { continue }
+            switch cmd {
+            case "windows":
+                harmonyDebug("PEWIN count=\(harmonyWindowList.count) harmony=\(harmony)")
+                for w in harmonyWindowList {
+                    let hf = harmonyManager.hostFrameFor(w.rect)
+                    harmonyDebug("PEWIN id=\(w.id) guest=(\(Int(w.rect.minX)),\(Int(w.rect.minY)),\(Int(w.rect.width)),\(Int(w.rect.height))) host=(\(Int(hf.minX)),\(Int(hf.minY)),\(Int(hf.width)),\(Int(hf.height))) vis=(\(Int(w.visible.minX)),\(Int(w.visible.minY)),\(Int(w.visible.width)),\(Int(w.visible.height))) \(harmonyManager.liveness(w.id))")
+                }
+            case "move" where f.count >= 4:
+                if let id = Int(f[1]), let x = Int(f[2]), let y = Int(f[3]) {
+                    harmonyDebug("PECMD move id=\(id) -> (\(x),\(y))")
+                    harmonyManager.requestGuestMove(id, to: CGPoint(x: x, y: y))
+                }
+            case "point" where f.count >= 3:
+                if let x = Double(f[1]), let y = Double(f[2]) {
+                    harmonyDebug("PECMD point -> (\(Int(x)),\(Int(y)))")
+                    sendGuestPoint(CGPoint(x: x, y: y))
+                }
+            case "resolution" where f.count >= 3:
+                if let w = Int(f[1]), let h = Int(f[2]) {
+                    harmonyDebug("PECMD resolution \(w)x\(h)")
+                    onHarmonyResolution?(w, h)
+                }
+            case "tools":
+                harmonyDebug("PETOOLS \(String(describing: onToolsStateQuery?() ?? "unknown"))")
+            case "recapture":
+                harmonyManager.beginInitialCapture()
+            case "snap" where f.count >= 2:
+                if let id = Int(f[1]) {
+                    harmonyDebug("PESNAP " + harmonyManager.writeSnapshot(id, to: "/tmp/pe-snap-\(id).png"))
+                }
+            case "proxies":
+                harmonyDebug("PEPROXY " + harmonyManager.proxyReport())
+            case "minimized":
+                harmonyDebug("PEMIN " + minimizedGuestWindows
+                    .map { "\($0.title)#\($0.pid)/\($0.index)" }.joined(separator: ", "))
+            case "testmin" where f.count >= 2:
+                if let id = Int(f[1]) { harmonyDebug("PETESTMIN " + harmonyManager.testMiniaturize(id)) }
+            case "rate":
+                harmonyDebug(harmonyManager.copyRate())
+            case "menus":
+                harmonyDebug(harmonyMenus.report)
+                harmonyDebug("PEMAINMENU " + (NSApp.mainMenu?.items.map { $0.title } ?? []).joined(separator: " | "))
+            case "menuitems" where f.count >= 2:
+                harmonyMenus.openForTest(f[1])
+            case "menudump" where f.count >= 2:
+                harmonyDebug("PEMENUDUMP " + harmonyMenus.dump(f[1]))
+            case "menupick" where f.count >= 2:
+                harmonyMenus.pickForTest(f[1])
+            case "apps":
+                harmonyDebug("PEAPPS " + guestApps.map { "\($0.app)#\($0.pid)" }.joined(separator: ", "))
+            case "raise" where f.count >= 2:
+                if let id = Int(f[1]) { harmonyDebug("PECMD raise \(id)"); harmonyManager.proxyRaise(id) }
+            case "harmony" where f.count >= 2:
+                harmonyDebug("PECMD harmony \(f[1])"); harmony = (f[1] == "on")
+            case "overlay" where f.count >= 2:
+                let want = f[1] == "on"
+                if want != showsPerformance { togglePerformance() }
+                harmonyDebug("PECMD overlay \(f[1])")
+            default:
+                harmonyDebug("PECMD unknown: \(line)")
+            }
+        }
+    }
+
+    /// 15 Hz: keep the correction calibrated, and the overlay fresh if shown.
+    private func pointerTick() {
+        processDebugCommands()
+        // In Harmony the proxies hold the focus, so a modifier let go of while
+        // the focus is elsewhere never reaches the guest and sticks down --
+        // which reads in the guest as shift- or command-clicking.  Reconcile
+        // with what is really held, every tick.
+        if harmony { syncModifiers(NSEvent.modifierFlags) }
+        stepPointerCalibration()
+        samplePointerFit()
+        refreshHUD()
+    }
+
+    private func refreshHUD() {
+        guard showsPerformance else { return }
+        var lines = hudLines
+        lines.append(pointerLine())
+        logPointer()
+        if harmony {
+            lines.append(String(format: "Harmony  scale %.3f   offset %.0f   guest screen %.0fx%.0f   tablet %@",
+                                harmonyManager.guestScale, harmonyManager.guestOffsetY,
+                                guestSize.width, guestSize.height, pointerFitText as NSString))
+        }
+        perf.update(rows: hudRows, lines: lines)
+        if harmony { layoutHUDWindow() } else { layoutPerf() }
+    }
+
+    /// Harmony: the overlay gets its own floating window, above the guest's
+    /// proxy windows.
+    private func layoutHUDWindow() {
+        guard harmony, showsPerformance, let scr = window?.screen ?? NSScreen.main else { return }
+        let size = perf.wantedSize
+        if hudWindow == nil {
+            let w = NSWindow(contentRect: CGRect(origin: .zero, size: size),
+                             styleMask: [.borderless], backing: .buffered, defer: false)
+            w.isOpaque = false
+            w.backgroundColor = .clear
+            w.hasShadow = false
+            w.level = .floating                 // the proxies are .normal
+            w.ignoresMouseEvents = true
+            w.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
+            let v = NSView(frame: CGRect(origin: .zero, size: size))
+            v.wantsLayer = true
+            v.layer = CALayer()
+            w.contentView = v
+            hudWindow = w
+        }
+        guard let hw = hudWindow, let hv = hw.contentView else { return }
+        if perf.superlayer !== hv.layer {
+            perf.removeFromSuperlayer()
+            hv.layer?.addSublayer(perf)
+        }
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        hw.setFrame(CGRect(x: scr.frame.minX + 12,
+                           y: scr.frame.maxY - harmonyManager.hostMenuBar - 12 - size.height,
+                           width: size.width, height: size.height), display: true)
+        perf.frame = CGRect(origin: .zero, size: size)
+        CATransaction.commit()
+        hw.orderFront(nil)
+    }
+
+    /// Put the overlay back in this view and drop its window.
+    private func restoreHUDToView() {
+        if perf.superlayer !== layer {
+            perf.removeFromSuperlayer()
+            layer?.addSublayer(perf)
+        }
+        hudWindow?.orderOut(nil)
+        hudWindow = nil
+        needsLayout = true
     }
 
     // MARK: the mouse
@@ -675,7 +1441,9 @@ final class VMDisplayView: NSView {
     private static let blankCursor = NSCursor(image: NSImage(size: NSSize(width: 1, height: 1)), hotSpot: .zero)
 
     override func resetCursorRects() {
-        if mouseMode == .seamless {
+        // Not in Harmony: there the pointer is hidden per position (only over a
+        // guest window), by cursorUpdate/keepPointerHidden, not a blanket rect.
+        if mouseMode == .seamless && !harmony {
             addCursorRect(screenRect, cursor: Self.blankCursor)
         }
     }
@@ -707,8 +1475,13 @@ final class VMDisplayView: NSView {
         // driver takes the card over and never uses it, so nothing is drawn
         // at all -- and hiding this Mac's pointer as well left the reader
         // clicking blind, with no way to tell where they were pointing.
+        // In Harmony the guest's screen is masked to its windows, so its own
+        // pointer only shows over one of them; anywhere else -- its masked-away
+        // desktop -- this Mac's pointer must stay visible, or the pointer
+        // vanishes between windows.
         mouseMode == .seamless && !grabbed && screenRect.contains(p)
             && !onPerf(p) && !onBar(p) && guestDrawsPointer
+            && (!harmony || guestPixelOpaque(atViewPoint: p))
     }
 
     /// Whether the guest has given us a pointer to draw.
@@ -772,7 +1545,7 @@ final class VMDisplayView: NSView {
     @discardableResult
     private func point(_ e: NSEvent) -> Bool {
         guard mouseMode == .seamless, let (x, y) = guestPoint(e) else { return false }
-        channel.send(.point, [x, y])
+        sendGuestPoint(CGPoint(x: CGFloat(x), y: CGFloat(y)))
         return true
     }
 
@@ -795,6 +1568,7 @@ final class VMDisplayView: NSView {
         }
         if mouseMode == .captured && !grabbed { grab(); return }   // the capturing click isn't passed on
         if mouseMode == .seamless && !point(e) { return }
+        beginHarmonyDrag(e)
         button(1, true)
     }
     override func mouseUp(with e: NSEvent) {
@@ -803,6 +1577,7 @@ final class VMDisplayView: NSView {
             rememberPerfSpot()
             return
         }
+        if dragLayerId != nil { endHarmonyDrag() }
         if engaged { point(e); button(1, false) }
     }
     override func rightMouseDown(with e: NSEvent) { if grabbed || point(e) { button(2, true) } }
@@ -835,6 +1610,7 @@ final class VMDisplayView: NSView {
             return
         }
         keepPointerHidden(e); move(e)
+        updateHarmonyDrag(e)
     }
     override func rightMouseDragged(with e: NSEvent) { move(e) }
     override func otherMouseDragged(with e: NSEvent) { move(e) }
@@ -860,7 +1636,7 @@ final class VMDisplayView: NSView {
         case 5: ungrab(); return true                                  // G
         case 3: onToggleFullScreen?(); return true                     // F
         case 35: togglePerformance(); return true                      // P
-        case 4: harmony.toggle(); return true                        // H
+        case 4: requestHarmony(!harmony); return true                        // H
         default: return false
         }
     }
@@ -931,6 +1707,15 @@ final class VMDisplayView: NSView {
 
 /// One window per running virtual Mac.  Closing it only hides it: the
 /// virtual Mac keeps running (Show Window brings it back).
+/// The virtual Mac's window.  A borderless window (which Harmony makes it,
+/// to cover this Mac's screen over its own desktop) cannot become key on its
+/// own, so this says it can -- otherwise the keyboard would stop reaching the
+/// guest the moment Harmony turned on.
+final class VMWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+}
+
 final class VMWindowController: NSWindowController, NSWindowDelegate {
     static var open: [URL: VMWindowController] = [:]
     /// The one the Machine menu acts on: the key window's, else the main
@@ -949,7 +1734,7 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
     init(vm: VirtualMachine, channel: DisplayChannel) {
         self.vm = vm
         display = VMDisplayView(channel: channel)
-        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1024, height: 768),
+        let w = VMWindow(contentRect: NSRect(x: 0, y: 0, width: 1024, height: 768),
                          styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         w.title = vm.config.name
         w.contentView = display
@@ -961,6 +1746,17 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
         w.delegate = self
         display.onToggleFullScreen = { [weak w] in w?.toggleFullScreen(nil) }
         display.onHarmonyGuest = { [weak vm] on in vm?.harmony(on) }
+        display.onHarmonyResolution = { [weak vm] w, h in vm?.setGuestResolution(w, h) }
+        display.onHarmonyRaise = { [weak vm] id in vm?.raiseGuestWindow(id) }
+        display.onHarmonyRaiseHard = { [weak vm] id in vm?.raiseGuestWindowHard(id) }
+        display.onHarmonyMove = { [weak vm] id, x, y in vm?.moveGuestWindow(id, x, y) }
+        display.onHarmonyRaiseAt = { [weak vm] id, x, y in vm?.raiseGuestWindowAt(id, x, y) }
+        display.onActivateGuestApp = { [weak vm] pid in vm?.activateGuestApp(pid) }
+        display.onRestoreGuestWindow = { [weak vm] pid, i in vm?.restoreGuestWindow(pid, i) }
+        display.onToolsStateQuery = { [weak vm] in String(describing: vm?.toolsState) }
+        display.onHarmonyMoveDrag = { [weak vm] id, gx, gy, ex, ey in
+            vm?.dragGuestWindow(id, gx, gy, ex, ey)
+        }
         display.onHarmonyChanged = { [weak w, weak vm] on in
             guard let w, let vm else { return }
             w.title = on ? "\(vm.config.name) \u{2014} Harmony (in testing)" : vm.config.name
@@ -969,6 +1765,9 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
         toolbar = VMToolbarController(self)
         display.controls = toolbar
         display.addSubview(toolbar!.bar)
+        // Keep the Devices badge honest about the guest's tools.
+        vm.onToolsChanged = { [weak self] in self?.toolbar?.refreshToolsBadge() }
+        toolbar?.refreshToolsBadge()
         display.queryPerf = { [weak vm] done in
             guard let vm else { done(nil); return }
             MainActor.assumeIsolated { vm.queryPerf(done: done) }

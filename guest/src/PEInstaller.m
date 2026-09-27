@@ -219,17 +219,36 @@ static void StopAgent(void)
     SetLoginItems(items);
     [[NSWorkspace sharedWorkspace] launchApplication:dst];
     NSString *msg = @"Installed. PowerEmu Tools are running and will start whenever you log in.";
-    if ([clockBox state] == NSOnState) {
-        NSString *script =
+    /*
+     * Harmony shows this Mac's windows on the other Mac's desktop, which means
+     * moving them, bringing them to the front and reading their menus -- all of
+     * which belong to other applications.  Mac OS X only lets one application
+     * do that to another's windows when "Enable access for assistive devices"
+     * is on, and that switch is root's to set.  Without it the only way to move
+     * a window is to fake a drag on its title bar, which is as bad as it
+     * sounds.  So it goes in here, where an administrator's password is asked
+     * for once.
+     */
+    BOOL wantClock = [clockBox state] == NSOnState;
+    NSMutableString *script = [NSMutableString stringWithString:
+        @"touch /var/db/.AccessibilityAPIEnabled; chmod 444 /var/db/.AccessibilityAPIEnabled; "];
+    if (wantClock) {
+        [script appendString:
             @"set -e; mkdir -p /Library/PowerEmu; "
              "cp \"$1/PowerEmuClock\" /Library/PowerEmu/PowerEmuClock; "
              "chown root:wheel /Library/PowerEmu/PowerEmuClock; chmod 755 /Library/PowerEmu/PowerEmuClock; "
              LAUNCHCTL " unload " CLOCK_PLIST " || true; "
              "cp \"$1/com.spartan0285.poweremu.clock.plist\" " CLOCK_PLIST "; "
              "chown root:wheel " CLOCK_PLIST "; chmod 644 " CLOCK_PLIST "; "
-             LAUNCHCTL " load " CLOCK_PLIST "; " LAUNCHCTL " list";
-        if (!RunAsAdmin(script, [[NSBundle mainBundle] resourcePath]) || !ClockInstalled())
-            msg = @"Installed, but without clock syncing (no administrator's password was given).";
+             LAUNCHCTL " load " CLOCK_PLIST "; " LAUNCHCTL " list"];
+    }
+    BOOL authed = RunAsAdmin(script, [[NSBundle mainBundle] resourcePath]);
+    BOOL axOn = [[NSFileManager defaultManager] fileExistsAtPath:@"/var/db/.AccessibilityAPIEnabled"];
+    if (!authed || !axOn) {
+        msg = @"Installed, but without window control (no administrator's password was given). "
+               "Harmony will not be able to move or bring forward this Mac's windows.";
+    } else if (wantClock && !ClockInstalled()) {
+        msg = @"Installed, but without clock syncing.";
     }
     [status setStringValue:msg];
     [self refresh];

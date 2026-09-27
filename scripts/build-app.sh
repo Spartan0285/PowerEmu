@@ -17,6 +17,15 @@ BUILD_NUMBER="${POWEREMU_BUILD:-1}"
 # tags, and a space in it finds every one of them.
 STAGE=Alpha
 
+# The Tools disc and the app must agree on the version, or PowerEmu would
+# offer an update to the copy it is already running (or miss a real one).
+agent_v=$(sed -n 's/^#define PE_AGENT_VERSION "\(.*\)"/\1/p' "$ROOT/guest/src/PEAgent.m")
+app_v=$(sed -n 's/.*static let shippedVersion = "\(.*\)"/\1/p' "$ROOT/app/Sources/PowerEmu/GuestTools.swift")
+if [ -n "$agent_v" ] && [ "$agent_v" != "$app_v" ]; then
+    echo "error: PE_AGENT_VERSION ($agent_v) != GuestTools.shippedVersion ($app_v)" >&2
+    exit 1
+fi
+
 (cd "$ROOT/app" && swift build -c release)
 BIN="$(cd "$ROOT/app" && swift build -c release --show-bin-path)/PowerEmu"
 
@@ -90,6 +99,18 @@ cat > "$OUT/Contents/Info.plist" <<EOF
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>PowerEmu is free software under the GNU GPL v2 or later.</string>
+	<!-- The WebAccelerator proxy fetches the guest's web traffic on the host,
+	     where App Transport Security otherwise refuses every plaintext http://
+	     connection. A 2000s-era guest (Tiger/Leopard) constantly loads http://
+	     URLs, and https redirect chains routinely hop through http mirrors
+	     (e.g. VideoLAN -> osuosl), so ATS turns those into 502s. The proxy is
+	     the deliberate boundary that reaches the legacy web for the guest, so
+	     it must be allowed to make insecure connections. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
 </dict>
 </plist>
 EOF

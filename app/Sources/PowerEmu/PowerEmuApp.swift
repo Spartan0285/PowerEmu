@@ -94,6 +94,81 @@ extension Notification.Name {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     weak var library: VMLibrary?
 
+    /// The Dock menu.  In Harmony the guest's windows have no shared title bar
+    /// or toolbar to reach, so offer a way out here.
+    func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
+        let menu = NSMenu()
+        if MainActor.assumeIsolated({ VMDisplayView.harmonized }) != nil {
+            menu.addItem(withTitle: "Exit Harmony", action: #selector(exitHarmony), keyEquivalent: "")
+                .target = self
+        }
+        // The guest's own applications, so they can be reached from this Mac's
+        // Dock while Harmony is on -- the guest's Dock is put away, and macOS
+        // will not let one app add Dock tiles for another's windows, so they
+        // live in this menu.
+        if let d = MainActor.assumeIsolated({ VMDisplayView.harmonized }) {
+            let apps = MainActor.assumeIsolated { d.guestApps }
+            if !apps.isEmpty {
+                menu.addItem(NSMenuItem.separator())
+                let header = NSMenuItem(title: "Virtual Mac", action: nil, keyEquivalent: "")
+                header.isEnabled = false
+                menu.addItem(header)
+                for a in apps {
+                    let item = NSMenuItem(title: a.app, action: #selector(openGuestApp(_:)), keyEquivalent: "")
+                    item.target = self
+                    item.tag = a.pid
+                    item.indentationLevel = 1
+                    menu.addItem(item)
+                }
+                menu.addItem(NSMenuItem.separator())
+            }
+        }
+        // Windows the guest has put in its own Dock, which is hidden while
+        // Harmony is on -- without these there would be no way back to them.
+        if let d = MainActor.assumeIsolated({ VMDisplayView.harmonized }) {
+            let mins = MainActor.assumeIsolated { d.minimizedGuestWindows }
+            if !mins.isEmpty {
+                menu.addItem(NSMenuItem.separator())
+                let h = NSMenuItem(title: "Minimized", action: nil, keyEquivalent: "")
+                h.isEnabled = false
+                menu.addItem(h)
+                for (i, w) in mins.enumerated() where i < 12 {
+                    let item = NSMenuItem(title: w.title.isEmpty ? "Untitled" : w.title,
+                                          action: #selector(restoreGuestWindow(_:)), keyEquivalent: "")
+                    item.target = self
+                    item.indentationLevel = 1
+                    item.representedObject = [w.pid, w.index]
+                    menu.addItem(item)
+                }
+            }
+        }
+        // The overlay carries the pointer readout, so it has to be reachable in
+        // Harmony, where there is no toolbar of ours on screen.
+        if let d = MainActor.assumeIsolated({ VMDisplayView.harmonized ?? VMWindowController.key?.display }) {
+            let on = MainActor.assumeIsolated { d.showsPerformance }
+            menu.addItem(withTitle: on ? "Hide Performance Overlay" : "Show Performance Overlay",
+                         action: #selector(togglePerfOverlay), keyEquivalent: "").target = self
+        }
+        return menu.numberOfItems > 0 ? menu : nil
+    }
+
+    @MainActor @objc private func exitHarmony() {
+        VMDisplayView.harmonized?.requestHarmony(false)
+    }
+
+    @MainActor @objc private func openGuestApp(_ sender: NSMenuItem) {
+        VMDisplayView.harmonized?.activateGuestApp(sender.tag)
+    }
+
+    @MainActor @objc private func restoreGuestWindow(_ sender: NSMenuItem) {
+        guard let pair = sender.representedObject as? [Int], pair.count == 2 else { return }
+        VMDisplayView.harmonized?.restoreGuestWindow(pair[0], pair[1])
+    }
+
+    @MainActor @objc private func togglePerfOverlay() {
+        (VMDisplayView.harmonized ?? VMWindowController.key?.display)?.togglePerformance()
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Before anything else, and before any machine starts: using
         // something is not the same as having been told what it does.
@@ -118,6 +193,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        // Leave the guest at its own resolution, not Harmony's: it remembers
+        // the last one and boots into it.
+        MainActor.assumeIsolated { VMDisplayView.harmonized?.restoreGuestResolutionIfNeeded() }
         // An install can't be picked up again, so say what quitting costs.
         let installing = MainActor.assumeIsolated { library?.installing ?? [] }
         if !installing.isEmpty {

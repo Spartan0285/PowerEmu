@@ -16,6 +16,22 @@ struct DiskConfig: Codable, Hashable, Identifiable {
     var displayName: String { label ?? (file as NSString).deletingPathExtension }
 }
 
+/// A whole physical disk of the host Mac (an external drive) lent to the
+/// virtual Mac as a real IDE hard disk.  Unlike a `DiskConfig`, it is not a
+/// file in the package -- `bsdName` names the host device (e.g. "disk14").
+/// PowerEmu unmounts it from the host before the guest starts and gives it
+/// back when the guest stops.  It attaches at launch (the emulated IDE bus
+/// cannot hot-plug) and read-write (an IDE hard disk needs a writable
+/// backing), so it can be installed onto and booted from.
+struct ExternalDisk: Codable, Hashable {
+    var bsdName: String            // "disk14"
+    var label: String?             // "HM2T80A0 (Macintosh HD)"
+    /// Boot the virtual Mac from this disk instead of the internal startup disk.
+    var bootFrom = false
+
+    var displayName: String { label ?? "/dev/" + bsdName }
+}
+
 /// Everything PowerEmu needs to start one virtual Mac; stored as
 /// config.plist inside the .poweremu package.  Every field has a default and
 /// missing keys decode to it, so packages from older versions keep loading.
@@ -36,6 +52,10 @@ struct VMConfig: Codable, Equatable {
     /// read-only) and the one in the CD/DVD drive.
     var discs: [String] = []
     var insertedDisc: String?
+    /// The disc in the drive is a blank recordable disc (a writable image the
+    /// guest can burn to), not a pressed read-only disc.  Turns the emulated
+    /// drive into a DVD-R burner.
+    var discRecordable = false
     /// Boot from the disc in the drive (installing) instead of the startup disk.
     var bootFromDisc = false
 
@@ -114,13 +134,18 @@ struct VMConfig: Codable, Equatable {
     /// Extra QEMU arguments, appended as given (config file only; for profiling).
     var extraQEMUArgs: [String] = []
 
+    /// A physical external disk of the host lent to this machine as a real
+    /// IDE hard disk (to browse, install onto, or boot from). nil = none.
+    var externalDisk: ExternalDisk?
+
     init(name: String) { self.name = name }
 
     enum CodingKeys: String, CodingKey {
-        case name, osName, model, cpuMHz, memoryMB, disks, startupDisk, discs, insertedDisc, bootFromDisc
+        case name, osName, model, cpuMHz, memoryMB, disks, startupDisk, discs, insertedDisc, discRecordable, bootFromDisc
         case hardwareCursor, extraDisplayModes, startFullscreen, embeddedDisplay, vramMB, mouseMode
         case bootChime, chimeSound, chimeFile, bootWidth, bootHeight, autoStart, verboseBoot, safeBoot, singleUser, audio, network, sshPort, shareClipboard, sharedFolders
         case agpBridge, monitorPort, gpuTrace, extraQEMUArgs, gamepad, shareOnNetwork, bridgedInterface
+        case externalDisk
     }
 
     init(from decoder: Decoder) throws {
@@ -136,6 +161,7 @@ struct VMConfig: Codable, Equatable {
         d.startupDisk = try c.decodeIfPresent(UUID.self, forKey: .startupDisk)
         try get(.discs, &d.discs)
         d.insertedDisc = try c.decodeIfPresent(String.self, forKey: .insertedDisc)
+        d.discRecordable = try c.decodeIfPresent(Bool.self, forKey: .discRecordable) ?? false
         try get(.bootFromDisc, &d.bootFromDisc)
         try get(.hardwareCursor, &d.hardwareCursor); try get(.extraDisplayModes, &d.extraDisplayModes)
         try get(.startFullscreen, &d.startFullscreen); try get(.bootChime, &d.bootChime)
@@ -152,6 +178,7 @@ struct VMConfig: Codable, Equatable {
         try get(.agpBridge, &d.agpBridge)
         if c.contains(.monitorPort) { d.monitorPort = try c.decodeIfPresent(Int.self, forKey: .monitorPort) }
         try get(.gpuTrace, &d.gpuTrace); try get(.extraQEMUArgs, &d.extraQEMUArgs)
+        d.externalDisk = try c.decodeIfPresent(ExternalDisk.self, forKey: .externalDisk)
         self = d
     }
 

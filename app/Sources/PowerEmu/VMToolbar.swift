@@ -12,6 +12,44 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
     private var mouseControl: NSSegmentedControl?
     private var pauseButton: NSButton?
     private let devicesMenu = NSMenu(title: "Devices")
+    private lazy var devicesButton: NSButton = menuButton(
+        "externaldrive.connected.to.line.below", "Devices",
+        "Discs, this Mac's drives and USB devices", devicesMenu)
+    /// The dot drawn on the Devices icon while the guest's tools want
+    /// installing or updating.
+    private let devicesBadge: NSView = {
+        let v = NSView(frame: NSRect(x: 0, y: 0, width: 9, height: 9))
+        v.wantsLayer = true
+        v.layer?.backgroundColor = NSColor.systemBlue.cgColor
+        v.layer?.cornerRadius = 4.5
+        v.layer?.borderWidth = 1.5
+        v.layer?.borderColor = NSColor.windowBackgroundColor.cgColor
+        v.isHidden = true
+        return v
+    }()
+
+    /// Put a dot on Devices when PowerEmu Tools are missing or out of date, so
+    /// the reader is told rather than having to go looking.
+    func refreshToolsBadge() {
+        guard let vm else { devicesBadge.isHidden = true; return }
+        let show = vm.state == .running && vm.toolsState.needsAttention
+        devicesBadge.isHidden = !show
+        if show, devicesBadge.superview == nil {
+            devicesButton.addSubview(devicesBadge)
+        }
+        if show {
+            let b = devicesButton.bounds
+            devicesBadge.frame = NSRect(x: b.midX + 5, y: b.maxY - 22, width: 9, height: 9)
+        }
+        switch vm.toolsState {
+        case .updateAvailable(_, let shipped):
+            devicesButton.toolTip = "PowerEmu Tools \(shipped) is available for this virtual Mac"
+        case .notInstalled where vm.state == .running:
+            devicesButton.toolTip = "PowerEmu Tools are not installed in this virtual Mac"
+        default:
+            devicesButton.toolTip = "Discs, this Mac's drives and USB devices"
+        }
+    }
     private var keys = NSMenu(), power = NSMenu()
     let bar = OverlayBar()
     private var hideTimer: Timer?
@@ -59,7 +97,7 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
             seg,
             separator(),
             menuButton("keyboard", "Keys", "Send keys this Mac would keep for itself", keys),
-            menuButton("externaldrive.connected.to.line.below", "Devices", "Discs, this Mac's drives and USB devices", devicesMenu),
+            devicesButton,
             separator(),
             pauseItem(),
             labelledButton("moon.fill", "Sleep", "Save the virtual Mac as it is and close it", #selector(sleepMachine)),
@@ -310,12 +348,17 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
             let e = entry("Eject", #selector(eject))
             e.isEnabled = running
             menu.addItem(e)
+            // Boot from this disc at the next start -- for installing Mac OS X.
+            let bootIt = entry("Boot from this disc (for installing)", #selector(toggleBootDisc))
+            bootIt.state = vm.config.bootFromDisc ? .on : .off
+            menu.addItem(bootIt)
         } else {
             let none = NSMenuItem(title: "No disc", action: nil, keyEquivalent: "")
             none.isEnabled = false
             menu.addItem(none)
         }
         menu.addItem(entry("Insert Disc Image…", #selector(insertDisc)))
+        menu.addItem(entry("New Blank Disc for Burning…", #selector(newBlankDisc)))
         let recent = vm.config.discs.filter { $0 != vm.config.insertedDisc }.prefix(8)
         for (i, path) in recent.enumerated() {
             let it = entry("Insert " + (path as NSString).lastPathComponent, #selector(insertRecent(_:)), i)
@@ -324,17 +367,74 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
             menu.addItem(it)
         }
         if VirtualMachine.toolsDiscURL != nil {
+            menu.addItem(NSMenuItem.separator())
+            header(menu, "PowerEmu Tools")
+            switch vm.toolsState {
+            case .notInstalled:
+                let s = NSMenuItem(title: running ? "Not installed in this virtual Mac"
+                                                  : "Start the virtual Mac to install them",
+                                   action: nil, keyEquivalent: "")
+                s.isEnabled = false
+                menu.addItem(s)
+                let it = entry("Install PowerEmu Tools…", #selector(openToolsAssistant))
+                it.isEnabled = running
+                menu.addItem(it)
+            case .upToDate(let v):
+                let s = NSMenuItem(title: "Version \(v) — up to date", action: nil, keyEquivalent: "")
+                s.isEnabled = false
+                menu.addItem(s)
+                menu.addItem(entry("Reinstall PowerEmu Tools…", #selector(openToolsAssistant)))
+            case .updateAvailable(let installed, let shipped):
+                let s = NSMenuItem(title: "Version \(installed) installed — \(shipped) available",
+                                   action: nil, keyEquivalent: "")
+                s.isEnabled = false
+                menu.addItem(s)
+                let it = entry("Update PowerEmu Tools…", #selector(openToolsAssistant))
+                it.image = NSImage(systemSymbolName: "arrow.down.circle.fill",
+                                   accessibilityDescription: "Update available")
+                menu.addItem(it)
+            }
             menu.addItem(entry("Insert PowerEmu Tools Disc", #selector(insertTools)))
         }
         let drives = HostDriveMonitor.shared.drives
-        if !drives.isEmpty {
+        let discDrives = drives.filter { $0.kind != .hardDisk }
+        if !discDrives.isEmpty {
             menu.addItem(.separator())
             header(menu, "This Mac's Drives")
-            for (i, d) in drives.enumerated() {
+            for (i, d) in discDrives.enumerated() {
                 let it = entry("Use " + d.name, #selector(useDrive(_:)), i)
                 it.representedObject = d.bsdName
                 it.isEnabled = running
                 menu.addItem(it)
+            }
+        }
+
+        // External hard disks -- lent whole as a real IDE hard disk, to browse,
+        // install Mac OS X onto, or boot from.  This attaches at launch, so it
+        // is set in the config and applied on the next start.
+        let hardDrives = drives.filter { $0.kind == .hardDisk }
+        if !hardDrives.isEmpty || vm.config.externalDisk != nil {
+            menu.addItem(.separator())
+            header(menu, "External Disk (install / boot)")
+            if let ext = vm.config.externalDisk {
+                let cur = NSMenuItem(title: "Attached: \(ext.displayName)", action: nil, keyEquivalent: "")
+                cur.isEnabled = false
+                menu.addItem(cur)
+                let boot = entry("Boot from this disk", #selector(toggleExternalBoot))
+                boot.state = ext.bootFrom ? .on : .off
+                menu.addItem(boot)
+                menu.addItem(entry("Detach (give back to this Mac)", #selector(detachExternal)))
+                if running {
+                    let note = NSMenuItem(title: "Restart to apply changes", action: nil, keyEquivalent: "")
+                    note.isEnabled = false
+                    menu.addItem(note)
+                }
+            } else {
+                for (i, d) in hardDrives.enumerated() {
+                    let it = entry("Install / boot from " + d.name, #selector(attachExternal(_:)), i)
+                    it.representedObject = d.bsdName
+                    menu.addItem(it)
+                }
             }
         }
 
@@ -368,6 +468,23 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
 
     @objc private func eject() { vm?.ejectDisc(); refocus() }
 
+    @objc private func newBlankDisc() {
+        guard let vm else { return }
+        let running = vm.state == .running
+        vm.newBlankDisc()
+        if running {
+            let a = NSAlert()
+            a.messageText = "Blank disc inserted"
+            a.informativeText = "A blank disc is now in the virtual Mac's drive. "
+                + "Burn to it from inside the guest -- drag files onto the disc "
+                + "and choose Burn, or use Disk Utility. If a blank CD or DVD is "
+                + "in a real drive on this Mac, the disc burns there too."
+            a.addButton(withTitle: "OK")
+            a.runModal()
+        }
+        refocus()
+    }
+
     @objc private func insertDisc() {
         let p = NSOpenPanel()
         p.allowedContentTypes = VMConfig.discExtensions.compactMap { UTType(filenameExtension: $0) }
@@ -382,6 +499,11 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
         refocus()
     }
 
+    @objc private func openToolsAssistant() {
+        guard let vm else { return }
+        ToolsAssistant.present(for: vm)
+    }
+
     @objc private func insertTools() { vm?.insertToolsDisc(); refocus() }
 
     @objc private func useDrive(_ item: NSMenuItem) {
@@ -394,6 +516,46 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
 
     @objc private func toggleUSB(_ item: NSMenuItem) {
         if let d = item.representedObject as? HostUSBDevice { vm?.toggleUSB(d) }
+        refocus()
+    }
+
+    @objc private func attachExternal(_ item: NSMenuItem) {
+        guard let vm, let bsd = item.representedObject as? String,
+              let d = HostDriveMonitor.shared.drives.first(where: { $0.bsdName == bsd }) else { return }
+        let running = vm.state == .running
+        let a = NSAlert()
+        a.messageText = "Attach “\(d.name)” to “\(vm.config.name)”?"
+        a.informativeText = "This disk will be unmounted from this Mac and given to the "
+            + "virtual Mac as a real hard disk, so you can install Mac OS X on it or boot "
+            + "from it. It appears when the virtual Mac starts. Installing Mac OS X onto it "
+            + "will erase everything on the disk.\n\nYou will be asked for an administrator "
+            + "password so the virtual Mac can write to it."
+        a.addButton(withTitle: running ? "Attach and Restart" : "Attach")
+        a.addButton(withTitle: "Cancel")
+        guard a.runModal() == .alertFirstButtonReturn else { refocus(); return }
+        vm.attachExternalDisk(d)
+        if running { vm.restartForConfigChange() }
+        refocus()
+    }
+
+    @objc private func detachExternal() {
+        guard let vm else { return }
+        vm.detachExternalDisk()
+        if vm.state == .running { vm.restartForConfigChange() }
+        refocus()
+    }
+
+    @objc private func toggleExternalBoot() {
+        guard let vm, let ext = vm.config.externalDisk else { return }
+        vm.setExternalDiskBoot(!ext.bootFrom)
+        if vm.state == .running { vm.restartForConfigChange() }
+        refocus()
+    }
+
+    @objc private func toggleBootDisc() {
+        guard let vm else { return }
+        vm.setBootFromDisc(!vm.config.bootFromDisc)
+        if vm.state == .running { vm.restartForConfigChange() }
         refocus()
     }
 
@@ -424,8 +586,8 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
                 window may take a moment to appear and a patch of its desktop \
                 may linger. Turning harmony off puts everything back.
 
-                Clicks anywhere in the window still go to the virtual Mac, \
-                including where you can see through it.
+                A click on one of the virtual Mac's windows goes to it; a click \
+                where you can see through to this Mac's desktop goes to this Mac.
                 """
             a.addButton(withTitle: "Turn On Harmony")
             a.addButton(withTitle: "Cancel")
@@ -437,7 +599,7 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
             }
             guard r == .alertFirstButtonReturn else { refocus(); return }
         }
-        display.harmony.toggle()
+        display.requestHarmony(!display.harmony)
         refocus()
     }
 

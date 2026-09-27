@@ -17,6 +17,19 @@ final class GuestAgent: ObservableObject {
     var shareClipboard = true
     /// Called when the agent says hello (after every guest login).
     var onConnect: (() -> Void)?
+    /// Harmony: the guest's on-screen windows -- id and rectangle (guest
+    /// points, top-left), front-most first -- or empty when Harmony is off.
+    var onWindows: (([(id: Int, rect: CGRect, visible: CGRect)]) -> Void)?
+    /// Harmony: which application each guest window belongs to.
+    var onWindowApps: (([(id: Int, pid: Int, app: String)]) -> Void)?
+    /// Harmony: the guest's windows that have been put in its Dock.
+    var onMinimized: (([(pid: Int, index: Int, title: String)]) -> Void)?
+    /// The guest window that has the focus: the one nothing is drawn over.
+    var onFocused: ((Int) -> Void)?
+    /// The front guest application and the titles across its menu bar.
+    var onMenuBar: ((Int, String, [(index: Int, title: String)]) -> Void)?
+    /// Everything in one of those menus, once it has been asked for.
+    var onMenuItems: ((Int, String, [HarmonyMenuItem]) -> Void)?
     private var listenFD: Int32 = -1
     private var acceptSource: DispatchSourceRead?
     private var conn: Connection?
@@ -110,6 +123,66 @@ final class GuestAgent: ObservableObject {
             lastChangeCount = pb.changeCount
         case "LOG":
             NSLog("PowerEmu Agent: %@", text)
+            harmonyDebug("PEAGENT " + text)
+        case "WINDOWS":
+            var windows: [(id: Int, rect: CGRect, visible: CGRect)] = []
+            for part in text.split(separator: ";") {
+                let n = part.split(separator: ",").compactMap { Double($0) }
+                guard n.count >= 5 else { continue }
+                let frame = CGRect(x: n[1], y: n[2], width: n[3], height: n[4])
+                // Older tools do not send the visible part; assume all of it.
+                let vis = n.count >= 9 ? CGRect(x: n[5], y: n[6], width: n[7], height: n[8]) : frame
+                windows.append((id: Int(n[0]), rect: frame, visible: vis))
+            }
+            onWindows?(windows)
+        case "WINAPPS":
+            var apps: [(id: Int, pid: Int, app: String)] = []
+            for line in text.split(separator: "\n") {
+                let f = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
+                if f.count >= 2, let pid = Int(f[0]) {
+                    apps.append((id: 0, pid: pid, app: f[1]))
+                }
+            }
+            onWindowApps?(apps)
+        case "MINWINDOWS":
+            var mins: [(pid: Int, index: Int, title: String)] = []
+            for line in text.split(separator: "\n") {
+                let f = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
+                if f.count >= 3, let pid = Int(f[0]), let idx = Int(f[1]) {
+                    mins.append((pid: pid, index: idx, title: f[2]))
+                }
+            }
+            onMinimized?(mins)
+        case "FOCUSED":
+            onFocused?(Int(text.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0)
+        case "MENUS":
+            var lines = text.split(separator: "\n", omittingEmptySubsequences: false)
+            // Empty means the guest has no menus to show: Harmony is off.
+            guard let head = lines.first, !head.isEmpty else { onMenuBar?(0, "", []); return }
+            let hf = head.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
+            guard let pid = Int(hf.first ?? "") else { return }
+            lines.removeFirst()
+            var tops: [(index: Int, title: String)] = []
+            for line in lines where !line.isEmpty {
+                let f = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
+                if f.count >= 2, let i = Int(f[0]) { tops.append((index: i, title: f[1])) }
+            }
+            onMenuBar?(pid, hf.count > 1 ? hf[1] : "", tops)
+        case "MENUITEMS":
+            var lines = text.split(separator: "\n", omittingEmptySubsequences: false)
+            guard let head = lines.first, !head.isEmpty else { return }
+            let hf = head.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
+            guard hf.count >= 2, let pid = Int(hf[0]) else { return }
+            lines.removeFirst()
+            var items: [HarmonyMenuItem] = []
+            for line in lines where !line.isEmpty {
+                let f = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
+                guard f.count >= 7 else { continue }
+                items.append(HarmonyMenuItem(path: f[0], title: f[1], enabled: f[2] != "0",
+                                             key: f[3], modifiers: Int(f[4]) ?? 0,
+                                             mark: f[5], hasSubmenu: f[6] != "0"))
+            }
+            onMenuItems?(pid, hf[1], items)
         default:
             break
         }

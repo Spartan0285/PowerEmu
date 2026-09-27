@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 
 /// Starts the bundled QEMU for one virtual Mac and talks to it over QMP.
 ///
@@ -10,6 +11,20 @@ final class VMRunner {
     static let minReportedMHz = 1420
     private let vm: VirtualMachine
     private var process: Process?
+    /// When an external disk is lent, QEMU is started with posix_spawn so the
+    /// disk's open file descriptor can be handed down (Foundation's Process
+    /// drops inherited fds).  These track that child and the fd to give back.
+    // QEMU's macOS host_device driver opens the device read-only first (to
+    // check it is not mounted) and then read-write, and it matches an fdset fd
+    // by exact access mode, so the set must hold both an O_RDONLY and an
+    // O_RDWR fd.  These are their fixed numbers inside the child.
+    static let externalReadFD: Int32 = 20         // O_RDONLY, for the mount check
+    static let externalWriteFD: Int32 = 21        // O_RDWR, for the disk itself
+    static let externalFDSet = 7                  // the fdset id both belong to
+    private var spawnPID: pid_t = 0
+    private var externalFDs: [Int32] = []         // host-side fds to close on stop
+    private var externalExitSource: DispatchSourceProcess?
+    private var externalBSD: String?              // host disk to give back on stop
     /// Watches an adopted machine (one this PowerEmu did not start).
     private var adoptWatch: Timer?
     private var qmpPath: String
@@ -26,6 +41,9 @@ final class VMRunner {
     /// Services of the guest offered to the network: guest service to the
     /// port this Mac listens on. Empty unless the reader shares them.
     var sharedPorts: [NetworkShare.Service: Int] = [:]
+    /// Option B: the Unix socket PowerEmu listens on to bridge the guest's
+    /// burn to a physical drive.  Set before start when a physical burn is armed.
+    var burnStreamSocket: String?
     /// Where the network helper and the emulator meet, when the guest is
     /// bridged straight on to this Mac's network.
     private(set) var bridgeHelperPath: String
@@ -111,7 +129,11 @@ final class VMRunner {
 
     func arguments(firmware fw: URL) throws -> [String] {
         let c = vm.config
-        guard let boot = c.startupDiskConfig else { throw PackageError.missing("A startup disk") }
+        // A machine normally boots an internal disk, but one set up to install
+        // onto (or boot from) a lent external disk may have no internal disk
+        // at all -- the external is its only hard disk.
+        let boot = c.startupDiskConfig
+        guard boot != nil || c.externalDisk != nil else { throw PackageError.missing("A startup disk") }
 
         // OpenBIOS: fake AGP properties on the PCI path (only used when the
         // AGP bridge is off) and the VRAM size for the QEMU VGA node.
@@ -164,7 +186,16 @@ final class VMRunner {
         // while booting from the install disc and the machine keeps whatever
         // the reader chose for afterwards.
         let vram = c.bootFromDisc ? min(c.vramMB, 64) : c.vramMB
-        a += ["-device", "ppc-mac-gpu,id=gpu0,vgamem_mb=\(vram)"]
+        var gpu = "ppc-mac-gpu,id=gpu0,vgamem_mb=\(vram)"
+        // Bake this Mac's exact screen size (in points) into the card's EDID, so
+        // Harmony can switch the guest to a mode that maps 1 guest pixel to 1
+        // host point (scale 1.0).  The CRTC only encodes 8-px-aligned widths, so
+        // the device snaps the scanned-out width back to this exact value.
+        if let scr = NSScreen.main {
+            gpu += ",host-native-width=\(Int(scr.frame.width.rounded()))"
+            gpu += ",host-native-height=\(Int(scr.frame.height.rounded()))"
+        }
+        a += ["-device", gpu]
 
         // The paravirtual GPU, alongside the emulated R200 rather than in
         // place of it: the guest keeps booting and displaying through the
@@ -237,23 +268,59 @@ final class VMRunner {
             a += ["-device", "poweremu-gamepad,bus=usb-bus.0,path=\(gamepadPath)"]
         }
 
-        // IDE: two buses with two units each.  The startup disk goes first on
-        // ide.0; the CD/DVD drive (always present, so discs can be inserted
-        // while running) takes the first slot on ide.1; other disks fill in.
-        var slots = ["bus=ide.0,unit=0", "bus=ide.1,unit=0", "bus=ide.0,unit=1", "bus=ide.1,unit=1"]
-        let hdOrder = [boot] + c.hardDisks.filter { $0.id != boot.id }
+        // IDE: two buses with two units each.  The CD/DVD drive (always
+        // present, so discs can be inserted while running) keeps ide.1/0; the
+        // internal disks and a lent external disk fill the other three slots,
+        // the startup disk first on ide.0/0.
+        let cdSlot = "bus=ide.1,unit=0"
+        var freeSlots = ["bus=ide.0,unit=0", "bus=ide.0,unit=1", "bus=ide.1,unit=1"]
+        let hdOrder: [DiskConfig] = boot.map { b in [b] + c.hardDisks.filter { $0.id != b.id } } ?? []
         let bootCD = c.bootFromDisc && c.insertedDisc != nil
-        // startup disk
-        a += hdDrive(hdOrder[0], index: 0, slot: slots.removeFirst(), bootIndex: bootCD ? 1 : 0)
-        // CD/DVD drive
-        let cdSlot = slots.removeFirst()
-        var cd = "if=none,id=cd0,media=cdrom,readonly=on"
+        let bootExternal = (c.externalDisk?.bootFrom ?? false) && !bootCD
+        // startup disk (a booting installer disc or external disk takes priority)
+        if !hdOrder.isEmpty {
+            a += hdDrive(hdOrder[0], index: 0, slot: freeSlots.removeFirst(),
+                         bootIndex: (bootCD || bootExternal) ? 1 : 0)
+        }
+        // A blank recordable disc is opened writable and the drive is told it
+        // can burn (recordable=on + POWEREMU_BURNER in the environment); every
+        // other disc stays read-only.
+        // The drive is created burner-capable (recordable) whenever it will
+        // not be forced to open a read-only disc at boot -- i.e. an empty tray
+        // or a blank recordable disc.  That lets a blank disc be dropped in and
+        // burned while the machine runs, with no restart.  Booting from a
+        // pressed/installer disc keeps it read-only.
+        let recordable = !bootCD && (c.insertedDisc == nil || c.discRecordable)
+        var cd = "if=none,id=cd0,media=cdrom"
         if let disc = c.insertedDisc {
             cd += ",file.filename=\(disc),format=\(VMConfig.imageFormat(disc))"
         }
-        a += ["-drive", cd, "-device", "ide-cd,\(cdSlot),drive=cd0,id=cd0dev" + (bootCD ? ",bootindex=0" : "")]
-        for (i, d) in hdOrder.dropFirst().prefix(slots.count).enumerated() {
-            a += hdDrive(d, index: i + 1, slot: slots[i], bootIndex: nil)
+        if !recordable { cd += ",readonly=on" }
+        var cdDev = "ide-cd,\(cdSlot),drive=cd0,id=cd0dev"
+        if recordable { cdDev += ",recordable=on" }
+        if bootCD { cdDev += ",bootindex=0" }
+        a += ["-drive", cd, "-device", cdDev]
+        let extras = Array(hdOrder.dropFirst())
+        let usedExtra = extras.prefix(freeSlots.count).count
+        for (i, d) in extras.prefix(freeSlots.count).enumerated() {
+            a += hdDrive(d, index: i + 1, slot: freeSlots[i], bootIndex: nil)
+        }
+        // A physical external disk, lent whole as a real IDE hard disk so it
+        // can be browsed, installed onto, and booted from.  PowerEmu opens its
+        // read-write file descriptor (authopen) and hands it to QEMU as
+        // fd \(Self.externalChildFD) (see launch()); QEMU never opens the
+        // device node itself.  The IDE bus cannot hot-plug, so it is here at
+        // launch.
+        if let ext = c.externalDisk, Self.externalNodePresent(ext.bsdName), usedExtra < freeSlots.count {
+            // With no internal disk and no booting installer, the external is
+            // the only bootable disk, so it boots even without the toggle set.
+            let extBoots = bootExternal || (hdOrder.isEmpty && !bootCD)
+            a += ["-add-fd", "fd=\(Self.externalReadFD),set=\(Self.externalFDSet)",
+                  "-add-fd", "fd=\(Self.externalWriteFD),set=\(Self.externalFDSet)",
+                  "-drive", "if=none,id=extdisk,file.filename=/dev/fdset/\(Self.externalFDSet),"
+                          + "file.driver=host_device,format=raw,media=disk",
+                  "-device", "ide-hd,\(freeSlots[usedExtra]),drive=extdisk"
+                          + (extBoots ? ",bootindex=0" : "")]
         }
 
         a += ["-serial", "file:\(vm.logsURL.appendingPathComponent("console.log").path)"]
@@ -286,25 +353,159 @@ final class VMRunner {
         try FileManager.default.createDirectory(at: vm.logsURL, withIntermediateDirectories: true)
         unlink(qmpPath)
 
-        let p = Process()
-        p.executableURL = helper.appendingPathComponent("Contents/MacOS/qemu-system-ppc")
-        p.arguments = try arguments(firmware: fw)
+        let qbin = helper.appendingPathComponent("Contents/MacOS/qemu-system-ppc")
+        let args = try arguments(firmware: fw)
         var env = ProcessInfo.processInfo.environment
+        // Burner on whenever the drive is recordable-capable (empty tray or a
+        // blank disc) and not booting from a pressed disc.  Recordability of
+        // any given disc is still decided by whether its backing is writable.
+        if !(vm.config.bootFromDisc && vm.config.insertedDisc != nil) {
+            env["POWEREMU_BURNER"] = "1"
+            if let sock = burnStreamSocket {
+                env["POWEREMU_BURN_STREAM"] = sock
+            }
+        }
         if vm.config.hardwareCursor {
             env["QEMU_PPC_NDRV"] = fw.appendingPathComponent("qemu_vga_hwc.ndrv").path
         } else {
             env.removeValue(forKey: "QEMU_PPC_NDRV")
         }
-        p.environment = env
         let log = vm.logsURL.appendingPathComponent("qemu.log")
         FileManager.default.createFile(atPath: log.path, contents: nil)
         let h = try FileHandle(forWritingTo: log)
-        h.write(("PowerEmu: " + ([p.executableURL!.path] + p.arguments!).joined(separator: " ") + "\n\n").data(using: .utf8)!)
+        h.write(("PowerEmu: " + ([qbin.path] + args).joined(separator: " ") + "\n\n").data(using: .utf8)!)
+
+        // An external physical disk is handed to QEMU as an open file
+        // descriptor, which Foundation's Process cannot pass to a child, so
+        // that machine is started with posix_spawn instead.  A disk that was
+        // attached but has since been unplugged is simply left out, with a
+        // note, rather than stopping the machine from starting at all.
+        if let ext = vm.config.externalDisk {
+            if Self.externalNodePresent(ext.bsdName) {
+                try launchWithExternalDisk(ext, qbin: qbin.path, args: args, env: env, log: h, onExit: onExit)
+                return
+            }
+            vm.note("“\(ext.displayName)” is not connected, so “\(vm.config.name)” "
+                + "started without it. Reconnect the disk and attach it again from Devices.")
+        }
+
+        let p = Process()
+        p.executableURL = qbin
+        p.arguments = args
+        p.environment = env
         p.standardOutput = h
         p.standardError = h
         p.terminationHandler = { proc in onExit(proc.terminationStatus) }
         try p.run()
         process = p
+    }
+
+    /// Start QEMU with an external disk lent to it.  The whole host device is
+    /// unmounted, opened read-write (asking for an administrator once, as the
+    /// device node belongs to root), and handed down to QEMU as a fixed fd
+    /// number with posix_spawn; when the machine stops the disk is given back
+    /// to the host.  Opening it can put up an authorisation panel, so it runs
+    /// off the main thread and the machine starts (or reports failure) from
+    /// the completion.
+    private func launchWithExternalDisk(_ ext: ExternalDisk, qbin: String, args: [String],
+                                        env: [String: String], log: FileHandle,
+                                        onExit: @escaping @Sendable (Int32) -> Void) throws {
+        Self.hostUnmount(ext.bsdName)
+        let node = "/dev/" + ext.bsdName
+        // The read-only descriptor for QEMU's mount check needs no special
+        // rights (this user can read the device); only writing to it does.
+        let readFD = Darwin.open(node, O_RDONLY)
+        let drive = HostDrive(bsdName: ext.bsdName, name: ext.displayName, kind: .hardDisk)
+        HostDrive.open(drive, writable: true) { [weak self] writeFD, err in
+            Task { @MainActor in
+                guard let self else { if readFD >= 0 { close(readFD) }; if writeFD >= 0 { close(writeFD) }; return }
+                func fail(_ why: String) {
+                    if readFD >= 0 { close(readFD) }; if writeFD >= 0 { close(writeFD) }
+                    Self.hostRemount(ext.bsdName)
+                    if let d = (why + "\n").data(using: .utf8) { try? log.write(contentsOf: d) }
+                    onExit(1)
+                }
+                guard readFD >= 0 else { fail("The external disk could not be read: " + String(cString: strerror(errno)) + "."); return }
+                guard writeFD >= 0 else { fail(err ?? "The external disk could not be opened for writing."); return }
+                self.externalFDs = [readFD, writeFD]
+                self.externalBSD = ext.bsdName
+                if !self.spawn(qbin: qbin, args: args, env: env, log: log,
+                               readFD: readFD, writeFD: writeFD, onExit: onExit) {
+                    self.externalFDs = []
+                    fail("posix_spawn failed to start the emulator.")
+                }
+            }
+        }
+    }
+
+    /// posix_spawn QEMU, dup'ing the log onto its stdout/stderr and handing
+    /// the disk's read and write descriptors down as their fixed fd numbers.
+    /// Reaps the child and gives the disk back when it exits.  Returns whether
+    /// it started.
+    private func spawn(qbin: String, args: [String], env: [String: String], log: FileHandle,
+                       readFD: Int32, writeFD: Int32, onExit: @escaping @Sendable (Int32) -> Void) -> Bool {
+        var actions: posix_spawn_file_actions_t?
+        posix_spawn_file_actions_init(&actions)
+        defer { posix_spawn_file_actions_destroy(&actions) }
+        let logFD = log.fileDescriptor
+        posix_spawn_file_actions_adddup2(&actions, logFD, 1)
+        posix_spawn_file_actions_adddup2(&actions, logFD, 2)
+        posix_spawn_file_actions_adddup2(&actions, readFD, Self.externalReadFD)
+        posix_spawn_file_actions_adddup2(&actions, writeFD, Self.externalWriteFD)
+
+        let argv = ([qbin] + args).map { strdup($0) } + [nil]
+        let envp = env.map { strdup("\($0)=\($1)") } + [nil]
+        defer { for p in argv where p != nil { free(p) }; for p in envp where p != nil { free(p) } }
+
+        var pid: pid_t = 0
+        let rc = posix_spawn(&pid, qbin, &actions, nil, argv, envp)
+        guard rc == 0 else { return false }
+        spawnPID = pid
+
+        // Reap the child and give the disk back when it exits.
+        let src = DispatchSource.makeProcessSource(identifier: pid, eventMask: .exit, queue: .main)
+        src.setEventHandler { [weak self] in
+            var status: Int32 = 0
+            waitpid(pid, &status, 0)
+            let code = (status & 0x7f) == 0 ? (status >> 8) & 0xff : status & 0x7f
+            src.cancel()
+            Task { @MainActor in
+                guard let self else { onExit(code); return }
+                self.externalExitSource = nil
+                self.spawnPID = 0
+                for f in self.externalFDs where f >= 0 { close(f) }
+                self.externalFDs = []
+                if let bsd = self.externalBSD { Self.hostRemount(bsd); self.externalBSD = nil }
+                onExit(code)
+            }
+        }
+        externalExitSource = src
+        src.resume()
+        return true
+    }
+
+    /// Unmount every volume of a host disk (leaving the device node) so the
+    /// guest can have exclusive use of it, and give it back afterwards.
+    /// Whether a lent external disk's device node is actually there.  A drive
+    /// that has been unplugged since it was attached must not stop the machine
+    /// from starting -- it is left out instead.
+    nonisolated static func externalNodePresent(_ bsd: String) -> Bool {
+        return access("/dev/" + bsd, F_OK) == 0
+    }
+    nonisolated static func hostUnmount(_ bsd: String) {
+        run("/usr/sbin/diskutil", ["unmountDisk", "force", "/dev/" + bsd])
+    }
+    nonisolated static func hostRemount(_ bsd: String) {
+        run("/usr/sbin/diskutil", ["mountDisk", "/dev/" + bsd])
+    }
+    nonisolated private static func run(_ tool: String, _ args: [String]) {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: tool)
+        p.arguments = args
+        p.standardOutput = FileHandle.nullDevice
+        p.standardError = FileHandle.nullDevice
+        try? p.run()
+        p.waitUntilExit()
     }
 
     /// Whether an emulator for this machine is already running: its QMP
@@ -443,6 +644,7 @@ final class VMRunner {
     /// Whether the machine is still there: the process we started, or -- for
     /// one we adopted -- something still answering on its socket.
     func isAlive() -> Bool {
+        if spawnPID != 0 { return kill(spawnPID, 0) == 0 }
         if let p = process { return p.isRunning }
         return Self.canConnect(qmpPath)
     }
@@ -473,12 +675,30 @@ final class VMRunner {
         adoptWatch = nil
         QMP.shared.send(qmpPath, ["execute": "quit"])
         DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
-            if let p = self?.process, p.isRunning { p.terminate() }
+            guard let self else { return }
+            if let p = self.process, p.isRunning { p.terminate() }
+            if self.spawnPID != 0, kill(self.spawnPID, 0) == 0 { kill(self.spawnPID, SIGTERM) }
         }
     }
 
     /// Put a disc image in the CD/DVD drive.  A disc already in it is
     /// ejected first, asking Mac OS X as the Eject button does.
+    /// Put a blank recordable disc in the drive, opened writable so the guest
+    /// can burn to it.  Needs the drive to have been created burner-capable
+    /// (recordable=on), which it is whenever it booted with an empty tray.
+    func insertRecordableDisc(_ path: String, done: @escaping @Sendable (String?) -> Void) {
+        let qmp = qmpPath
+        ejectDisc { err in
+            if let err { done(err); return }
+            QMP.shared.send(qmp, ["execute": "blockdev-change-medium",
+                                  "arguments": ["id": "cd0dev", "filename": path,
+                                                "format": "raw",
+                                                "read-only-mode": "read-write"]]) { reply in
+                done(QMP.errorText(reply))
+            }
+        }
+    }
+
     func insertDisc(_ path: String, done: @escaping @Sendable (String?) -> Void) {
         let qmp = qmpPath
         ejectDisc { err in
@@ -597,6 +817,7 @@ final class VMRunner {
     /// no VM is running, which the overlay shows as no host figures rather
     /// than as zeroes -- a zero reads as "idle", which is a different claim.
     var qemuPID: pid_t? {
+        if spawnPID != 0 { return kill(spawnPID, 0) == 0 ? spawnPID : nil }
         guard let p = process, p.isRunning else { return nil }
         return p.processIdentifier
     }

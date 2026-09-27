@@ -15,8 +15,13 @@ import Combine
 final class VirtualMachine: ObservableObject, Identifiable {
     let url: URL
     @Published var config: VMConfig
+    /// Option B: bridges an in-guest burn to a physical drive while running.
+    @Published private(set) var physicalBurn: PhysicalBurn?
     @Published private(set) var state: RunState = .stopped
     @Published private(set) var lastError: String?
+    /// For the runner to surface a non-fatal note (e.g. a lent external disk
+    /// that was unplugged, so the machine started without it).
+    func note(_ message: String) { lastError = message }
     /// A host drive (not an image) is in the virtual CD/DVD drive.
     @Published private(set) var hostDiscName: String?
     /// Host ports of the running machine (they move when taken).
@@ -120,13 +125,34 @@ final class VirtualMachine: ObservableObject, Identifiable {
             r.sharedPorts = share.choosePorts(avoiding: Set([config.sshPort, config.monitorPort].compactMap { $0 }))
         }
         r.bridgeMAC = pendingBridgeMAC
+        // Option B: always listen for the guest to start a burn.  When one
+        // begins, PowerEmu looks up the guest's blank-disc image and a real
+        // optical drive with blank media, and streams the burn to it.  If
+        // either is absent the guest just burns its own emulated disc.  The
+        // listener is armed at boot so no restart is needed to burn later.
+        let pb = PhysicalBurn(backing: { [weak self] in self?.config.insertedDisc })
+        if pb.startListening() {
+            r.burnStreamSocket = pb.socketPath
+            physicalBurn = pb
+        }
         runner = r
         state = .starting
         do {
             let a = GuestAgent(socketPath: r.agentPath)
             a.shareClipboard = config.shareClipboard
             try? a.start()
-            a.onConnect = { [weak self] in self?.mountSharedFolders() }
+            a.onConnect = { [weak self] in
+                self?.mountSharedFolders()
+                // The tools have just said which version they are: the Devices
+                // badge depends on it.
+                self?.onToolsChanged?()
+            }
+            a.onWindows = { [weak self] rects in self?.display?.deliverWindows(rects) }
+            a.onWindowApps = { [weak self] apps in self?.display?.deliverWindowApps(apps) }
+            a.onMinimized = { [weak self] m in self?.display?.deliverMinimized(m) }
+            a.onFocused = { [weak self] id in self?.display?.deliverFocused(id) }
+            a.onMenuBar = { [weak self] pid, app, tops in self?.display?.deliverMenuBar(pid, app, tops) }
+            a.onMenuItems = { [weak self] pid, path, items in self?.display?.deliverMenuItems(pid, path, items) }
             agent = a
             let d = WebDAVServer(socketPath: r.davPath)
             d.setShares(config.sharedFolders)
@@ -149,6 +175,9 @@ final class VirtualMachine: ObservableObject, Identifiable {
             if config.embeddedDisplay {
                 let ch = DisplayChannel(socketPath: r.displayPath)
                 try ch.start()
+                // Menu picks and requests for a menu's contents go back the
+                // same way they came.
+                ch.sendToAgent = { [weak self] verb, text in self?.agent?.send(verb, text) }
                 display = ch
                 let w = VMWindowController.show(self, channel: ch)
                 if asleep {
@@ -219,6 +248,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
             VMWindowController.close(self)
             state = .stopped
             runner = nil
+            physicalBurn?.abort(); physicalBurn = nil
             lastError = error.localizedDescription
         }
     }
@@ -389,6 +419,43 @@ final class VirtualMachine: ObservableObject, Identifiable {
         agent?.send("HARMONY", on ? "1" : "0")
     }
 
+    /// Harmony runs the guest at this Mac's screen resolution so its windows
+    /// line up 1:1; (0,0) restores the guest's normal (config) resolution.
+    func setGuestResolution(_ w: Int, _ h: Int) {
+        let tw = w > 0 ? w : config.bootWidth
+        let th = h > 0 ? h : config.bootHeight
+        agent?.send("RESOLUTION", "\(tw) \(th)")
+    }
+
+    /// Rootless Harmony: bring a guest window to the front, or move it, so its
+    /// macOS proxy and the real window stay in step.
+    func raiseGuestWindow(_ id: Int) { agent?.send("RAISE", "\(id)") }
+    /// Raise a guest window and bring its application up with it.  Only for the
+    /// pass that has to read a window whole; a click must not do this.
+    func raiseGuestWindowHard(_ id: Int) { agent?.send("RAISEHARD", "\(id)") }
+    /// Take a guest window back out of the guest's Dock.
+    func restoreGuestWindow(_ pid: Int, _ index: Int) { agent?.send("UNMINIMIZE", "\(pid) \(index)") }
+    /// Bring one of the guest's applications to the front.
+    /// Called when what we know about the guest's tools changes.
+    var onToolsChanged: (() -> Void)?
+
+    /// How the guest's PowerEmu Tools compare with the ones this app carries.
+    /// Only meaningful while the machine is running and has answered hello.
+    var toolsState: GuestTools.State {
+        guard state == .running else { return .notInstalled }
+        return GuestTools.state(installed: agent?.info?.version)
+    }
+
+    func activateGuestApp(_ pid: Int) { agent?.send("ACTIVATE", "\(pid)") }
+    /// Raise by clicking a point the guest window is not covered at.
+    func raiseGuestWindowAt(_ id: Int, _ x: Int, _ y: Int) { agent?.send("RAISE", "\(id) \(x) \(y)") }
+    /// Move by dragging the window's title bar, which is the only way the guest
+    /// will accept from us.
+    func dragGuestWindow(_ id: Int, _ gx: Int, _ gy: Int, _ ex: Int, _ ey: Int) {
+        agent?.send("MOVEWINDOW", "\(id) \(gx) \(gy) \(ex) \(ey)")
+    }
+    func moveGuestWindow(_ id: Int, _ x: Int, _ y: Int) { agent?.send("MOVEWINDOW", "\(id) \(x) \(y)") }
+
     func requestRestart() {
         guard state == .running, let agent, agent.connected else { return }
         agent.send("RESTART")
@@ -451,6 +518,24 @@ final class VirtualMachine: ObservableObject, Identifiable {
         runner?.terminate()
     }
 
+    /// Stop the machine and start it again, to apply a change that only takes
+    /// effect at launch -- attaching or detaching an external disk, or booting
+    /// from a disc.  The guest is shut down *gracefully* (through PowerEmu
+    /// Tools if it is there, otherwise the power key), so its disk is left
+    /// clean; only if it has not gone after a while is the plug pulled.  When
+    /// it is already stopped, it simply starts.
+    private var restartWhenStopped = false
+    func restartForConfigChange() {
+        guard state != .stopped else { start(); return }
+        restartWhenStopped = true
+        requestShutDown()                       // graceful; processEnded restarts it
+        DispatchQueue.main.asyncAfter(deadline: .now() + 60) { [weak self] in
+            guard let self, self.restartWhenStopped, self.state != .stopped else { return }
+            // The guest ignored the shutdown request -- fall back to force.
+            self.forcePowerOff()
+        }
+    }
+
     // MARK: discs
 
     /// Put a disc image in the CD/DVD drive: now if running, else at startup.
@@ -473,6 +558,9 @@ final class VirtualMachine: ObservableObject, Identifiable {
     func insertDisc(_ url: URL, remember: Bool = true) {
         let path = url.path
         if remember && !config.discs.contains(path) { config.discs.insert(path, at: 0) }
+        // A disc image chosen this way is a normal read-only disc, not a
+        // blank recorder; only newBlankDisc() sets the recordable flag.
+        config.discRecordable = false
         lastError = nil
         ejectRefused = false
         if state == .running, let runner {
@@ -511,6 +599,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
     func ejectDisc(force: Bool = false) {
         guard state == .running, let runner else {
             config.insertedDisc = nil
+            config.discRecordable = false
             if config.bootFromDisc { config.bootFromDisc = false }
             try? save()
             return
@@ -526,12 +615,69 @@ final class VirtualMachine: ObservableObject, Identifiable {
                     self.ejectRefused = err == VMRunner.discInUse
                 } else {
                     self.config.insertedDisc = nil
+                    self.config.discRecordable = false
                     self.hostDiscName = nil
                     if self.config.bootFromDisc { self.config.bootFromDisc = false }
                     try? self.save()
                 }
             }
         }
+    }
+
+    /// Create a fresh blank recordable disc image (a 4.7 GB DVD-R) in this
+    /// machine's Disks folder and put it in the drive so the guest can burn to
+    /// it.  Burning needs the drive brought up as a recorder, so if the
+    /// machine is already running the disc is remembered and applied on the
+    /// next start.  Returns the created file, or nil with lastError set.
+    @discardableResult
+    func newBlankDisc(sizeGB: Double = 4.7) -> URL? {
+        let dir = disksURL
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        var name = "Blank DVD.img"
+        var url = dir.appendingPathComponent(name)
+        var n = 2
+        while FileManager.default.fileExists(atPath: url.path) {
+            name = "Blank DVD \(n).img"
+            url = dir.appendingPathComponent(name)
+            n += 1
+        }
+        // Match the physical blank media if one is in a real drive, so the
+        // guest's disc is CD-sized for a CD-R and DVD-sized for a DVD -- the
+        // guest then burns in the right mode and the sizes cannot mismatch.
+        let bytes: Int64
+        if let blocks = PhysicalBurn.blankMediaBlocks(), blocks > 0 {
+            bytes = Int64(blocks) * 2048
+        } else {
+            bytes = Int64(sizeGB * 1_000_000_000)
+        }
+        guard FileManager.default.createFile(atPath: url.path, contents: nil) else {
+            lastError = "Could not create the blank disc."
+            return nil
+        }
+        do {
+            let h = try FileHandle(forWritingTo: url)
+            try h.truncate(atOffset: UInt64(bytes))   // sparse: no space used yet
+            try h.close()
+        } catch {
+            try? FileManager.default.removeItem(at: url)
+            lastError = "Could not size the blank disc: \(error.localizedDescription)"
+            return nil
+        }
+        if !config.discs.contains(url.path) { config.discs.insert(url.path, at: 0) }
+        config.insertedDisc = url.path
+        config.discRecordable = true
+        config.bootFromDisc = false
+        try? save()
+        // If the machine is running with a burner-capable drive, drop the blank
+        // disc straight in -- no restart.  (When it booted with a read-only
+        // disc the drive is not recordable and this insert is refused; the
+        // caller then falls back to asking for a restart.)
+        if state == .running, let runner {
+            runner.insertRecordableDisc(url.path) { err in
+                Task { @MainActor in if let err { self.lastError = err } else { self.hostDiscName = nil } }
+            }
+        }
+        return url
     }
 
     func forgetDisc(_ path: String) {
@@ -562,6 +708,39 @@ final class VirtualMachine: ObservableObject, Identifiable {
                 }
             }
         }
+    }
+
+    /// Lend a physical external disk to this machine as a real IDE hard disk
+    /// (to browse, install Mac OS X onto, or boot from).  Unlike a disc, this
+    /// attaches when the machine starts -- the emulated IDE bus cannot
+    /// hot-plug -- so it is recorded in the config and applied on the next
+    /// start.  A running machine must be restarted for it to appear.
+    func attachExternalDisk(_ drive: HostDrive) {
+        config.externalDisk = ExternalDisk(bsdName: drive.bsdName, label: drive.name)
+        try? save()
+        objectWillChange.send()
+    }
+    func detachExternalDisk() {
+        config.externalDisk = nil
+        try? save()
+        objectWillChange.send()
+    }
+    func setExternalDiskBoot(_ on: Bool) {
+        config.externalDisk?.bootFrom = on
+        // Booting the external and booting the installer disc are exclusive.
+        if on { config.bootFromDisc = false }
+        try? save()
+        objectWillChange.send()
+    }
+
+    /// Boot from the disc in the drive at the next start -- for installing Mac
+    /// OS X (onto the internal disk or a lent external one).  Takes effect at
+    /// launch, so a running machine restarts to apply it.
+    func setBootFromDisc(_ on: Bool) {
+        config.bootFromDisc = on
+        if on { config.externalDisk?.bootFrom = false }
+        try? save()
+        objectWillChange.send()
     }
 
     /// Keep the drive's state in step with the guest, which can eject too.
@@ -643,6 +822,16 @@ final class VirtualMachine: ObservableObject, Identifiable {
         monitorPortInUse = nil
         state = .stopped
         runner = nil
+        physicalBurn?.abort(); physicalBurn = nil
+        if restartWhenStopped {
+            restartWhenStopped = false
+            // Let the emulator release its sockets and give the disk back
+            // before starting again with the new configuration.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+                MainActor.assumeIsolated { self?.start() }
+            }
+            return
+        }
         let wasWaking = waking
         waking = false
         if status != 0 && wasWaking {

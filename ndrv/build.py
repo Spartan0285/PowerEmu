@@ -129,6 +129,13 @@ def build(src, dst):
     EXT_TABLE = 0xd24                   # edidExtStdVModes: {UInt32 w, h}
     # Entries 38-39 (duplicate 1600x1200) and 44-45 (1920x1440) become modes
     # for the area below the notch (1710x1074 points, 1.592).
+    # Index 37 was briefly the host's exact size (1712x1107) so Harmony could
+    # map a guest pixel to a host point.  It is back to the panel-aspect mode:
+    # the guest remembers its resolution and boots into it, and the firmware
+    # lays that mode's rows out 64-px aligned (1728) while the CRTC pitch says
+    # 1712 -- which shears everything on screen until the driver's stride
+    # override catches up, well after the grey Apple.  Re-enable it only with
+    # that stride settled from the first frame.
     MODES = {34: (1440, 932), 35: (1280, 828), 36: (1152, 746), 37: (1680, 1088),
              38: (1440, 904), 39: (1280, 804), 44: (1152, 724), 45: (1680, 1056)}
     for idx, (w, h) in MODES.items():
