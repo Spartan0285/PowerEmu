@@ -1,10 +1,17 @@
 {
-  "version": "0.2",
-  "build": 2,
-  "published": "2026-09-24T18:28:05Z",
+  "version": "0.3",
+  "build": 3,
+  "published": "2026-09-29T15:31:54Z",
   "minimumSystem": "14.0",
-  "notes": "First public release.",
-  "url": "https://github.com/Spartan0285/PowerEmu/releases/download/v0.2/PowerEmu-0.2.zip",
-  "sha256": "642e81dcbe8a73f2e6fb38fea536f831b790f790f3ded2931fbeed738b2f8b74",
-  "history": []
+  "notes": "Adds Harmony window integration for Tiger and Leopard, including host/guest window stacking, menu and Dock integration, modal sheets, minimize and restore, and file drag-and-drop in both directions. Adds native PowerEmu Tools install and uninstall packages, configuration tabs, VM reordering, larger Leopard VRAM support, and an experimental two-CPU option. This release continues to use Radeon 9200 graphics.",
+  "url": "https://github.com/Spartan0285/PowerEmu/releases/download/v0.3/PowerEmu-0.3.zip",
+  "sha256": "d992e5b47125fd8b16caa49cc329e246be97732306b8092696795070a88810a3",
+  "history": [
+    {
+      "version": "0.2",
+      "build": 2,
+      "published": "2026-09-24T18:28:05Z",
+      "notes": "First public release."
+    }
+  ]
 }
