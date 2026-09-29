@@ -31,12 +31,28 @@ if [ "$BUILD" -le "$CURRENT" ]; then
 fi
 
 echo "== building $VERSION ($BUILD)"
-POWEREMU_RELEASE=1 POWEREMU_VERSION="$VERSION" POWEREMU_BUILD="$BUILD" sh "$ROOT/scripts/build-app.sh"
+# Releases use the integrated PPC64 helper so the one- and two-CPU settings
+# are backed by the same validated emulator. Radeon 9800 remains a separate
+# developer-only build; force the public bundle onto the Radeon 9200 path even
+# if a developer has experimental variables in their shell.
+POWEREMU_RELEASE=1 \
+POWEREMU_VERSION="$VERSION" \
+POWEREMU_BUILD="$BUILD" \
+POWEREMU_R350_EXPERIMENT=0 \
+POWEREMU_BUNDLE_ID=com.spartan0285.poweremu \
+POWEREMU_DISPLAY_NAME=PowerEmu \
+POWEREMU_APP_OUT="$ROOT/build/PowerEmu.app" \
+    sh "$ROOT/scripts/build-smp-app.sh"
 
 APP="$ROOT/build/PowerEmu.app"
 ZIP="$ROOT/build/PowerEmu-$VERSION.zip"
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
+
+if [ "$(plutil -extract PERadeon9800Experiment raw "$APP/Contents/Info.plist")" != false ]; then
+    echo "release build unexpectedly enables the Radeon 9800 experiment" >&2
+    exit 1
+fi
 
 # ditto, not zip: a bundle's symlinks have to survive or its signature does not.
 pack() { rm -f "$ZIP"; (cd "$ROOT/build" && ditto -c -k --keepParent PowerEmu.app "$ZIP"); }

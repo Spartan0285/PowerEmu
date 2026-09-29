@@ -1,0 +1,25 @@
+ProductName:	Mac OS X
+ProductVersion:	10.4.11
+BuildVersion:	8S165
+   59    0 0x46d98000 0x4a000    0x49000    com.apple.ATIRadeon9700 (4.1.8) <49 48 16 11>
+Graphics/Displays:
+
+    QEMU VGA:
+
+      Chipset Model: QEMU VGA
+      Type: Display
+      Bus: AGP
+      VRAM (Total): 128 MB
+      Vendor: ATI (0x1002)
+      Device ID: 0x4e48
+      Revision ID: 0x0001
+      Displays:
+        不明のディスプレイ:
+          Resolution: 1680 x 1050
+          Depth: 32-bit Color
+          Core Image: Supported
+          Main Display: Yes
+          Mirror: Off
+          Online: Yes
+          Quartz Extreme: Supported
+

@@ -1,0 +1,97 @@
+2026-09-28 20:32:35.595 probe[1856] AX enabled=1 windowsError=0 windows=(<NSCFType: 0x3177e0>)
+2026-09-28 20:32:35.600 probe[1856] depth=0 role=AXWindow rect=100,426 640x462 modal=0 attrs=(
+    AXRole, 
+    AXRoleDescription, 
+    AXSubrole, 
+    AXTitle, 
+    AXFocused, 
+    AXParent, 
+    AXChildren, 
+    AXPosition, 
+    AXSize, 
+    AXMain, 
+    AXMinimized, 
+    AXCloseButton, 
+    AXZoomButton, 
+    AXMinimizeButton, 
+    AXToolbarButton, 
+    AXProxy, 
+    AXTitleUIElement, 
+    AXGrowArea, 
+    AXDefaultButton, 
+    AXCancelButton, 
+    AXDocument, 
+    AXModal
+)
+2026-09-28 20:32:35.606 probe[1856] depth=1 role=AXButton rect=108,430 14x16 modal=(null) attrs=(
+    AXRole, 
+    AXRoleDescription, 
+    AXHelp, 
+    AXEnabled, 
+    AXFocused, 
+    AXParent, 
+    AXWindow, 
+    AXTopLevelUIElement, 
+    AXPosition, 
+    AXSize, 
+    AXTitle, 
+    AXSubrole, 
+    AXEdited
+)
+2026-09-28 20:32:35.612 probe[1856] depth=1 role=AXButton rect=150,430 14x16 modal=(null) attrs=(
+    AXRole, 
+    AXRoleDescription, 
+    AXHelp, 
+    AXEnabled, 
+    AXFocused, 
+    AXParent, 
+    AXWindow, 
+    AXTopLevelUIElement, 
+    AXPosition, 
+    AXSize, 
+    AXTitle, 
+    AXSubrole
+)
+2026-09-28 20:32:35.621 probe[1856] depth=1 role=AXButton rect=129,430 14x16 modal=(null) attrs=(
+    AXRole, 
+    AXRoleDescription, 
+    AXHelp, 
+    AXEnabled, 
+    AXFocused, 
+    AXParent, 
+    AXWindow, 
+    AXTopLevelUIElement, 
+    AXPosition, 
+    AXSize, 
+    AXTitle, 
+    AXSubrole
+)
+2026-09-28 20:32:35.634 probe[1856] depth=1 role=AXStaticText rect=316,428 206.7x17 modal=(null) attrs=(
+    AXRole, 
+    AXRoleDescription, 
+    AXHelp, 
+    AXValue, 
+    AXEnabled, 
+    AXFocused, 
+    AXParent, 
+    AXWindow, 
+    AXTopLevelUIElement, 
+    AXPosition, 
+    AXSize, 
+    AXChildren, 
+    AXSelectedText, 
+    AXSelectedTextRange, 
+    AXNumberOfCharacters, 
+    AXVisibleCharacterRange, 
+    AXInsertionPointLineNumber
+)
+2026-09-28 20:32:35.869 probe[1856] SHEETS=
+CGS 320 level=0 60,86 785x443
+CGS 323 level=0 100,426 640x462
+CGS 210 level=0 400,278 785x443
+CGS 209 level=0 20,46 785x443
+CGS 208 level=0 0,26 785x443
+CGS 205 level=0 532,131 615x407
+CGS 206 level=0 0,22 532x386
+CGS 207 level=0 291,214 785x443
+CGS 81 level=0 201,69 475x442

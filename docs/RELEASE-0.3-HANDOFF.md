@@ -1,0 +1,219 @@
+# PowerEmu 0.3 release handoff
+
+Date: 29 September 2026  
+Target: **PowerEmu 0.3, build 3**  
+Release graphics device: **Radeon 9200 only**
+
+This document is the commit and release checklist for Claude Code. Work from the existing files in these two repositories. Do not reset, clean, discard, or replace either working tree: both contain the consolidated implementation that has been tested interactively during this development session.
+
+## Release decision
+
+Ship the newest Harmony, guest tools, quality-of-life, VRAM, and SMP work today with the established Radeon 9200 (`ppc-mac-gpu`, PCI ID `1002:5960`). One CPU remains the default. Two CPUs remain explicitly labeled experimental.
+
+Keep the Radeon 9800/R350 implementation and its tests in source control for continued development, but do not expose it in the public application, VM settings, normal build, or release package. Do not describe the 9800 as supported in release notes.
+
+The public application has no GPU picker. `VMRunner` selects R350 only when the private `PERadeon9800Experiment` bundle key is true. The normal and release bundles set it to false. `scripts/build-r350-app.sh` is a developer-only build path with a separate bundle identity; it is not included in the downloadable application bundle.
+
+## Repositories and current state
+
+### PowerEmu application
+
+- Repository: `/Users/adam/Developer/PowerEmu`
+- Working branch: `harmony-masking`
+- Current committed HEAD before the final consolidation commit: `3e5ef6f`
+- `origin/main`: `16a4ad3`
+- The branch is six commits ahead of `main`, followed by the current intentional uncommitted work.
+- Published updater entry: version 0.2, build 2.
+- Guest tools source and packaged disc: version **2.20**.
+
+The app working tree contains the newest Harmony surface/capture work, host/guest drag-and-drop, guest Dock representatives, menu focus, modal sheets, Finder preservation, minimize/restore fixes, full-screen handoff, SMP configuration, VRAM firmware ranges, configuration tabs, VM reordering, Dock access to the configuration window, tools installer/uninstaller packages, tests, and engineering documentation.
+
+### PowerEmu QEMU backend
+
+- Repository: `/Users/adam/Developer/poweremu-qemu`
+- Working branch: `poweremu`
+- Committed branch is three commits ahead of `origin/poweremu`, followed by the current intentional uncommitted work.
+- Shipping build directory: `build-smp`
+- Target: `ppc64-softmmu`
+
+The backend working tree combines SMP support, host activity reporting, display transport work, audio/interrupt changes, optical-drive work, the established R200/Radeon 9200 path, and isolated R300/R350 source and tests. The R350 device can remain compiled into the helper because the public app never selects it.
+
+`build`, `build-smp`, `build-prof`, and `build-r350` are ignored. Do not add generated build trees to the QEMU commit.
+
+## Changes already made for this release
+
+`scripts/release.sh` now builds through `scripts/build-smp-app.sh`, so the release contains the same PPC64 helper for one- and two-CPU VMs. It explicitly forces:
+
+- `POWEREMU_R350_EXPERIMENT=0`
+- bundle identifier `com.spartan0285.poweremu`
+- display name `PowerEmu`
+- final output `build/PowerEmu.app`
+
+The release script aborts if the completed app has `PERadeon9800Experiment=true`.
+
+The QEMU `.gitignore` now excludes all local profiling and R350 build directories.
+
+## Verified release candidate
+
+The current candidate is:
+
+`/Users/adam/Developer/PowerEmu/build/PowerEmu 0.3 RC.app`
+
+It was built from the current working trees with:
+
+```sh
+cd /Users/adam/Developer/poweremu-qemu
+ninja -C build-smp qemu-system-ppc64-unsigned qemu-img
+
+cd /Users/adam/Developer/PowerEmu
+POWEREMU_VERSION=0.3 \
+POWEREMU_BUILD=3 \
+POWEREMU_R350_EXPERIMENT=0 \
+POWEREMU_BUNDLE_ID=com.spartan0285.poweremu \
+POWEREMU_DISPLAY_NAME=PowerEmu \
+POWEREMU_APP_OUT="$PWD/build/PowerEmu 0.3 RC.app" \
+    bash scripts/build-smp-app.sh
+```
+
+Candidate properties:
+
+| Property | Verified value |
+| --- | --- |
+| Bundle identifier | `com.spartan0285.poweremu` |
+| Display name | `PowerEmu` |
+| Version/build | `0.3` / `3` |
+| Radeon 9800 experiment | `false` |
+| Guest tools | Install and uninstall packages both report `2.20` |
+| Bundle signature | Developer ID, deep/strict verification passed |
+| SMP manifest | Backend and firmware hashes match the signed bundle |
+| Bundle size | 44 MB |
+
+Candidate hashes, useful only for identifying this pre-notarization build:
+
+```text
+PowerEmu executable  a45b11e6fd84acde91bad9d357c4ec81b1bc09875d341713200157b8c3092f12
+Tools ISO            e0ef06a5366149b0f783f468c0b3ff1423baf987e42fda06da53feb26b8eeafd
+Signed QEMU helper   faf981b2991bd166299d66cdd17abaa42ae72401f1dd77a14a472293caee7c02
+SMP firmware         8f01bb0c217d692f1ae228f57508417cdbd100f422d626a2cfe6a422cdbe747b
+```
+
+The release rebuild and notarization will change signatures and final archive hashes. Treat `appcast.json` generated by the release script as authoritative for the published ZIP.
+
+## Validation completed
+
+The following checks passed from the current source:
+
+- Release Swift build and PPC64 backend build.
+- Deep and strict signature validation of the combined app and nested helpers.
+- Radeon 9800 bundle marker is false; no R350/9800 files are present in the public app bundle.
+- SMP backend and firmware SHA-256 values match the capability manifest.
+- Tools ISO contains native Installer and Uninstaller packages, both version 2.20, with PowerEmu branding.
+- Harmony mask holes, rounded corners, overlap, scaling, letterboxing, empty geometry, surface ownership, stride, and complete-window frame decoding.
+- Persistent image transport, simultaneous control traffic, stale-session rejection, and reconnect behavior.
+- Menu focus tokens; title-bar/control click identity; drag-versus-click protection; minimize/restore races and visible acknowledgements.
+- Adaptive capture fairness, idle backoff, focus wake-up, error retry, first images, and window-ID reuse.
+- 120 cross-platform tile fixtures and 14 captured Tiger tile sequences, including sparse changes, dense fallback, resize, stale bases, immutable bases, and malformed payload rejection.
+- Native file promises, serialized exports, disconnect completion, Unicode/newline filenames, collision refusal, symlink refusal, malformed archives, and data/resource-fork preservation.
+- Legacy CPU configuration, one/two-CPU arguments, invalid CPU counts, backend/firmware matching, telemetry reset, shared-thread behavior, and missing counters.
+- `git diff --check` in both repositories.
+
+Do not rerun or replace the user's currently running Leopard or Tiger VMs merely to make the commit. The interactive Harmony, drag-and-drop, modal-sheet, minimize/restore, Finder-preservation, Tiger, and Leopard observations are documented under `docs/` and `docs/evidence/`.
+
+## Commit order
+
+Commit the backend first so the app release points to a source revision that already exists remotely.
+
+### 1. Commit and push the QEMU backend
+
+Review `git status` and confirm that generated build directories remain absent. Include the modified backend files, the new `ppc_mac_gpu_r300_*` source, `ui/poweremu-activity.*`, and `tests/poweremu`. Suggested command sequence:
+
+```sh
+cd /Users/adam/Developer/poweremu-qemu
+git diff --check
+git add .gitignore accel hw include ui tests/poweremu
+git status --short
+git commit -m "PowerEmu: integrate SMP backend and isolated R350 groundwork"
+git push origin poweremu
+```
+
+Do not omit the R300/R350 source or tests. They are retained development work. Their presence does not enable the device in the public app.
+
+### 2. Commit the PowerEmu application
+
+Include the current app, guest, helper, scripts, tests, docs, and evidence. Do not add `build/` or `guest/build/`; those are generated and ignored.
+
+```sh
+cd /Users/adam/Developer/PowerEmu
+git diff --check
+git add app guest helper scripts tests docs
+git status --short
+git commit -m "PowerEmu 0.3: Harmony, guest integration, and SMP"
+```
+
+Before committing, inspect the staged list. It should include `scripts/release.sh`, `scripts/build-smp-app.sh`, the Harmony tests, guest-tools 2.20 sources/packages build scripts, the release handoff, and the R350 engineering record. It must not include an `.app`, QEMU build directory, VM disk, installer media, or user data.
+
+### 3. Put the consolidated commit on `main`
+
+`main` is an ancestor of `harmony-masking`, so this should be a fast-forward after the working tree is committed:
+
+```sh
+git switch main
+git merge --ff-only harmony-masking
+```
+
+Do not publish from a detached HEAD or leave the release only on `harmony-masking`.
+
+## Final preflight
+
+Rebuild the helper after the QEMU commit, then build the public app once more from `main`:
+
+```sh
+cd /Users/adam/Developer/poweremu-qemu
+ninja -C build-smp qemu-system-ppc64-unsigned qemu-img
+
+cd /Users/adam/Developer/PowerEmu
+POWEREMU_VERSION=0.3 \
+POWEREMU_BUILD=3 \
+POWEREMU_R350_EXPERIMENT=0 \
+POWEREMU_BUNDLE_ID=com.spartan0285.poweremu \
+POWEREMU_DISPLAY_NAME=PowerEmu \
+POWEREMU_APP_OUT="$PWD/build/PowerEmu 0.3 RC.app" \
+    bash scripts/build-smp-app.sh
+
+codesign --verify --deep --strict --verbose=2 "build/PowerEmu 0.3 RC.app"
+test "$(plutil -extract PERadeon9800Experiment raw "build/PowerEmu 0.3 RC.app/Contents/Info.plist")" = false
+test "$(plutil -extract CFBundleIdentifier raw "build/PowerEmu 0.3 RC.app/Contents/Info.plist")" = com.spartan0285.poweremu
+```
+
+Confirm `GuestTools.shippedVersion` and `PE_AGENT_VERSION` are both `2.20`. Mount the Tools ISO and confirm both package plists also report 2.20 if any guest source or packaging file changed after this handoff.
+
+## Publish
+
+The proposed release notes are:
+
+> Adds Harmony window integration for Tiger and Leopard, including host/guest window stacking, menu and Dock integration, modal sheets, minimize and restore, and file drag-and-drop in both directions. Adds native PowerEmu Tools install and uninstall packages, configuration tabs, VM reordering, larger Leopard VRAM support, and an experimental two-CPU option. This release continues to use Radeon 9200 graphics.
+
+Check GitHub immediately before publishing. If version 0.3 or build 3 has already been published, increment both arguments appropriately; never reuse a build number. Otherwise run:
+
+```sh
+cd /Users/adam/Developer/PowerEmu
+scripts/release.sh 0.3 3 "Adds Harmony window integration for Tiger and Leopard, including host/guest window stacking, menu and Dock integration, modal sheets, minimize and restore, and file drag-and-drop in both directions. Adds native PowerEmu Tools install and uninstall packages, configuration tabs, VM reordering, larger Leopard VRAM support, and an experimental two-CPU option. This release continues to use Radeon 9200 graphics."
+```
+
+That command rebuilds `build/PowerEmu.app`, creates the ZIP, submits it for notarization, staples it, verifies the exact extracted archive with `codesign`, `stapler`, and Gatekeeper, creates the GitHub release, updates `appcast.json`, commits the feed, and pushes `main`.
+
+It requires:
+
+- authenticated `gh` access to `Spartan0285/PowerEmu`;
+- Developer ID signing identity `Developer ID Application: Adam Cipoletti (7B2D3VV69V)`;
+- a working `PowerEmu` notarytool keychain profile.
+
+After it finishes, verify the GitHub release contains `PowerEmu-0.3.zip`, the raw `main/appcast.json` reports build 3 with the same ZIP hash, and a clean downloaded copy passes Gatekeeper. Do not upload `PowerEmu 9800 Test.app` or any R350 probe artifact.
+
+## Known boundary after release
+
+- Radeon 9800/R350 remains experimental and unavailable to users. Continue it on the existing source and tests after the 0.3 release.
+- The verified Leopard R350 prototype still has incomplete compositor routes; Tiger 10.4.11 visibly corrupts Finder window regions. Neither result is part of this release.
+- The Radeon 9200 remains the supported and tested graphics device.
+- Two CPUs are experimental and one CPU remains the compatibility default.
+- Harmony requires the bundled PowerEmu Tools 2.20 for the complete feature set.

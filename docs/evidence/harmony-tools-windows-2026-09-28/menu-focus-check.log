@@ -1,0 +1,3 @@
+AX enabled=1 front=337 focusedError=0
+MENUFOCUS test-menu 52 expected=test-menu 52
+PASS: focused AX window maps to exact guest window ID across processes

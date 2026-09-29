@@ -1,0 +1,13 @@
+{
+  "guest": "Mac OS X 10.4.11 (8S165)",
+  "compiler": "gcc-4.0, PowerPC, MacOSX10.4u.sdk",
+  "source": "guest/tools/perefreshcheck.m",
+  "source_sha256": "d619415b459537d21d63d7fc64641a28a480847dfebcd08c405514d48893b72e",
+  "probe_sha256": "8880903f174e4a2d3d75e6fb9dcc9365145c40ee210a61c304ef0555d31c6fb3",
+  "samples_per_phase": 30,
+  "change_comparisons_per_phase": 29,
+  "production_changed": false,
+  "decision": "Reject absence of screen refresh as proof that complete window pixels are unchanged.",
+  "sdk_header_sha256": "7a95d82866c726f3deb3877b79c64d33e8dcabbc541311066db25f89ce58f554",
+  "sdk_header_path": "/Developer/SDKs/MacOSX10.4u.sdk/System/Library/Frameworks/ApplicationServices.framework/Frameworks/CoreGraphics.framework/Headers/CGRemoteOperation.h"
+}

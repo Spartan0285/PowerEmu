@@ -1,0 +1,562 @@
+[
+  {
+    "seq": 1,
+    "encoding": 1,
+    "bytes": 33514,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 136.9446669705212
+  },
+  {
+    "seq": 2,
+    "encoding": 2,
+    "bytes": 15,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 45.2507920563221
+  },
+  {
+    "seq": 3,
+    "encoding": 2,
+    "bytes": 15,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 33.60550000797957
+  },
+  {
+    "seq": 4,
+    "encoding": 2,
+    "bytes": 15,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 33.56087510474026
+  },
+  {
+    "seq": 5,
+    "encoding": 2,
+    "bytes": 15,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 34.5492500346154
+  },
+  {
+    "seq": 6,
+    "encoding": 2,
+    "bytes": 15,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 36.229000077582896
+  },
+  {
+    "seq": 7,
+    "encoding": 2,
+    "bytes": 15,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 36.93804098293185
+  },
+  {
+    "seq": 8,
+    "encoding": 2,
+    "bytes": 15,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 35.9156250488013
+  },
+  {
+    "seq": 9,
+    "encoding": 2,
+    "bytes": 15,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 34.92145799100399
+  },
+  {
+    "seq": 10,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 34.891124931164086
+  },
+  {
+    "seq": 11,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 34.5586669864133
+  },
+  {
+    "seq": 12,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 33.73433300293982
+  },
+  {
+    "seq": 13,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 34.90504203364253
+  },
+  {
+    "seq": 14,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 33.988499897532165
+  },
+  {
+    "seq": 15,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 35.12866701930761
+  },
+  {
+    "seq": 16,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 34.256708109751344
+  },
+  {
+    "seq": 17,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 35.11024999897927
+  },
+  {
+    "seq": 18,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 34.54916598275304
+  },
+  {
+    "seq": 19,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 34.03745905961841
+  },
+  {
+    "seq": 20,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 35.10270803235471
+  },
+  {
+    "seq": 21,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 34.488625009544194
+  },
+  {
+    "seq": 22,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 33.04508398286998
+  },
+  {
+    "seq": 23,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 33.74245809391141
+  },
+  {
+    "seq": 24,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 34.78729201015085
+  },
+  {
+    "seq": 25,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 34.86191597767174
+  },
+  {
+    "seq": 26,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 34.21595809049904
+  },
+  {
+    "seq": 27,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 33.12970802653581
+  },
+  {
+    "seq": 28,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 34.806457930244505
+  },
+  {
+    "seq": 29,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 35.236084018833935
+  },
+  {
+    "seq": 30,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 35.99537501577288
+  },
+  {
+    "seq": 31,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 35.48437496647239
+  },
+  {
+    "seq": 32,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 33.86083303485066
+  },
+  {
+    "seq": 33,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 33.42904208693653
+  },
+  {
+    "seq": 34,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 33.4930419921875
+  },
+  {
+    "seq": 35,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 34.46366707794368
+  },
+  {
+    "seq": 36,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 36.88887495081872
+  },
+  {
+    "seq": 37,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 33.28970889560878
+  },
+  {
+    "seq": 38,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 33.33037509582937
+  },
+  {
+    "seq": 39,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 33.57466694433242
+  },
+  {
+    "seq": 40,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 32.96129102818668
+  },
+  {
+    "seq": 41,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 34.66291702352464
+  },
+  {
+    "seq": 42,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 35.18558305222541
+  },
+  {
+    "seq": 43,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 35.07516602985561
+  },
+  {
+    "seq": 44,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 33.38562499266118
+  },
+  {
+    "seq": 45,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 36.73825005535036
+  },
+  {
+    "seq": 46,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 33.89020904432982
+  },
+  {
+    "seq": 47,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 34.982374985702336
+  },
+  {
+    "seq": 48,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 34.149707993492484
+  },
+  {
+    "seq": 49,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 32.54691697657108
+  },
+  {
+    "seq": 50,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 34.52520805876702
+  },
+  {
+    "seq": 51,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 34.2384580289945
+  },
+  {
+    "seq": 52,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 35.0202500121668
+  },
+  {
+    "seq": 53,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 34.473582985810935
+  },
+  {
+    "seq": 54,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 32.015625038184226
+  },
+  {
+    "seq": 55,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 32.669459003955126
+  },
+  {
+    "seq": 56,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 33.26583304442465
+  },
+  {
+    "seq": 57,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 33.15554198343307
+  },
+  {
+    "seq": 58,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 34.591333009302616
+  },
+  {
+    "seq": 59,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 35.51837510894984
+  },
+  {
+    "seq": 60,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 32.689291052520275
+  },
+  {
+    "seq": 61,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 35.21050000563264
+  },
+  {
+    "seq": 62,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 34.66962499078363
+  },
+  {
+    "seq": 63,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 34.22999999020249
+  },
+  {
+    "seq": 64,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 33.45708304550499
+  },
+  {
+    "seq": 65,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 32.84066705964506
+  },
+  {
+    "seq": 66,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 35.86620790883899
+  },
+  {
+    "seq": 67,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 35.68641596939415
+  },
+  {
+    "seq": 68,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 33.69149996433407
+  },
+  {
+    "seq": 69,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 34.045959007926285
+  },
+  {
+    "seq": 70,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 33.17954100202769
+  },
+  {
+    "seq": 71,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 34.500167006626725
+  },
+  {
+    "seq": 72,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 33.83945894893259
+  },
+  {
+    "seq": 73,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 34.65191705618054
+  },
+  {
+    "seq": 74,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 35.658833920024335
+  },
+  {
+    "seq": 75,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 33.834542031399906
+  },
+  {
+    "seq": 76,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 33.36395800579339
+  },
+  {
+    "seq": 77,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 35.03795899450779
+  },
+  {
+    "seq": 78,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 35.765042062848806
+  },
+  {
+    "seq": 79,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 33.23420893866569
+  },
+  {
+    "seq": 80,
+    "encoding": 2,
+    "bytes": 16,
+    "pixelSHA256": "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9",
+    "roundTripMS": 33.37287495378405
+  }
+]

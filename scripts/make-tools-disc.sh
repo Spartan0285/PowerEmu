@@ -4,33 +4,35 @@
 set -e
 cd "$(dirname "$0")/.."
 OUT=${1:?usage: make-tools-disc.sh OUT.iso}
-APP="guest/build/Install PowerEmu Tools.app"
-[ -d "$APP" ] || { echo "no $APP - run guest/scripts/build.sh first" >&2; exit 1; }
+INSTALL="guest/build/Install PowerEmu Tools.pkg"
+UNINSTALL="guest/build/Uninstall PowerEmu Tools.pkg"
+[ -d "$INSTALL" ] && [ -d "$UNINSTALL" ] || { echo "Build guest packages first" >&2; exit 1; }
 tmp=$(mktemp -d /tmp/pe-tools.XXXXXX); trap 'rm -rf "$tmp"' EXIT
 mkdir "$tmp/PowerEmu Tools"
-ditto "$APP" "$tmp/PowerEmu Tools/Install PowerEmu Tools.app"
+ditto "$INSTALL" "$tmp/PowerEmu Tools/Install PowerEmu Tools.pkg"
+ditto "$UNINSTALL" "$tmp/PowerEmu Tools/Uninstall PowerEmu Tools.pkg"
 cat > "$tmp/PowerEmu Tools/Read Me.txt" <<'TXT'
 PowerEmu Tools
 
-Open "Install PowerEmu Tools" and click Install. The tools are installed for
-your account only (no administrator password) and start when you log in.
+Open Install PowerEmu Tools.pkg and follow the Mac OS X Installer steps.
+An administrator password enables guest window control. Tools are installed
+for the logged-in guest account and start automatically at login.
+Installing again updates or repairs Tools; it cannot uninstall them.
 
-They let this virtual Mac:
-  - share the clipboard (text) with your Mac,
-  - shut down or restart cleanly when you ask PowerEmu to,
-  - open folders you share from PowerEmu.
+To remove Tools, open the separate Uninstall PowerEmu Tools.pkg.
+Removal disables Harmony, shared clipboard and guest integration for this
+account and removes the optional clock service.
 
-To remove them, open the installer again and click Remove.
+In Harmony, drag files and folders between the host and guest Finder. Files
+can also be dropped on guest application windows and their host Dock icons.
+PowerEmu preserves classic Mac resource forks and Finder metadata.
+
 TXT
 # The disc wears PowerEmu's own icon rather than the system's blank CD.
 # A volume icon is a .VolumeIcon.icns at the root; Mac OS X looks for it on
 # a disc without needing the custom-icon flag that a hard disk would.
-ICON="$tmp/PowerEmu.icns"
-if scripts/make-icon.sh "$ICON" >/dev/null 2>&1 && [ -f "$ICON" ]; then
-    cp "$ICON" "$tmp/PowerEmu Tools/.VolumeIcon.icns"
-else
-    echo "warning: no icon built; the disc will look like a blank CD" >&2
-fi
+# Classic icon elements generated on the PowerBook work in Tiger's Finder.
+cp guest/Resources/PowerEmu.icns "$tmp/PowerEmu Tools/.VolumeIcon.icns"
 
 rm -f "$OUT"
 # makehybrid appends .dmg to the name it is given; the image is raw, and

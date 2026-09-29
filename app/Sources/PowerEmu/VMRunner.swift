@@ -129,6 +129,12 @@ final class VMRunner {
 
     func arguments(firmware fw: URL) throws -> [String] {
         let c = vm.config
+        // Experimental application bundles can select the R350 device without
+        // adding an unfinished Radeon 9800 choice to users' saved VM configs.
+        // Normal PowerEmu bundles omit this key and continue to use the 9200.
+        let r350Experiment = Bundle.main.object(forInfoDictionaryKey: "PERadeon9800Experiment") as? Bool == true
+        let capabilities = SMPCapabilities.load(helper: Self.helperURL)
+        let cpuArguments = try CPUOptions.arguments(count: c.cpuCount, smpCapable: capabilities != nil)
         // A machine normally boots an internal disk, but one set up to install
         // onto (or boot from) a lent external disk may have no internal disk
         // at all -- the external is its only hard disk.
@@ -137,7 +143,14 @@ final class VMRunner {
 
         // OpenBIOS: fake AGP properties on the PCI path (only used when the
         // AGP bridge is off) and the VRAM size for the QEMU VGA node.
-        let vramHex = String(c.vramMB * 1024 * 1024, radix: 16)
+        let vram = c.bootFromDisc ? min(c.vramMB, 64) : c.vramMB
+        let vramHex = String(vram * 1024 * 1024, radix: 16)
+        // Match the emulator's 1 GB UniNorth PCI aperture. The SMP firmware
+        // still advertises only 256 MB; with >=128 MB VRAM, GPU registers and
+        // Ethernet land beyond that range and Leopard cannot attach them.
+        // Two ranges, each with PCI address (3), parent address (1), size (2)
+        // cells: preserve the 8 MB I/O range and expose 0x80000000–0xbfffffff.
+        let pciRanges = #"" /pci@f2000000" find-device h# 1000000 encode-int h# 0 encode-int encode+ h# 0 encode-int encode+ h# f2000000 encode-int encode+ h# 0 encode-int encode+ h# 800000 encode-int encode+ h# 2000000 encode-int encode+ h# 0 encode-int encode+ h# 80000000 encode-int encode+ h# 80000000 encode-int encode+ h# 0 encode-int encode+ h# 40000000 encode-int encode+ " ranges" property device-end "#
         // The processor speed Mac OS X reports is the cpu node's
         // clock-frequency. Programs read it too, and games refuse to run
         // below their minimum (Halo on a 500 MHz "Cube"), so a chosen speed
@@ -145,19 +158,23 @@ final class VMRunner {
         // fastest Power Mac G4. About This Mac shows the chosen speed anyway
         // (PEPersonalize patches its text).
         let cpuSpeed = c.cpuMHz.map { #"" /cpus/PowerPC,G4@0" find-device d# "# + String(max($0, Self.minReportedMHz) * 1_000_000) + #" encode-int " clock-frequency" property device-end "# } ?? ""
-        let bootCmd = #"boot-command="# + cpuSpeed + #"" /pci@f2000000" find-device " uni-north" encode-string " compatible" property device-end " /pci@f2000000/ATY,Adagio@e" ['] find-device catch 0= if 7 encode-int " IOAGPFlags" property h# 104 encode-int " IOAGPCommandValue" property device-end then " /pci@f2000000/QEMU,VGA@e" ['] find-device catch 0= if h# "# + vramHex + #" encode-int " VRAM,totalsize" property device-end then boot"#
+        let bootCmd = #"boot-command="# + cpuSpeed + pciRanges + #"" /pci@f2000000" find-device " uni-north" encode-string " compatible" property device-end " /pci@f2000000/ATY,Adagio@e" ['] find-device catch 0= if 7 encode-int " IOAGPFlags" property h# 104 encode-int " IOAGPCommandValue" property device-end then " /pci@f2000000/QEMU,VGA@e" ['] find-device catch 0= if h# "# + vramHex + #" encode-int " VRAM,totalsize" property device-end then boot"#
 
         var a: [String] = [
             "-name", c.name,
             "-L", fw.path, "-nodefaults", "-vga", "none",
-            "-smp", "cpus=1,sockets=1,cores=1,threads=1", "-machine", "mac99,via=pmu",
-            "-accel", "tcg,tb-size=512", "-g", "\(max(640, c.bootWidth))x\(max(480, c.bootHeight))x32",
+            "-machine", "mac99,via=pmu",
+            "-g", "\(max(640, c.bootWidth))x\(max(480, c.bootHeight))x32",
             "-device", "loader,addr=0x4000000,file=\(fw.appendingPathComponent("ppc-ndrvloader").path)",
             "-prom-env", bootCmd,
             "-m", String(c.memoryMB),
             "-audio", c.audio,
         ]
-        if c.extraDisplayModes { a += ["-global", "ppc-mac-gpu.host-aspect-modes=on"] }
+        a += cpuArguments
+        if c.extraDisplayModes {
+            let gpuType = r350Experiment ? "ppc-mac-r350-probe" : "ppc-mac-gpu"
+            a += ["-global", "\(gpuType).host-aspect-modes=on"]
+        }
         if !c.verboseBoot {
             // Open Firmware's messages go to the serial log, not the screen:
             // it stays black until the loader draws the grey Apple.
@@ -182,11 +199,13 @@ final class VMRunner {
         // logo on screen, which reads as a freeze at the logo but is not.
         // Measured: 128 MB hangs with the AGP bridge on or off and with or
         // without the ATI ROMs; 64 MB reaches the Language Chooser. An
-        // installed system runs fine at the full size, so this only applies
+        // installed system requires matching emulator/firmware PCI ranges
+        // (configured above). This conservative installer cap only applies
         // while booting from the install disc and the machine keeps whatever
         // the reader chose for afterwards.
-        let vram = c.bootFromDisc ? min(c.vramMB, 64) : c.vramMB
-        var gpu = "ppc-mac-gpu,id=gpu0,vgamem_mb=\(vram)"
+        var gpu = r350Experiment
+            ? "ppc-mac-r350-probe,id=gpu0,vgamem_mb=\(vram),x-r350-bridge-aic=on,x-r350-linear-render=on"
+            : "ppc-mac-gpu,id=gpu0,vgamem_mb=\(vram)"
         // Bake this Mac's exact screen size (in points) into the card's EDID, so
         // Harmony can switch the guest to a mode that maps 1 guest pixel to 1
         // host point (scale 1.0).  The CRTC only encodes 8-px-aligned widths, so
@@ -349,6 +368,9 @@ final class VMRunner {
 
     func launch(onExit: @escaping @Sendable (Int32) -> Void) throws {
         guard let helper = Self.helperURL else { throw PackageError.missing("The emulator (PowerEmu VM.app)") }
+        if let capabilities = SMPCapabilities.load(helper: helper) {
+            try capabilities.verify(helper: helper)
+        }
         let fw = helper.appendingPathComponent("Contents/Resources/firmware")
         try FileManager.default.createDirectory(at: vm.logsURL, withIntermediateDirectories: true)
         unlink(qmpPath)
@@ -366,7 +388,14 @@ final class VMRunner {
             }
         }
         if vm.config.hardwareCursor {
-            env["QEMU_PPC_NDRV"] = fw.appendingPathComponent("qemu_vga_hwc.ndrv").path
+            let bundled = fw.appendingPathComponent("qemu_vga_hwc.ndrv")
+            if let screen = NSScreen.main,
+               let original = try? Data(contentsOf: bundled),
+               let patched = try? HarmonyDisplayMode.driver(original, size: HarmonyDisplayMode.size(screen: screen.frame, visible: screen.visibleFrame)) {
+                let custom = vm.logsURL.appendingPathComponent("Harmony.ndrv")
+                try patched.write(to: custom, options: .atomic)
+                env["QEMU_PPC_NDRV"] = custom.path
+            } else { env["QEMU_PPC_NDRV"] = bundled.path }
         } else {
             env.removeValue(forKey: "QEMU_PPC_NDRV")
         }

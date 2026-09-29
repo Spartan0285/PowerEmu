@@ -1,0 +1,629 @@
+--- a/hw/display/ppc_mac_gpu.c
++++ b/hw/display/ppc_mac_gpu.c
+@@ -5,7 +5,7 @@
+  * ATI kext attachment and accelerated framebuffer operation on PowerMac G4.
+  *
+  * Strategy: Radeon compatibility path. We present PCI IDs that match the
+- * Radeon 9200 PRO (RV280), which Tiger's ATIRadeon9700.kext will recognize
++ * Radeon 9200 PRO (RV280), which Tiger's ATIRadeon8500.kext will recognize
+  * and attach to. We emulate only the registers the driver actually touches.
+  *
+  * Host targets: Intel macOS + Apple Silicon macOS (both via Metal or SW).
+@@ -43,12 +43,93 @@
+ #include "hw/display/ppc_mac_gpu.h"
+ #include "ppc_mac_gpu_3d_regs.h"
+ #include "ppc_mac_gpu_renderer.h"
++#include "ppc_mac_gpu_r300_fp.h"
+ #include "ppc_mac_gpu_surface.h"
+ #include "ui/console.h"
+ #include "ui/qemu-pixman.h"
+ #include "system/system.h"
+ #include "hw/display/ppc_mac_gpu_vp.h"
+ #include "trace.h"
++
++/* Diagnostic-only R350 bring-up. Log initial values and exponentially sampled
++ * polls per register, so an unsupported wait cannot grow a log without bound.
++ * This is intentionally not an R300 renderer or a production card option. */
++static void r350_probe_access(PPCMacGPUState *s, hwaddr addr,
++                             uint64_t value, bool write)
++{
++    if (!s->r350_probe || addr >= 0x10000) {
++        return;
++    }
++    uint32_t *count = write ? s->r350->writes : s->r350->reads;
++    uint32_t n = count[addr / 4];
++    if (n == UINT32_MAX) {
++        return;
++    }
++    count[addr / 4] = ++n;
++    if (n <= 8 || (n & (n - 1)) == 0) {
++        fprintf(stderr, "R350_PROBE %s reg=0x%04x value=0x%08x count=%u\n",
++                write ? "write" : "read", (unsigned)addr, (unsigned)value, n);
++    }
++}
++
++/* Shader-only diagnostic snapshots. Geometry and referenced guest memory
++ * are not captured, so these are not replayable draw fixtures. */
++static void r350_probe_shader_snapshot(PPCMacGPUState *s, uint32_t draw)
++{
++    if (!s->r350_shader_snapshots || draw > 8) {
++        return;
++    }
++    R300FPProgram p = {0};
++    for (unsigned i = 0; i < 3; i++) {
++        p.control[i] = s->r300_shadow[0x4600 / 4 + i];
++    }
++    for (unsigned i = 0; i < 4; i++) {
++        p.node[i] = s->r300_shadow[0x4610 / 4 + i];
++    }
++    p.rgb_addr = s->r300_shadow[0x46c0 / 4];
++    p.alpha_addr = s->r300_shadow[0x47c0 / 4];
++    p.rgb_inst = s->r300_shadow[0x48c0 / 4];
++    p.alpha_inst = s->r300_shadow[0x49c0 / 4];
++    char msl[4096], reason[256];
++    bool supported = r300_fp_compile_msl(&p, msl, sizeof(msl),
++                                         reason, sizeof(reason));
++    fprintf(stderr, "R350_SHADER_BEGIN draw=%u subset=%s\n", draw,
++            supported ? "constant-MAD" : reason);
++    for (unsigned addr = 0x2080; addr < 0x5000; addr += 4) {
++        if (addr >= 0x22dc && addr < 0x4000) {
++            continue;
++        }
++        uint32_t value = addr < 0x4000 ?
++            s->regs.regs_3d[(addr - 0x1c00) / 4] : s->r300_shadow[addr / 4];
++        fprintf(stderr, "R350_SHADER_REG %04x %08x\n", addr, value);
++    }
++    for (unsigned i = 0; i < ARRAY_SIZE(s->r350->pvs); i++) {
++        for (unsigned word = 0; word < 4; word++) {
++            if (s->r350->pvs_valid[i] & (1u << word)) {
++                fprintf(stderr, "R350_SHADER_PVS %03x %u %08x\n",
++                        i, word, s->r350->pvs[i][word]);
++            }
++        }
++    }
++    fprintf(stderr, "R350_SHADER_END draw=%u\n", draw);
++}
++
++static bool r350_probe_reject_draw(PPCMacGPUState *s)
++{
++    if (!s->r350_probe) {
++        return false;
++    }
++    uint32_t n = s->r350->rejected_draws;
++    if (n < UINT32_MAX) {
++        s->r350->rejected_draws = ++n;
++        r350_probe_shader_snapshot(s, n);
++        if (n <= 8 || (n & (n - 1)) == 0) {
++            fprintf(stderr, "R350_PROBE unsupported_3d_draw count=%u; "
++                    "R200 renderer deliberately not used\n", n);
++        }
++    }
++    return true;
++}
+ 
+ /* UniNorth AGP bridge GART base — defined in hw/pci-host/uninorth.c */
+ hwaddr uninorth_get_agp_gart_base(void);
+@@ -2674,7 +2755,14 @@
+      * PTE is stored at aic_pt_base + page_idx * 4.
+      * On PPC Mac, the AGP GART driver writes PTEs as physical page addresses.
+      * We use ldl_be_p semantics: read as big-endian 32-bit from system RAM. */
+-    hwaddr pte_addr = (hwaddr)s->regs.aic_pt_base + page_idx * 4;
++    hwaddr table = s->regs.aic_pt_base;
++    /* Bring-up experiment: Apple's R350 AGP driver programs the AIC alias
++     * range but leaves its local table unset. Test the bridge's established
++     * GART table at the same page offset; keep the R200 path unchanged. */
++    if (s->r350_probe && s->r350_bridge_aic && !table) {
++        table = uninorth_get_agp_gart_base();
++    }
++    hwaddr pte_addr = table + page_idx * 4;
+     uint32_t pte_raw = 0;
+     MemTxResult r = address_space_read(
+         &address_space_memory, pte_addr,
+@@ -5290,6 +5378,9 @@
+ static bool ppc_mac_gpu_r200_draw_now(PPCMacGPUState *s, const uint32_t *d,
+                                   uint32_t ndw, int src)
+ {
++    if (r350_probe_reject_draw(s)) {
++        return true;
++    }
+     if (!r200_direct_enabled() || !s->renderer || !s->renderer->draw_r200) {
+         return false;
+     }
+@@ -6420,6 +6511,10 @@
+ static bool ppc_mac_gpu_r200_draw(PPCMacGPUState *s, const uint32_t *d,
+                                   uint32_t body_dw, int src)
+ {
++    /* R300 packets must never enter the R200 worker/snapshot pipeline. */
++    if (r350_probe_reject_draw(s)) {
++        return true;
++    }
+     if (r200_async_submit(s, d, body_dw, src)) {
+         return true;
+     }
+@@ -6429,6 +6524,9 @@
+ static void ppc_mac_gpu_dispatch_3d_draw(PPCMacGPUState *s,
+                                           const PPCMacGPU3DDrawCmd *cmd)
+ {
++    if (r350_probe_reject_draw(s)) {
++        return;
++    }
+     /* Phase A — pre-dispatch VRAM check for draws 77-78 */
+     {
+         static int dispatch_count = 0;
+@@ -9300,6 +9398,7 @@
+         }
+     }
+ 
++    r350_probe_access(s, addr, val, false);
+     if (unlikely(trace_event_get_state(TRACE_PPC_MAC_GPU_MMIO_READ))) {
+         trace_ppc_mac_gpu_mmio_read(size, addr, ppc_mac_gpu_reg_name(addr), val);
+     }
+@@ -9360,6 +9459,7 @@
+                                     uint64_t val, unsigned int size)
+ {
+     PPCMacGPUState *s = opaque;
++    r350_probe_access(s, addr, val, true);
+ 
+     if (addr >= PPC_MAC_GPU_HWC_BASE && addr < PPC_MAC_GPU_HWC_END) {
+         if (size == 4) {
+@@ -9397,6 +9497,28 @@
+     /* Handle indexed register access */
+     if (addr == R200_MM_DATA && s->regs.mm_index) {
+         ppc_mac_gpu_mmio_write(s, s->regs.mm_index, val, size);
++        return;
++    }
++
++    /* R300 uses the same addresses as R200 TCL for a different upload
++     * protocol: a vector index followed by four sequential dwords. Preserve
++     * programs, parameters and point-size state rather than treating DATA
++     * as R200's scalar index register. Invalid indices never wrap. */
++    if (s->r350_probe && size == 4 && (addr == 0x2200 || addr == 0x2208)) {
++        s->regs.regs_3d[(addr - 0x1c00) / 4] = val;
++        if (addr == 0x2200) {
++            s->r350->pvs_dword = (uint64_t)(uint32_t)val * 4;
++        } else {
++            uint64_t index = s->r350->pvs_dword / 4;
++            unsigned word = s->r350->pvs_dword % 4;
++            if (index < ARRAY_SIZE(s->r350->pvs)) {
++                s->r350->pvs[index][word] = val;
++                s->r350->pvs_valid[index] |= 1u << word;
++            }
++            if (s->r350->pvs_dword < UINT64_MAX) {
++                s->r350->pvs_dword++;
++            }
++        }
+         return;
+     }
+ 
+@@ -10342,6 +10464,11 @@
+ {
+     PPCMacGPUState *s = PPC_MAC_GPU(dev);
+ 
++    if (s->r350) {
++        memset(s->r350, 0, sizeof(*s->r350));
++        memset(s->r300_shadow, 0, sizeof(s->r300_shadow));
++    }
++
+     memset(&s->regs, 0, sizeof(s->regs));
+     s->hwc_w = s->hwc_h = s->hwc_idx = 0;
+     s->regs.regs_3d[R200_3D_IDX(0x3230)] = 0xFFFFFFFFu;  /* DEPTHCLEARVALUE */
+@@ -10776,7 +10903,7 @@
+     pci_set_word(dev->config + PCI_SUBSYSTEM_VENDOR_ID,
+                  PPC_MAC_GPU_PCI_VENDOR_ID);
+     pci_set_word(dev->config + PCI_SUBSYSTEM_ID,
+-                 PPC_MAC_GPU_PCI_DEVICE_ID);
++                 PCI_DEVICE_GET_CLASS(dev)->device_id);
+ 
+     /*
+      * AGP capability at offset 0x58 (where real RV280 has it).
+@@ -10862,6 +10989,8 @@
+  * ======================================================================== */
+ 
+ static const Property ppc_mac_gpu_properties[] = {
++    DEFINE_PROP_BOOL("x-r350-bridge-aic", PPCMacGPUState, r350_bridge_aic, false),
++    DEFINE_PROP_BOOL("x-r350-shader-snapshots", PPCMacGPUState, r350_shader_snapshots, false),
+     DEFINE_PROP_UINT32("vgamem_mb", PPCMacGPUState, vram_size_mb, 128),
+     DEFINE_PROP_BOOL("host-aspect-modes", PPCMacGPUState, host_aspect_modes, false),
+     DEFINE_PROP_UINT32("host-native-width", PPCMacGPUState, host_native_w, 0),
+@@ -11143,9 +11272,43 @@
+     },
+ };
+ 
++static const VMStateDescription vmstate_r350_probe = {
++    .name = "ppc-mac-r350-probe",
++    .unmigratable = true,
++};
++
++static void r350_probe_init(Object *obj)
++{
++    PPC_MAC_GPU(obj)->r350_probe = true;
++    PPC_MAC_GPU(obj)->r350 = g_new0(R350ProbeData, 1);
++}
++
++static void r350_probe_finalize(Object *obj)
++{
++    g_free(PPC_MAC_GPU(obj)->r350);
++}
++
++static void r350_probe_class_init(ObjectClass *klass, void *data)
++{
++    PCIDeviceClass *pci = PCI_DEVICE_CLASS(klass);
++    DeviceClass *dc = DEVICE_CLASS(klass);
++    pci->device_id = 0x4e48; /* R350: listed by the stock ATIRadeon9700 driver. */
++    dc->desc = "R350 initialization probe (experimental; no 3D rendering)";
++    dc->vmsd = &vmstate_r350_probe;
++}
++
++static const TypeInfo r350_probe_type_info = {
++    .name = "ppc-mac-r350-probe",
++    .parent = TYPE_PPC_MAC_GPU,
++    .instance_init = r350_probe_init,
++    .instance_finalize = r350_probe_finalize,
++    .class_init = r350_probe_class_init,
++};
++
+ static void ppc_mac_gpu_register_types(void)
+ {
+     type_register_static(&ppc_mac_gpu_type_info);
++    type_register_static(&r350_probe_type_info);
+ }
+ 
+ type_init(ppc_mac_gpu_register_types)
+--- a/include/hw/display/ppc_mac_gpu.h
++++ b/include/hw/display/ppc_mac_gpu.h
+@@ -618,6 +618,17 @@
+ #define TYPE_PPC_MAC_GPU "ppc-mac-gpu"
+ OBJECT_DECLARE_SIMPLE_TYPE(PPCMacGPUState, PPC_MAC_GPU)
+ 
++/* Allocated only for the diagnostic card. Keep large trace/upload arrays
++ * out of the normal R200 state, which is copied into asynchronous draw jobs. */
++typedef struct R350ProbeData {
++    uint64_t pvs_dword;
++    uint32_t pvs[0x407][4];
++    uint8_t pvs_valid[0x407];
++    uint32_t reads[0x10000 / 4];
++    uint32_t writes[0x10000 / 4];
++    uint32_t rejected_draws;
++} R350ProbeData;
++
+ struct PPCMacGPUState {
+     /* Parent */
+     PCIDevice pci;
+@@ -656,6 +667,11 @@
+     /* Full BIOS ROM path (separate from romfile which has the NDRV) */
+     char *biosrom;
+ 
++    /* Explicitly selected R350 initialization probe; never a production GPU. */
++    bool r350_probe;
++    bool r350_bridge_aic;
++    bool r350_shader_snapshots;
++    R350ProbeData *r350;
+     /* Device configuration */
+     uint32_t vram_size_mb;      /* VRAM size in megabytes */
+     uint64_t vram_size;         /* VRAM size in bytes (computed) */
+--- a/hw/display/meson.build
++++ b/hw/display/meson.build
+@@ -65,6 +65,7 @@
+   'ppc_mac_gpu.c',
+   'ppc_mac_gpu_renderer_sw.c',
+   'ppc_mac_gpu_vp.c',
++  'ppc_mac_gpu_r300_fp.c',
+ ), pixman])
+ 
+ system_ss.add(when: 'CONFIG_POWEREMU_GPU', if_true: [files('poweremu-gpu.c'), pixman])
+--- /dev/null
++++ b/hw/display/ppc_mac_gpu_r300_fp.h
+@@ -0,0 +1,29 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++#ifndef PPC_MAC_GPU_R300_FP_H
++#define PPC_MAC_GPU_R300_FP_H
++
++#include <stdbool.h>
++#include <stddef.h>
++#include <stdint.h>
++
++/* First R300 translation gate: one ALU node, one MAD, constant operands,
++ * full output 0. No textures, temporary inputs/outputs, depth or vertex ISA.
++ * Constants supplied to the generated Metal function are already float32;
++ * decoding the guest's float24 constant bank is a separate responsibility.
++ */
++typedef struct R300FPProgram {
++    uint32_t control[3];      /* 0x4600, 0x4604, 0x4608 */
++    uint32_t node[4];         /* 0x4610..0x461c; last active node is node[3] */
++    uint32_t rgb_addr;        /* 0x46c0 */
++    uint32_t alpha_addr;      /* 0x47c0 */
++    uint32_t rgb_inst;        /* 0x48c0 */
++    uint32_t alpha_inst;      /* 0x49c0 */
++} R300FPProgram;
++
++/* Produces a complete MSL fragment function named r300_fragment.
++ * On failure, clears the output and supplies an unsupported-state reason.
++ * Buffer pointers must be non-NULL and capacities nonzero.
++ */
++bool r300_fp_compile_msl(const R300FPProgram *p, char *out, size_t capacity,
++                         char *error, size_t error_capacity);
++#endif
+--- /dev/null
++++ b/hw/display/ppc_mac_gpu_r300_fp.c
+@@ -0,0 +1,102 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later
++ * R300 fragment ISA translation foundation. Register encodings reference
++ * Linux drivers/gpu/drm/radeon/r300_reg.h. No R200 interpretation is used.
++ */
++#ifndef R300_FP_STANDALONE
++#include "qemu/osdep.h"
++#endif
++#include <stdio.h>
++#include <string.h>
++#include "ppc_mac_gpu_r300_fp.h"
++
++static bool operand(char *out, size_t cap, const R300FPProgram *p,
++                    unsigned field, bool alpha)
++{
++    unsigned sel = field & 31, source = 0;
++    uint32_t addresses = p->rgb_addr;
++    const char *swizzle = NULL;
++    char base[64];
++
++    if ((!alpha && (sel == 20 || sel == 21)) ||
++        (alpha && (sel == 16 || sel == 17))) {
++        snprintf(base, sizeof(base), "%s(%s)", alpha ? "float" : "float3",
++                 (sel == 21 || sel == 17) ? "1.0" : "0.0");
++    } else {
++        if (alpha) {
++            if (sel <= 8) {
++                source = sel / 3;
++                swizzle = (const char *[]) {"x", "y", "z"}[sel % 3];
++            } else if (sel <= 11) {
++                source = sel - 9;
++                addresses = p->alpha_addr;
++                swizzle = "w";
++            }
++        } else if (sel <= 11) {
++            source = sel / 4;
++            swizzle = (const char *[]) {"xyz", "xxx", "yyy", "zzz"}[sel % 4];
++        } else if (sel <= 14) {
++            source = sel - 12;
++            addresses = p->alpha_addr;
++            swizzle = "www";
++        } else if (sel >= 23 && sel <= 28) {
++            source = (sel - 23) % 3;
++            swizzle = sel < 26 ? "yzx" : "zxy";
++        }
++        /* Half, LRP and mixed color/alpha WZY need separate validation. */
++        if (!swizzle || !(addresses & (1u << (source * 6 + 5)))) {
++            return false;
++        }
++        unsigned index = (addresses >> (source * 6)) & 31;
++        snprintf(base, sizeof(base), "c[%u].%s", index, swizzle);
++    }
++    snprintf(out, cap, "%s%s(%s)", (field & 32) ? "-" : "",
++             (field & 64) ? "abs" : "", base);
++    return true;
++}
++
++bool r300_fp_compile_msl(const R300FPProgram *p, char *out, size_t capacity,
++                         char *error, size_t error_capacity)
++{
++    const char *reason = NULL;
++    char rgb[3][96], alpha[3][96];
++    out[0] = error[0] = 0;
++    if (p->control[0] != 0 || p->control[1] > 31 || p->control[2] != 0 ||
++        p->node[3] != (1u << 22)) {
++        reason = "requires one texture-free ALU node with one instruction";
++    } else if ((p->rgb_addr & ~0x3ffffu) != (7u << 26) ||
++               (p->alpha_addr & ~0x3ffffu) != (1u << 24)) {
++        reason = "requires full color output 0 without temporary/depth writes";
++    } else if ((p->rgb_inst | p->alpha_inst) & ~0x401fffffu) {
++        reason = "unsupported ALU operation or modifier (only MAD and SAT)";
++    }
++    if (!reason) {
++        for (unsigned i = 0; i < 3; i++) {
++            if (!operand(rgb[i], sizeof(rgb[i]), p,
++                         (p->rgb_inst >> (7 * i)) & 127, false) ||
++                !operand(alpha[i], sizeof(alpha[i]), p,
++                         (p->alpha_inst >> (7 * i)) & 127, true)) {
++                reason = "unsupported operand or temporary input";
++                break;
++            }
++        }
++    }
++    if (reason) {
++        snprintf(error, error_capacity, "%s", reason);
++        return false;
++    }
++    int n = snprintf(out, capacity,
++        "#include <metal_stdlib>\nusing namespace metal;\n"
++        "fragment float4 r300_fragment(constant float4 *c [[buffer(0)]]) {\n"
++        " float3 rgb = (%s) * (%s) + (%s);\n"
++        " float a = (%s) * (%s) + (%s);\n"
++        " %s\n %s\n return float4(rgb, a);\n}\n",
++        rgb[0], rgb[1], rgb[2], alpha[0], alpha[1], alpha[2],
++        (p->rgb_inst & (1u << 30)) ? "rgb = clamp(rgb, 0.0f, 1.0f);" : "",
++        (p->alpha_inst & (1u << 30)) ? "a = clamp(a, 0.0f, 1.0f);" : "");
++    if (n < 0 || (size_t)n >= capacity) {
++        out[0] = 0;
++        snprintf(error, error_capacity, "MSL output buffer too small");
++        return false;
++    }
++    return true;
++}
+--- /dev/null
++++ b/tests/poweremu/r300-metal-test.m
+@@ -0,0 +1,141 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++#import <Foundation/Foundation.h>
++#import <Metal/Metal.h>
++#include <math.h>
++#include "ppc_mac_gpu_r300_fp.h"
++
++#define CHECK(x) do { if (!(x)) { fprintf(stderr, "FAIL line %d: %s\n", __LINE__, #x); exit(1); } } while (0)
++static R300FPProgram base_program(void)
++{
++    R300FPProgram p = {0};
++    p.node[3] = 1u << 22;
++    p.rgb_addr = (7u << 26) | 32;
++    p.alpha_addr = (1u << 24) | 32;
++    p.rgb_inst = 0 | (21 << 7) | (20 << 14);
++    p.alpha_inst = 9 | (17 << 7) | (16 << 14);
++    return p;
++}
++
++static void reject(R300FPProgram p)
++{
++    char out[4096], error[256];
++    memset(out, 'x', sizeof(out));
++    CHECK(!r300_fp_compile_msl(&p, out, sizeof(out), error, sizeof(error)));
++    CHECK(out[0] == 0 && error[0] != 0);
++}
++
++static void render(id<MTLDevice> device, R300FPProgram p,
++                   float constants[32][4], const float expected[4], const char *name)
++{
++    char source[4096], reason[256];
++    CHECK(r300_fp_compile_msl(&p, source, sizeof(source), reason, sizeof(reason)));
++    NSString *msl = [[NSString stringWithUTF8String:source] stringByAppendingString:
++        @"\nvertex float4 test_vertex(uint n [[vertex_id]]) {\n"
++         " const float2 v[3] = {float2(-0.75,-0.75), float2(0.75,-0.75), float2(0,0.75)};\n"
++         " return float4(v[n], 0, 1); }\n"];
++    NSError *error = nil;
++    MTLCompileOptions *options = [MTLCompileOptions new];
++    options.fastMathEnabled = NO;
++    id<MTLLibrary> library = [device newLibraryWithSource:msl options:options error:&error];
++    if (!library) fprintf(stderr, "%s\n", error.description.UTF8String);
++    CHECK(library);
++    MTLRenderPipelineDescriptor *pd = [MTLRenderPipelineDescriptor new];
++    pd.vertexFunction = [library newFunctionWithName:@"test_vertex"];
++    pd.fragmentFunction = [library newFunctionWithName:@"r300_fragment"];
++    pd.colorAttachments[0].pixelFormat = MTLPixelFormatRGBA32Float;
++    id<MTLRenderPipelineState> pipeline = [device newRenderPipelineStateWithDescriptor:pd error:&error];
++    CHECK(pipeline);
++    MTLTextureDescriptor *td = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA32Float width:64 height:64 mipmapped:NO];
++    td.storageMode = MTLStorageModePrivate;
++    td.usage = MTLTextureUsageRenderTarget;
++    id<MTLTexture> target = [device newTextureWithDescriptor:td];
++    CHECK(target);
++    id<MTLBuffer> readback = [device newBufferWithLength:64*64*16 options:MTLResourceStorageModeShared];
++    CHECK(readback);
++    id<MTLCommandQueue> queue = [device newCommandQueue];
++    id<MTLCommandBuffer> command = [queue commandBuffer];
++    MTLRenderPassDescriptor *pass = [MTLRenderPassDescriptor new];
++    pass.colorAttachments[0].texture = target;
++    pass.colorAttachments[0].loadAction = MTLLoadActionClear;
++    pass.colorAttachments[0].storeAction = MTLStoreActionStore;
++    pass.colorAttachments[0].clearColor = MTLClearColorMake(0.0625, 0.125, 0.1875, 0.25);
++    id<MTLRenderCommandEncoder> encoder = [command renderCommandEncoderWithDescriptor:pass];
++    [encoder setRenderPipelineState:pipeline];
++    [encoder setFragmentBytes:constants length:32*4*sizeof(float) atIndex:0];
++    [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
++    [encoder endEncoding];
++    id<MTLBlitCommandEncoder> blit = [command blitCommandEncoder];
++    [blit copyFromTexture:target sourceSlice:0 sourceLevel:0 sourceOrigin:MTLOriginMake(0,0,0) sourceSize:MTLSizeMake(64,64,1) toBuffer:readback destinationOffset:0 destinationBytesPerRow:64*16 destinationBytesPerImage:64*64*16];
++    [blit endEncoding];
++    [command commit];
++    [command waitUntilCompleted];
++    CHECK(command.status == MTLCommandBufferStatusCompleted);
++    const float *pixels = readback.contents;
++    const float clear[4] = {0.0625, 0.125, 0.1875, 0.25};
++    unsigned checked = 0;
++    for (unsigned y = 0; y < 64; y++) {
++        for (unsigned x = 0; x < 64; x++) {
++            float px = (x + 0.5f) / 32 - 1;
++            float py = 1 - (y + 0.5f) / 32;
++            float side = (0.75f - py) * 0.5f - fabsf(px);
++            /* Exclude raster edge ownership: test interiors and clear exterior. */
++            if (fabsf(py + 0.75f) < 0.04f || fabsf(side) < 0.04f) continue;
++            bool inside = py > -0.75f && side > 0;
++            for (unsigned c = 0; c < 4; c++) {
++                float actual = pixels[(y * 64 + x) * 4 + c];
++                CHECK(isfinite(actual));
++                CHECK(fabsf(actual - (inside ? expected[c] : clear[c])) < 0.00001f);
++            }
++            checked++;
++        }
++    }
++    printf("PASS %s: %u pixels checked on %s\n", name, checked, device.name.UTF8String);
++}
++
++int main(void)
++{
++    @autoreleasepool {
++        id<MTLDevice> device = MTLCreateSystemDefaultDevice();
++        CHECK(device);
++        float c[32][4] = {{0.25f, 0.5f, 0.75f, 0.375f}, {0.125f, 0.625f, 0.875f, 0.9375f}};
++        R300FPProgram p = base_program();
++        const float first[4] = {0.25f, 0.5f, 0.75f, 0.375f};
++        render(device, p, c, first, "constant MAD");
++        p.alpha_addr |= 1;
++        p.rgb_inst = 12 | (21 << 7) | (20 << 14);
++        p.alpha_inst = 2 | (17 << 7) | (16 << 14);
++        const float cross[4] = {0.9375f, 0.9375f, 0.9375f, 0.75f};
++        render(device, p, c, cross, "independent RGB/alpha source banks");
++        p = base_program();
++        p.rgb_addr |= 33u << 6;
++        p.alpha_addr |= 33u << 6;
++        p.rgb_inst = 0 | (4 << 7) | (21 << 14);
++        p.alpha_inst = 9 | (10 << 7) | (16 << 14);
++        const float mad[4] = {1.03125f, 1.3125f, 1.65625f, 0.3515625f};
++        render(device, p, c, mad, "multiply-add without implicit saturation");
++        p.rgb_inst |= 1u << 30;
++        const float sat[4] = {1,1,1,0.3515625f};
++        render(device, p, c, sat, "explicit RGB saturation");
++        p = base_program();
++        c[31][0] = -0.25f; c[31][1] = -0.5f; c[31][2] = -0.75f; c[31][3] = -0.375f;
++        p.rgb_addr |= 31; p.alpha_addr |= 31;
++        p.rgb_inst = (23 | 64 | 32) | (21 << 7) | (20 << 14);
++        p.alpha_inst = (9 | 64) | (17 << 7) | (16 << 14);
++        const float modifiers[4] = {-0.5f,-0.75f,-0.25f,0.375f};
++        render(device, p, c, modifiers, "constant 31, swizzle, abs then negate");
++        p = base_program(); p.control[0] = 8; reject(p);
++        p = base_program(); p.control[2] = 64; reject(p);
++        p = base_program(); p.node[3] |= 1u << 23; reject(p);
++        p = base_program(); p.rgb_inst |= 1u << 23; reject(p);
++        p = base_program(); p.rgb_addr &= ~32u; reject(p);
++        p = base_program(); p.rgb_addr |= 1u << 23; reject(p);
++        p = base_program(); p.alpha_addr |= 1u << 18; reject(p);
++        p = base_program(); p.rgb_inst = 22 | (21 << 7) | (20 << 14); reject(p);
++        p = base_program();
++        char tiny[2], error[128];
++        CHECK(!r300_fp_compile_msl(&p, tiny, sizeof(tiny), error, sizeof(error)));
++        CHECK(tiny[0] == 0 && error[0] != 0);
++        puts("PASS unsupported-state rejection and bounded output");
++    }
++    return 0;
++}
+--- /dev/null
++++ b/tests/poweremu/run-r300-metal-test.sh
+@@ -0,0 +1,12 @@
++#!/bin/sh
++# Standalone host-GPU test; does not boot or modify a guest.
++set -eu
++root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
++out=$(mktemp -d "${TMPDIR:-/tmp}/poweremu-r300-test.XXXXXX")
++trap 'rm -rf "$out"' EXIT HUP INT TERM
++clang -std=c11 -Wall -Wextra -Werror -DR300_FP_STANDALONE \
++    -I"$root/hw/display" -c "$root/hw/display/ppc_mac_gpu_r300_fp.c" -o "$out/fp.o"
++clang -fobjc-arc -Wall -Wextra -Werror -Wno-deprecated-declarations \
++    -I"$root/hw/display" "$root/tests/poweremu/r300-metal-test.m" "$out/fp.o" \
++    -framework Foundation -framework Metal -o "$out/test"
++"$out/test"
+--- /dev/null
++++ b/tests/poweremu/README-r300.md
+@@ -0,0 +1,17 @@
++# R300 prototype tests
++
++Run `tests/poweremu/run-r300-metal-test.sh` on a Mac with Metal. It builds in a temporary directory, runs on the real host GPU, then removes its executable. No VM or guest disk is opened.
++
++The test translates native R300 **fragment** instruction words into MSL. A fixed host vertex shader provides triangle geometry; guest vertex ISA, vertex fetch, textures, float24 constant upload and guest VRAM presentation are not implemented by this test. It is a decoder/backend building block, not a functioning Radeon 9800 device.
++
++Five positive cases verify 3,644 non-edge pixels each against independent expected colors and triangle coverage, using a private RGBA32Float render target, explicit GPU-to-shared-buffer blit, command completion and CPU readback. They cover:
++
++- Constant color/alpha MAD.
++- Independent RGB/alpha source banks and cross-channel selection.
++- Nontrivial multiplication/addition without implicit output clamping.
++- Explicit saturation.
++- Constant index 31, swizzle, absolute value and negation order.
++
++Negative cases require rejection of textures, multiple instructions, depth output, unsupported ALU operations, temporary inputs/outputs, nonzero output index, unverified half operands, and undersized MSL output buffers. Unsupported programs must never silently become a different shader.
++
++The compiler supports only one texture-free ALU node containing one constant-source MAD and full output 0. The caller supplies already-decoded float32 constants. The experimental QEMU device calls it only to classify captured shader state; it still rejects guest 3D draws.

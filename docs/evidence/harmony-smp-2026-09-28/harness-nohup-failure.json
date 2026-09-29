@@ -1,0 +1,34 @@
+{
+  "cpus": 1,
+  "steps": [
+    {
+      "name": "offline_precheck",
+      "value": "{\n    \"image-end-offset\": 10917183488,\n    \"total-clusters\": 327680,\n    \"check-errors\": 0,\n    \"allocated-clusters\": 166551,\n    \"filename\": \"/Users/adam/Developer/PowerEmu/build/integration-tests/leopard-1/Support/Virtual Machines/Leopard.poweremu/Disks/Macintosh HD.qcow2\",\n    \"format\": \"qcow2\",\n    \"fragmented-clusters\": 1143\n}\n",
+      "time": 1790567618.861938
+    },
+    {
+      "name": "cold_boot",
+      "value": "hw.ncpu: 1\nkern.boottime: { sec = 1790567626, usec = 0 } Sun Sep 27 23:53:46 2026",
+      "time": 1790567652.254861
+    },
+    {
+      "name": "command",
+      "value": "98228 /Users/adam/Developer/PowerEmu/build/PowerEmu Integration.app/Contents/Helpers/PowerEmu VM.app/Contents/MacOS/qemu-system-ppc -name Combined Leopard 1 -L /Users/adam/Developer/PowerEmu/build/PowerEmu Integration.app/Contents/Helpers/PowerEmu VM.app/Contents/Resources/firmware -nodefaults -vga none -machine mac99,via=pmu -g 1680x1050x32 -device loader,addr=0x4000000,file=/Users/adam/Developer/PowerEmu/build/PowerEmu Integration.app/Contents/Helpers/PowerEmu VM.app/Contents/Resources/firmware/ppc-ndrvloader -prom-env boot-command=\" /cpus/PowerPC,G4@0\" find-device d# 1420000000 encode-int \" clock-frequency\" property device-end \" /pci@f2000000\" find-device \" uni-north\" encode-string \" compatible\" property device-end \" /pci@f2000000/ATY,Adagio@e\" ['] find-device catch 0= if 7 encode-int \" IOAGPFlags\" property h# 104 encode-int \" IOAGPCommandValue\" property device-end then \" /pci@f2000000/QEMU,VGA@e\" ['] find-device catch 0= if h# 4000000 encode-int \" VRAM,totalsize\" property device-end then boot -m 2048 -audio coreaudio -smp cpus=1,sockets=1,cores=1,threads=1 -accel tcg,tb-size=512 -cpu 7400 -global ppc-mac-gpu.host-aspect-modes=on -prom-env output-device=ttya -display none -object poweremu-display,id=pd0,path=/var/folders/w4/jybr8qmd72z_fcvht4gbndmh0000gn/T/poweremu-8q9py2.display -device ppc-mac-gpu,id=gpu0,vgamem_mb=64,host-native-width=1710,host-native-height=1107 -netdev user,id=net0,ipv6=off,hostfwd=tcp:127.0.0.1:24223-:22,guestfwd=tcp:10.0.2.100:7700-cmd:/usr/bin/nc -U /var/folders/w4/jybr8qmd72z_fcvht4gbndmh0000gn/T/poweremu-8q9py2.agent,guestfwd=tcp:10.0.2.100:80-cmd:/usr/bin/nc -U /var/folders/w4/jybr8qmd72z_fcvht4gbndmh0000gn/T/poweremu-8q9py2.dav,guestfwd=tcp:10.0.2.100:7701-cmd:/usr/bin/nc -U /var/folders/w4/jybr8qmd72z_fcvht4gbndmh0000gn/T/poweremu-8q9py2.clock,guestfwd=tcp:10.0.2.100:143-cmd:/usr/bin/nc -U /var/folders/w4/jybr8qmd72z_fcvht4gbndmh0000gn/T/poweremu-imap.sock,guestfwd=tcp:10.0.2.100:25-cmd:/usr/bin/nc -U /var/folders/w4/jybr8qmd72z_fcvht4gbndmh0000gn/T/poweremu-smtp.sock,guestfwd=tcp:10.0.2.100:587-cmd:/usr/bin/nc -U /var/folders/w4/jybr8qmd72z_fcvht4gbndmh0000gn/T/poweremu-smtp.sock,guestfwd=tcp:10.0.2.100:7780-cmd:/usr/bin/nc -U /var/folders/w4/jybr8qmd72z_fcvht4gbndmh0000gn/T/poweremu-web.sock,guestfwd=tcp:10.0.2.100:3001-cmd:/usr/bin/nc -U /var/folders/w4/jybr8qmd72z_fcvht4gbndmh0000gn/T/poweremu-music.sock -device sungem,netdev=net0 -global uni-north-pci.agp-capable=on -usb -device usb-mouse,bus=usb-bus.0 -device usb-tablet,bus=usb-bus.0 -device usb-kbd,bus=usb-bus.0 -drive if=none,id=drive0,file.filename=/Users/adam/Developer/PowerEmu/build/integration-tests/leopard-1/Support/Virtual Machines/Leopard.poweremu/Disks/Macintosh HD.qcow2,format=qcow2,media=disk,discard=unmap,detect-zeroes=unmap -device ide-hd,bus=ide.0,unit=0,drive=drive0,bootindex=0 -drive if=none,id=cd0,media=cdrom -device ide-cd,bus=ide.1,unit=0,drive=cd0,id=cd0dev,recordable=on -serial file:/Users/adam/Developer/PowerEmu/build/integration-tests/leopard-1/Support/Virtual Machines/Leopard.poweremu/Logs/console.log -qmp unix:/var/folders/w4/jybr8qmd72z_fcvht4gbndmh0000gn/T/poweremu-8q9py2.qmp,server=on,wait=off -monitor telnet:127.0.0.1:0,server,nowait -trace ppc_mac_gpu_realize -D /Users/adam/Developer/PowerEmu/build/integration-tests/leopard-1/Support/Virtual Machines/Leopard.poweremu/Logs/gpu-trace.log",
+      "time": 1790567652.302506
+    },
+    {
+      "name": "vcpus",
+      "value": [
+        {
+          "thread-id": 98228,
+          "qom-path": "/machine/unattached/device[0]",
+          "cpu-index": 0,
+          "target": "ppc64"
+        }
+      ],
+      "time": 1790567652.30439
+    }
+  ],
+  "status": "failed",
+  "error": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"<string>\", line 1, in connect\nsocket.error: (61, 'Connection refused')\n"
+}

@@ -82,6 +82,28 @@ final class VirtualMachine: ObservableObject, Identifiable {
     // MARK: running
 
     func start() {
+        guard state == .stopped else { return }
+        guard let disk = startupDiskURL,
+              let img = VMRunner.helperURL?.appendingPathComponent("Contents/MacOS/qemu-img") else {
+            startAfterSleepCheck()
+            return
+        }
+        // A launch must wait for the disk's saved-state check. In particular,
+        // auto-start can run before the library's background check finishes.
+        // Reserve the start while checking so repeated clicks cannot launch twice.
+        state = .starting
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let found = VMRunner.hasSleep(disk: disk, qemuImg: img)
+            Task { @MainActor [weak self] in
+                guard let self, self.state == .starting else { return }
+                self.asleep = found
+                self.state = .stopped
+                self.startAfterSleepCheck()
+            }
+        }
+    }
+
+    private func startAfterSleepCheck() {
         /*
          * A bridged machine needs the helper running first: the emulator
          * looks for it the moment it starts, and the address the network
@@ -143,21 +165,42 @@ final class VirtualMachine: ObservableObject, Identifiable {
             try? a.start()
             a.onConnect = { [weak self] in
                 self?.mountSharedFolders()
+                // Reconnection must restore either state. A frontend restart
+                // must not leave the guest's menu bar and Dock hidden when
+                // this display is back in ordinary desktop mode.
+                if let self {
+                    if self.harmonyWanted { self.harmony(true) }
+                    else if let version = self.agent?.info?.version,
+                            version.compare("2.7", options: .numeric) != .orderedAscending {
+                        // Older agents restart Finder even when already off.
+                        self.agent?.send("HARMONY", "0")
+                    }
+                }
                 // The tools have just said which version they are: the Devices
                 // badge depends on it.
                 self?.onToolsChanged?()
             }
             a.onWindows = { [weak self] rects in self?.display?.deliverWindows(rects) }
+            a.onDragWindows = { [weak self] ids in self?.display?.onDragWindows?(ids) }
+            a.onSheets = { [weak self] parents in self?.display?.onSheets?(parents) }
             a.onWindowApps = { [weak self] apps in self?.display?.deliverWindowApps(apps) }
             a.onMinimized = { [weak self] m in self?.display?.deliverMinimized(m) }
             a.onFocused = { [weak self] id in self?.display?.deliverFocused(id) }
             a.onOcclusion = { [weak self] o in self?.display?.deliverOcclusion(o) }
             a.onAppIcon = { [weak self] pid, png in self?.display?.deliverAppIcon(pid, png) }
+            a.onWindowFrame = { [weak self] data in self?.display?.onWindowFrame?(data) }
+            a.onFocusReady = { [weak self] id, sequence, ok in self?.display?.onFocusReady?(id, sequence, ok) }
+            a.onMenuFocus = { [weak self] token, id in self?.display?.onMenuFocus?(token, id) }
+            a.onGuestFullscreen = { [weak self] in self?.display?.onGuestFullscreen?() }
+            a.onHarmonyReady = { [weak self] token, size, ok in self?.display?.onHarmonyReady?(token, size, ok) }
             a.onMenuBar = { [weak self] pid, app, tops in self?.display?.deliverMenuBar(pid, app, tops) }
             a.onMenuItems = { [weak self] pid, path, items in self?.display?.deliverMenuItems(pid, path, items) }
             agent = a
+            fileTransfer.agent = a
+            a.onFileTransfer = { [weak self] reply in self?.fileTransfer.receive(reply) }
+            a.onDisconnect = { [weak self] in self?.fileTransfer.disconnected(); self?.display?.onSheets?([:]); self?.display?.onDragWindows?([]) }
             let d = WebDAVServer(socketPath: r.davPath)
-            d.setShares(config.sharedFolders + [Self.dropShare])
+            d.setShares(config.sharedFolders + [dropShare])
             try? d.start()
             dav = d
             let w = SharedFolderWatcher { [weak a] changed in
@@ -418,8 +461,20 @@ final class VirtualMachine: ObservableObject, Identifiable {
      * falls back to the mask alone, which is what it did before.
      */
     func harmony(_ on: Bool) {
+        harmonyWanted = on
+        agent?.send("CAPTUREMODE", on && ProcessInfo.processInfo.environment["POWEREMU_HARMONY_MASKED"] != "1" ? "1" : "0")
         agent?.send("HARMONY", on ? "1" : "0")
     }
+
+    /*
+     * Remembered because the tools can go away and come back -- they are
+     * restarted when they are updated, and they would be restarted again if
+     * they ever crashed -- and the guest comes back not knowing it was in
+     * Harmony.  Its Dock and desktop return, its windows stop being reported,
+     * and this side is left showing proxies of windows nobody is describing
+     * any more.  Whatever was asked for last is asked for again.
+     */
+    private var harmonyWanted = false
 
     /// Harmony runs the guest at this Mac's screen resolution so its windows
     /// line up 1:1; (0,0) restores the guest's normal (config) resolution.
@@ -441,6 +496,9 @@ final class VirtualMachine: ObservableObject, Identifiable {
     func quitGuestApp(_ pid: Int) { agent?.send("QUITAPP", "\(pid)") }
     /// Take a guest window back out of the guest's Dock.
     func restoreGuestWindow(_ pid: Int, _ index: Int) { agent?.send("UNMINIMIZE", "\(pid) \(index)") }
+    /// The yellow button, pressed on a proxy: the window it stands for is the
+    /// one that has to go into the Dock, or the proxy comes straight back out.
+    func minimizeGuestWindow(_ id: Int) { agent?.send("MINIMIZE", "\(id)") }
     /// Bring one of the guest's applications to the front.
     /// Called when what we know about the guest's tools changes.
     var onToolsChanged: (() -> Void)?
@@ -477,7 +535,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
 
     private func mountSharedFolders() {
         for f in config.sharedFolders { agent?.send("MOUNT", "\(Self.guestURL(f))\t\(f.name)") }
-        let d = Self.dropShare
+        let d = dropShare
         agent?.send("MOUNT", "\(Self.guestURL(d))\t\(d.name)")
     }
 
@@ -490,31 +548,14 @@ final class VirtualMachine: ObservableObject, Identifiable {
      * through the share means the guest reads it over its own network, which
      * it already knows how to do, rather than needing anything new.
      */
-    static let dropShare: SharedFolder = {
+    lazy var dropShare: SharedFolder = {
         let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("PowerEmu/Drop", isDirectory: true)
+            .appendingPathComponent("PowerEmu/Transfers/" + UUID().uuidString, isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return SharedFolder(path: dir.path, name: "PowerEmu Drop")
     }()
 
-    /// Put files from this Mac into the guest, at a folder of its choosing.
-    func dropFiles(_ urls: [URL], into where_: String) {
-        let dir = URL(fileURLWithPath: Self.dropShare.path)
-        var names: [String] = []
-        for u in urls {
-            let to = dir.appendingPathComponent(u.lastPathComponent)
-            try? FileManager.default.removeItem(at: to)
-            do {
-                try FileManager.default.copyItem(at: u, to: to)
-                names.append(u.lastPathComponent)
-            } catch {
-                harmonyDebug("PEDROP could not stage \(u.lastPathComponent): \(error.localizedDescription)")
-            }
-        }
-        guard !names.isEmpty else { return }
-        harmonyDebug("PEDROP sending \(names.joined(separator: ", ")) to \(where_)")
-        agent?.send("DROPFILES", "\(where_)\n" + names.joined(separator: "\n"))
-    }
+    lazy var fileTransfer = GuestFileTransfer(root: URL(fileURLWithPath: dropShare.path))
 
     func addSharedFolder(_ url: URL) {
         var name = url.lastPathComponent.replacingOccurrences(of: "/", with: "-")
@@ -527,7 +568,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
         let f = SharedFolder(path: url.path, name: name)
         config.sharedFolders.append(f)
         try? save()
-        dav?.setShares(config.sharedFolders + [Self.dropShare])
+        dav?.setShares(config.sharedFolders + [dropShare])
         shareWatcher?.watch(config.sharedFolders)
         agent?.send("MOUNT", "\(Self.guestURL(f))\t\(f.name)")
     }
@@ -536,7 +577,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
         agent?.send("UNMOUNT", f.name)
         config.sharedFolders.removeAll { $0.id == f.id }
         try? save()
-        dav?.setShares(config.sharedFolders + [Self.dropShare])
+        dav?.setShares(config.sharedFolders + [dropShare])
         shareWatcher?.watch(config.sharedFolders)
     }
 
@@ -544,7 +585,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
         guard let i = config.sharedFolders.firstIndex(where: { $0.id == f.id }) else { return }
         config.sharedFolders[i].readOnly = ro
         try? save()
-        dav?.setShares(config.sharedFolders + [Self.dropShare])
+        dav?.setShares(config.sharedFolders + [dropShare])
         shareWatcher?.watch(config.sharedFolders)
     }
 

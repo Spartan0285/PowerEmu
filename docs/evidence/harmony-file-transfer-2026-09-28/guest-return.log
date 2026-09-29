@@ -1,0 +1,2 @@
+PASS: Tiger ZIP extraction, original data and resource fork returned intact
+PASS: directory, Unicode/newline names, data/resource forks, collision refusal, symlink refusal, malformed archives

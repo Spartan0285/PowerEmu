@@ -1,0 +1,66 @@
+Started 64 PID 63942
+Started 128 PID 63943
+Started 256 PID 63944
+64 {'ssh': True, 'finder': True, 'elapsed': 23} 2026-09-29 02:20:36.009 sw_vers[93:10b] _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+ProductName:	Mac OS X
+ProductVersion:	10.5.8
+BuildVersion:	9L31a
+   31 ??         0:01.54 /System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow console
+   52 ??         0:02.25 /System/Library/Frameworks/ApplicationServices.framework/Frameworks/CoreGraphics.framework/Resources/WindowServer -daemon
+   88 ??         0:00.34 /System/Library/CoreServices/Finder.app/Contents/MacOS/Finder -psn_0_36873
+2026-09-29 02:20:36.376 system_profiler[96:10b] _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+Graphics/Displays:
+
+    QEMU VGA:
+
+      Chipset Model: QEMU VGA
+      Type: Display
+      Bus: AGP
+      VRAM (Total): 64 MB
+      Vendor: ATI (0x1002)
+      Device ID: 0x5960
+      Revision ID: 0x0001
+      Displays:
+        Display:
+          Resolution: 1680 x 1050
+          Depth: 32-Bit Color
+          Core Image: Software
+          Main Display: Yes
+          Mirror: Off
+          Online: Yes
+          Quartz Extreme: Supported
+
+
+{
+  "64": {
+    "ssh": true,
+    "finder": true,
+    "elapsed": 23,
+    "status": {
+      "return": {
+        "status": "running",
+        "running": true
+      }
+    }
+  },
+  "128": {
+    "ssh": false,
+    "timeout": 210,
+    "status": {
+      "return": {
+        "status": "running",
+        "running": true
+      }
+    }
+  },
+  "256": {
+    "ssh": false,
+    "timeout": 210,
+    "status": {
+      "return": {
+        "status": "running",
+        "running": true
+      }
+    }
+  }
+}

@@ -1,0 +1,12 @@
+rgba 0 accessibility_enabled=1
+window=39 rect=532,131 615x407 nonzero=250180 capture_ms=141.831
+argb 0 accessibility_enabled=1
+window=39 rect=532,131 615x407 nonzero=250180 capture_ms=86.313
+rgba 0 accessibility_enabled=1
+window=39 rect=532,131 615x407 nonzero=250180 capture_ms=135.757
+argb 0 accessibility_enabled=1
+window=39 rect=532,131 615x407 nonzero=250180 capture_ms=107.841
+rgba 0 accessibility_enabled=1
+window=39 rect=532,131 615x407 nonzero=250180 capture_ms=137.634
+argb 0 accessibility_enabled=1
+window=39 rect=532,131 615x407 nonzero=250180 capture_ms=143.070

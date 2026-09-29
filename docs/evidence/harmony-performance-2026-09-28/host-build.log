@@ -1,0 +1,232 @@
+Building for production...
+[1 / 1]
+[2 / 4] PowerEmu-product
+/Users/adam/Developer/PowerEmu/app/Sources/PowerEmu/Feedback.swift:208:24: warning: 'CGWindowListCreateImage' was deprecated in macOS 14.0: Please use ScreenCaptureKit instead. [#DeprecatedDeclaration]
+206 |             ?? NSApp.windows.first { $0.isVisible }
+207 |         guard let window, window.windowNumber > 0 else { return nil }
+208 |         guard let cg = CGWindowListCreateImage(
+    |                        `- warning: 'CGWindowListCreateImage' was deprecated in macOS 14.0: Please use ScreenCaptureKit instead. [#DeprecatedDeclaration]
+209 |             .null,
+210 |             .optionIncludingWindow,
+
+/Users/adam/Developer/PowerEmu/app/Sources/PowerEmu/HarmonyWindows.swift:1366:28: warning: conditional downcast from 'NSView?' to 'NSView' does nothing
+1364 |             n.level = .statusBar            // above the proxies and this Mac's menu bar
+1365 |             n.hasShadow = false
+1366 |             (n.contentView as? NSView)?.layer?.cornerRadius = 0
+     |                            `- warning: conditional downcast from 'NSView?' to 'NSView' does nothing
+1367 |             if let s = surface { n.setSurface(s as! IOSurfaceRef) }
+1368 |             menuBar = n
+
+/Users/adam/Developer/PowerEmu/app/Sources/PowerEmu/InstallSession.swift:386:41: warning: 'weak' ownership of capture 'self' differs from implicitly-captured strong reference in outer scope [#ImplicitStrongCapture]
+383 |         runner = r
+384 |         do {
+385 |             try r.launch { status in
+    |                          |- note: 'self' implicitly strongly captured here
+    |                          `- note: add 'self' as a capture list item to silence
+386 |                 Task { @MainActor [weak self] in
+    |                                         |- warning: 'weak' ownership of capture 'self' differs from implicitly-captured strong reference in outer scope [#ImplicitStrongCapture]
+    |                                         `- note: explicitly assign the capture list item to silence
+387 |                     guard let self, self.runner === r else { return }
+388 |                     self.log("emulator exited: \(status)")
+
+/Users/adam/Developer/PowerEmu/app/Sources/PowerEmu/PhysicalBurn.swift:93:55: warning: call to main actor-isolated instance method 'acceptLoop()' in a synchronous nonisolated context [#ActorIsolatedCall]
+ 91 |         state = .waiting
+ 92 |         // Accept + read on a background thread; hop to main for state changes.
+ 93 |         Thread.detachNewThread { [weak self] in self?.acceptLoop() }
+    |                                                       `- warning: call to main actor-isolated instance method 'acceptLoop()' in a synchronous nonisolated context [#ActorIsolatedCall]
+ 94 |         return true
+ 95 |     }
+    :
+100 |     private let closed = Atomic<Bool>(false)
+101 | 
+102 |     private func acceptLoop() {
+    |                  `- note: calls to instance method 'acceptLoop()' from outside of its actor context are implicitly asynchronous
+103 |         let conn = accept(listenFD, nil, nil)
+104 |         guard conn >= 0 else { return }
+
+/Users/adam/Developer/PowerEmu/app/Sources/PowerEmu/PhysicalBurn.swift:185:19: warning: call to main actor-isolated instance method 'pollStatus()' in a synchronous nonisolated context [#ActorIsolatedCall]
+183 |         observer = NotificationCenter.default.addObserver(
+184 |             forName: .DRBurnStatusChanged, object: b, queue: .main) { [weak self] _ in
+185 |             self?.pollStatus()
+    |                   `- warning: call to main actor-isolated instance method 'pollStatus()' in a synchronous nonisolated context [#ActorIsolatedCall]
+186 |         }
+187 |         state = .burning(0)
+    :
+189 |     }
+190 | 
+191 |     private func pollStatus() {
+    |                  `- note: calls to instance method 'pollStatus()' from outside of its actor context are implicitly asynchronous
+192 |         guard let b = burn else { return }
+193 |         let st = b.status() ?? [:]
+
+/Users/adam/Developer/PowerEmu/app/Sources/PowerEmu/ServicesView.swift:8:17: warning: cannot use generic class 'Autoconnect' in a property declaration member of a type not marked '@_implementationOnly'; 'Combine' was not imported by this file
+  6 |     @ObservedObject var hub = ServicesHub.shared
+  7 |     @State private var stats = WebAccelerator.Stats()
+  8 |     private let tick = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
+    |                 `- warning: cannot use generic class 'Autoconnect' in a property declaration member of a type not marked '@_implementationOnly'; 'Combine' was not imported by this file
+  9 | 
+ 10 |     var body: some View {
+
+Combine.Publishers.Autoconnect:2:14: note: generic class declared here
+ 1 | enum Publishers {
+ 2 | public class Autoconnect<Upstream> : Publisher where Upstream : ConnectablePublisher {
+   |              `- note: generic class declared here
+ 3 |     public typealias Output = Upstream.Output
+ 4 |     public typealias Failure = Upstream.Failure
+
+/Users/adam/Developer/PowerEmu/app/Sources/PowerEmu/ServicesView.swift:8:17: warning: cannot use enum 'Publishers' in a property declaration member of a type not marked '@_implementationOnly'; 'Combine' was not imported by this file
+  6 |     @ObservedObject var hub = ServicesHub.shared
+  7 |     @State private var stats = WebAccelerator.Stats()
+  8 |     private let tick = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
+    |                 `- warning: cannot use enum 'Publishers' in a property declaration member of a type not marked '@_implementationOnly'; 'Combine' was not imported by this file
+  9 | 
+ 10 |     var body: some View {
+
+Combine.Publishers:2:13: note: enum declared here
+1 | @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
+2 | public enum Publishers {
+  |             `- note: enum declared here
+3 | }
+
+/Users/adam/Developer/PowerEmu/app/Sources/PowerEmu/ServicesView.swift:104:27: warning: 'allowedFileTypes' was deprecated in macOS 12.0: Use -allowedContentTypes instead [#DeprecatedDeclaration]
+102 |                         let p = NSOpenPanel()
+103 |                         p.message = "Choose the MusicKit private key downloaded from the Apple Developer portal."
+104 |                         p.allowedFileTypes = ["p8"]
+    |                           `- warning: 'allowedFileTypes' was deprecated in macOS 12.0: Use -allowedContentTypes instead [#DeprecatedDeclaration]
+105 |                         if p.runModal() == .OK, let u = p.url { keyPath = u.path; apply() }
+106 |                     }
+
+/Users/adam/Developer/PowerEmu/app/Sources/PowerEmu/TermsWindow.swift:180:39: warning: expression implicitly coerced from 'Any?' to 'Any'
+178 |             return nil
+179 |         }
+180 |         defer { NSEvent.removeMonitor(quitKey) }
+    |                                       |- warning: expression implicitly coerced from 'Any?' to 'Any'
+    |                                       |- note: provide a default value to avoid this warning
+    |                                       |- note: force-unwrap the value to avoid this warning
+    |                                       `- note: explicitly cast to 'Any' with 'as Any' to silence this warning
+181 | 
+182 |         NSApp.runModal(for: window)
+
+/Users/adam/Developer/PowerEmu/app/Sources/PowerEmu/UpdateWindow.swift:79:45: warning: reference to captured var 'self' in concurrently-executing code; this is an error in the Swift 6 language mode [#SendableClosureCaptures]
+ 77 |             do {
+ 78 |                 let zip = try await Updater.download(u) { p in
+ 79 |                     Task { @MainActor [weak self] in self?.progress = p }
+    |                                             `- warning: reference to captured var 'self' in concurrently-executing code; this is an error in the Swift 6 language mode [#SendableClosureCaptures]
+ 80 |                 }
+ 81 |                 await MainActor.run { [weak self] in
+
+/Users/adam/Developer/PowerEmu/app/Sources/PowerEmu/VMRunner.swift:625:71: warning: main actor-isolated static property 'sleepTag' can not be referenced from a Sendable closure
+ 62 |     var wake = false
+ 63 |     /// What the saved machine is called inside the disk.
+ 64 |     static let sleepTag = "PowerEmuSleep"
+    |                `- note: static property declared here
+ 65 | 
+ 66 |     init(vm: VirtualMachine) {
+    :
+623 |     static func forgetSleep(disk: URL, qemuImg: URL, done: @escaping @Sendable () -> Void) {
+624 |         DispatchQueue.global(qos: .utility).async {
+625 |             _ = try? InstallPlan.run(qemuImg.path, ["snapshot", "-d", sleepTag, disk.path])
+    |                                                                       `- warning: main actor-isolated static property 'sleepTag' can not be referenced from a Sendable closure
+626 |             done()
+627 |         }
+
+/Users/adam/Developer/PowerEmu/app/Sources/PowerEmu/VMRunner.swift:633:62: warning: main actor-isolated static property 'sleepTag' can not be referenced from a nonisolated context; this is an error in the Swift 6 language mode
+ 62 |     var wake = false
+ 63 |     /// What the saved machine is called inside the disk.
+ 64 |     static let sleepTag = "PowerEmuSleep"
+    |                `- note: static property declared here
+ 65 | 
+ 66 |     init(vm: VirtualMachine) {
+    :
+631 |     nonisolated static func hasSleep(disk: URL, qemuImg: URL) -> Bool {
+632 |         guard let out = try? InstallPlan.run(qemuImg.path, ["snapshot", "-l", disk.path]) else { return false }
+633 |         return String(decoding: out, as: UTF8.self).contains(sleepTag)
+    |                                                              `- warning: main actor-isolated static property 'sleepTag' can not be referenced from a nonisolated context; this is an error in the Swift 6 language mode
+634 |     }
+635 | 
+
+/Users/adam/Developer/PowerEmu/app/Sources/PowerEmu/VirtualMachine.swift:361:37: warning: 'weak' ownership of capture 'self' differs from implicitly-captured strong reference in outer scope [#ImplicitStrongCapture]
+357 |         // Off the main thread: this asks qemu-img, and a tool that waits on
+358 |         // a disk must never be able to hold up the window.
+359 |         DispatchQueue.global(qos: .utility).async {
+    |                                                   |- note: 'self' implicitly strongly captured here
+    |                                                   `- note: add 'self' as a capture list item to silence
+360 |             let found = VMRunner.hasSleep(disk: disk, qemuImg: img)
+361 |             Task { @MainActor [weak self] in
+    |                                     |- warning: 'weak' ownership of capture 'self' differs from implicitly-captured strong reference in outer scope [#ImplicitStrongCapture]
+    |                                     `- note: explicitly assign the capture list item to silence
+362 |                 guard let self, self.state == .stopped, found != self.asleep else { return }
+363 |                 self.asleep = found
+
+/Users/adam/Developer/PowerEmu/app/Sources/PowerEmu/DiscCopy.swift:113:18: warning: 'done' mutated after capture by sendable closure
+ 98 |         let chunk = 2 << 20
+ 99 |         var buffer = [UInt8](repeating: 0, count: chunk)
+100 |         var done: Int64 = 0
+    |             `- note: variable defined here
+101 |         while true {
+102 |             let n = buffer.withUnsafeMutableBytes { Darwin.read(fd, $0.baseAddress, chunk) }
+    :
+111 |                 return
+112 |             }
+113 |             done += Int64(n)
+    |                  `- warning: 'done' mutated after capture by sendable closure
+114 |             Task { @MainActor in self.copied = done }
+    |                  |                           `- note: capturing use
+    |                  `- note: variable captured by sendable closure
+115 |             if stop.isSet {
+116 |                 try? out.close()
+
+/Users/adam/Developer/PowerEmu/app/Sources/PowerEmu/ServicesHub.swift:488:26: warning: 'peer' mutated after capture by sendable closure
+484 |                 var one: Int32 = 1
+485 |                 setsockopt(c, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int32>.size))
+486 |                 var peer = label
+    |                     `- note: variable defined here
+487 |                 if !isUnix, sa.ss_family == sa_family_t(AF_INET) {
+488 |                     peer = withUnsafePointer(to: &sa) {
+    |                          `- warning: 'peer' mutated after capture by sendable closure
+489 |                         $0.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { String(cString: inet_ntoa($0.pointee.sin_addr)) }
+490 |                     }
+491 |                 }
+492 |                 Thread.detachNewThread { handler(c, peer) }
+    |                                        |            `- note: capturing use
+    |                                        `- note: variable captured by sendable closure
+493 |             }
+494 |         }
+
+[#ActorIsolatedCall]: <https://docs.swift.org/compiler/documentation/diagnostics/actor-isolated-call>
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[#ImplicitStrongCapture]: <https://docs.swift.org/compiler/documentation/diagnostics/implicit-strong-capture>
+[#SendableClosureCaptures]: <https://docs.swift.org/compiler/documentation/diagnostics/sendable-closure-captures>
+[4 / 5] PowerEmu-product
+[6 / 8] PowerEmu-product
+[7 / 8] PowerEmu-product
+Build complete! (39.04 sec)
+bundled 20 libraries into /Users/adam/Developer/PowerEmu/build/smp/PowerEmu VM.app
+/Users/adam/Developer/PowerEmu/build/Harmony Refresh/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libgio-2.0.0.dylib: replacing existing signature
+/Users/adam/Developer/PowerEmu/build/Harmony Refresh/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libglib-2.0.0.dylib: replacing existing signature
+/Users/adam/Developer/PowerEmu/build/Harmony Refresh/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libgmodule-2.0.0.dylib: replacing existing signature
+/Users/adam/Developer/PowerEmu/build/Harmony Refresh/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libgmp.10.dylib: replacing existing signature
+/Users/adam/Developer/PowerEmu/build/Harmony Refresh/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libgnutls.30.dylib: replacing existing signature
+/Users/adam/Developer/PowerEmu/build/Harmony Refresh/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libgobject-2.0.0.dylib: replacing existing signature
+/Users/adam/Developer/PowerEmu/build/Harmony Refresh/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libhogweed.6.dylib: replacing existing signature
+/Users/adam/Developer/PowerEmu/build/Harmony Refresh/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libidn2.0.dylib: replacing existing signature
+/Users/adam/Developer/PowerEmu/build/Harmony Refresh/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libintl.8.dylib: replacing existing signature
+/Users/adam/Developer/PowerEmu/build/Harmony Refresh/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libjpeg.8.dylib: replacing existing signature
+/Users/adam/Developer/PowerEmu/build/Harmony Refresh/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libnettle.8.dylib: replacing existing signature
+/Users/adam/Developer/PowerEmu/build/Harmony Refresh/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libp11-kit.0.dylib: replacing existing signature
+/Users/adam/Developer/PowerEmu/build/Harmony Refresh/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libpcre2-8.0.dylib: replacing existing signature
+/Users/adam/Developer/PowerEmu/build/Harmony Refresh/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libpixman-1.0.dylib: replacing existing signature
+/Users/adam/Developer/PowerEmu/build/Harmony Refresh/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libpng16.16.dylib: replacing existing signature
+/Users/adam/Developer/PowerEmu/build/Harmony Refresh/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libslirp.0.dylib: replacing existing signature
+/Users/adam/Developer/PowerEmu/build/Harmony Refresh/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libtasn1.6.dylib: replacing existing signature
+/Users/adam/Developer/PowerEmu/build/Harmony Refresh/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libunistring.5.dylib: replacing existing signature
+/Users/adam/Developer/PowerEmu/build/Harmony Refresh/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libusb-1.0.0.dylib: replacing existing signature
+/Users/adam/Developer/PowerEmu/build/Harmony Refresh/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libzstd.1.dylib: replacing existing signature
+/Users/adam/Developer/PowerEmu/build/Harmony Refresh/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/MacOS/qemu-img: replacing existing signature
+/Users/adam/Developer/PowerEmu/build/Harmony Refresh/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/MacOS/qemu-system-ppc: replacing existing signature
+/Users/adam/Developer/PowerEmu/build/Harmony Refresh/PowerEmu.app/Contents/Helpers/PowerEmu VM.app: replacing existing signature
+/Users/adam/Developer/PowerEmu/build/Harmony Refresh/PowerEmu.app/Contents/Helpers/poweremu-netd: replacing existing signature
+/Users/adam/Developer/PowerEmu/build/Harmony Refresh/PowerEmu.app/Contents/MacOS/PowerEmu: replacing existing signature
+/Users/adam/Developer/PowerEmu/build/Harmony Refresh/PowerEmu.app: replacing existing signature
+signed: Developer ID Application: Adam Cipoletti (7B2D3VV69V)
+built /Users/adam/Developer/PowerEmu/build/Harmony Refresh/PowerEmu.app ( 43M)

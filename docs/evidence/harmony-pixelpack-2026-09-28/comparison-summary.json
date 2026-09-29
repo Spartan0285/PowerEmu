@@ -1,0 +1,200 @@
+{
+  "mem1-full": {
+    "samples": 76,
+    "medianMS": 82.75,
+    "p95MS": 84.658,
+    "encodings": [
+      1
+    ],
+    "pixelHashes": [
+      "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9"
+    ]
+  },
+  "mem3-full": {
+    "samples": 76,
+    "medianMS": 101.933,
+    "p95MS": 166.46,
+    "encodings": [
+      1
+    ],
+    "pixelHashes": [
+      "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9"
+    ]
+  },
+  "mem5-full": {
+    "samples": 76,
+    "medianMS": 90.963,
+    "p95MS": 117.595,
+    "encodings": [
+      1
+    ],
+    "pixelHashes": [
+      "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9"
+    ]
+  },
+  "mem8-full": {
+    "samples": 76,
+    "medianMS": 89.181,
+    "p95MS": 105.394,
+    "encodings": [
+      1
+    ],
+    "pixelHashes": [
+      "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9"
+    ]
+  },
+  "pixelpack-full": {
+    "samples": 76,
+    "medianMS": 57.436,
+    "p95MS": 75.36,
+    "encodings": [
+      3
+    ],
+    "pixelHashes": [
+      "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9"
+    ]
+  },
+  "final-zlib-full": {
+    "samples": 76,
+    "medianMS": 81.748,
+    "p95MS": 83.986,
+    "encodings": [
+      1
+    ],
+    "pixelHashes": [
+      "3c738888c73406d9b83be2b8b20954222fd06355d4827a7acec587334cc80417"
+    ]
+  },
+  "final-pixelpack-full": {
+    "samples": 76,
+    "medianMS": 54.956,
+    "p95MS": 58.615,
+    "encodings": [
+      3
+    ],
+    "pixelHashes": [
+      "3c738888c73406d9b83be2b8b20954222fd06355d4827a7acec587334cc80417"
+    ]
+  },
+  "final-pixelpack-idle": {
+    "samples": 76,
+    "medianMS": 38.532,
+    "p95MS": 60.065,
+    "encodings": [
+      2
+    ],
+    "pixelHashes": [
+      "3c738888c73406d9b83be2b8b20954222fd06355d4827a7acec587334cc80417"
+    ]
+  },
+  "pixelpack-window34": {
+    "samples": 18,
+    "medianMS": 47.327,
+    "p95MS": 48.438,
+    "encodings": [
+      3
+    ],
+    "pixelHashes": [
+      "4a9b19822dde973caee6cbbdfb61f4ab25c7f6c30a7d3ddee9180ed4f0f52b82"
+    ]
+  },
+  "pixelpack-window35": {
+    "samples": 18,
+    "medianMS": 137.248,
+    "p95MS": 138.72,
+    "encodings": [
+      1
+    ],
+    "pixelHashes": [
+      "af6bc3d594b3831207dff5c27485389dbfc4193757173f5961ee2dac364f9348"
+    ]
+  },
+  "pixelpack-detailed": {
+    "samples": 6,
+    "medianMS": 1011.99,
+    "p95MS": 1013.077,
+    "encodings": [
+      1
+    ],
+    "pixelHashes": [
+      "44671a1086d51f56252452bd4c10b3fbd8a829d334c54756e8610ec329d7d2f1"
+    ]
+  },
+  "fallback-baseline-window35": {
+    "samples": 18,
+    "medianMS": 128.293,
+    "p95MS": 131.089,
+    "encodings": [
+      1
+    ],
+    "pixelHashes": [
+      "af6bc3d594b3831207dff5c27485389dbfc4193757173f5961ee2dac364f9348"
+    ]
+  },
+  "fallback-baseline-detailed": {
+    "samples": 6,
+    "medianMS": 1048.994,
+    "p95MS": 1062.504,
+    "encodings": [
+      1
+    ],
+    "pixelHashes": [
+      "44671a1086d51f56252452bd4c10b3fbd8a829d334c54756e8610ec329d7d2f1"
+    ]
+  },
+  "sampled-fallback-window35": {
+    "samples": 18,
+    "medianMS": 138.285,
+    "p95MS": 149.835,
+    "encodings": [
+      1
+    ],
+    "pixelHashes": [
+      "af6bc3d594b3831207dff5c27485389dbfc4193757173f5961ee2dac364f9348"
+    ]
+  },
+  "sampled-fallback-detailed": {
+    "samples": 6,
+    "medianMS": 1018.032,
+    "p95MS": 1032.243,
+    "encodings": [
+      1
+    ],
+    "pixelHashes": [
+      "44671a1086d51f56252452bd4c10b3fbd8a829d334c54756e8610ec329d7d2f1"
+    ]
+  },
+  "verified-zlib-full": {
+    "samples": 36,
+    "medianMS": 175.457,
+    "p95MS": 225.798,
+    "encodings": [
+      1
+    ],
+    "pixelHashes": [
+      "3c738888c73406d9b83be2b8b20954222fd06355d4827a7acec587334cc80417"
+    ]
+  },
+  "verified-pixelpack-full": {
+    "samples": 36,
+    "medianMS": 87.665,
+    "p95MS": 100.395,
+    "encodings": [
+      3
+    ],
+    "pixelHashes": [
+      "3c738888c73406d9b83be2b8b20954222fd06355d4827a7acec587334cc80417"
+    ]
+  },
+  "verified-fallback-window35": {
+    "samples": 18,
+    "medianMS": 197.211,
+    "p95MS": 227.231,
+    "encodings": [
+      1
+    ],
+    "pixelHashes": [
+      "af6bc3d594b3831207dff5c27485389dbfc4193757173f5961ee2dac364f9348"
+    ]
+  }
+}

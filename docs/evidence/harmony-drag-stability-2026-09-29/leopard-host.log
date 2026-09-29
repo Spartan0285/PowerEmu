@@ -1,0 +1,186 @@
+PECMD harmony on
+PEPROXY source=complete captureCount=0 pending=0 
+PEPROXY source=complete captureCount=0 pending=0 
+PEPROXY source=complete captureCount=0 pending=0 
+PEPROXY source=complete captureCount=0 pending=0 
+PEPROXY source=complete captureCount=0 pending=0 
+PEPROXY source=complete captureCount=0 pending=0 
+PEPROXY source=complete captureCount=0 pending=0 
+PEPROXY source=complete captureCount=0 pending=0 
+PEPROXY source=complete captureCount=0 pending=0 
+PEPROXY source=complete captureCount=0 pending=0 
+PEPROXY source=complete captureCount=0 pending=0 
+PEPROXY source=complete captureCount=0 pending=0 
+PETOOLS Optional(PowerEmu.GuestTools.State.upToDate("2.18"))
+PECMD harmony on
+PEWIN count=0 harmony=false
+PEDOCK reaped 3 tile(s) from a previous run
+PEAGENT harmony on
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=0
+PEDOCK built System Preferences at /Users/adam/Library/Caches/PowerEmu/GuestApps/System Preferences.app
+PEDOCK built pesheetfixture at /Users/adam/Library/Caches/PowerEmu/GuestApps/pesheetfixture.app
+PEDOCK built Finder at /Users/adam/Library/Caches/PowerEmu/GuestApps/Finder.app
+PEDOCK icon for 384: 19269 bytes
+PEDOCK starting System Preferences
+PEDOCK icon for 711: 19176 bytes
+PEDOCK starting pesheetfixture
+PEDOCK keep: System Preferences[icon=1,run=1] Finder[icon=0,run=0] pesheetfixture[icon=1,run=1]
+PEDOCK icon for 879: 14507 bytes
+PEDOCK starting Finder
+PEDECODE meanMS=0.175 worker=serial
+PEWINDOWFRAME count=30 meanRoundTripMS=76.8 bytes=4105
+PEFRAMEBATCH full=15 fullMeanMS=89.0 unchanged=15 unchangedMeanMS=64.5 bytes=280491
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK keep: System Preferences[icon=1,run=1] Finder[icon=1,run=1] pesheetfixture[icon=1,run=1]
+PEDECODE meanMS=0.193 worker=serial
+PEWINDOWFRAME count=60 meanRoundTripMS=53.4 bytes=3566
+PEFRAMEBATCH full=27 fullMeanMS=29.8 unchanged=3 unchangedMeanMS=31.7 bytes=95832
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDECODE meanMS=0.196 worker=serial
+PEWINDOWFRAME count=90 meanRoundTripMS=45.2 bytes=3539
+PEFRAMEBATCH full=27 fullMeanMS=28.5 unchanged=3 unchangedMeanMS=31.7 bytes=96958
+PEDOCK keep: System Preferences[icon=1,run=1] Finder[icon=1,run=1] pesheetfixture[icon=1,run=1]
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDECODE meanMS=0.193 worker=serial
+PEWINDOWFRAME count=120 meanRoundTripMS=41.4 bytes=17
+PEFRAMEBATCH full=24 fullMeanMS=29.8 unchanged=6 unchangedMeanMS=30.8 bytes=88746
+PEDOCK keep: System Preferences[icon=1,run=1] Finder[icon=1,run=1] pesheetfixture[icon=1,run=1]
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDECODE meanMS=0.193 worker=serial
+PEWINDOWFRAME count=150 meanRoundTripMS=39.3 bytes=3542
+PEFRAMEBATCH full=26 fullMeanMS=29.9 unchanged=4 unchangedMeanMS=36.9 bytes=94695
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK keep: System Preferences[icon=1,run=1] Finder[icon=1,run=1] pesheetfixture[icon=1,run=1]
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDECODE meanMS=0.194 worker=serial
+PEWINDOWFRAME count=180 meanRoundTripMS=37.8 bytes=3564
+PEFRAMEBATCH full=27 fullMeanMS=29.1 unchanged=3 unchangedMeanMS=39.9 bytes=99450
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK keep: System Preferences[icon=1,run=1] Finder[icon=1,run=1] pesheetfixture[icon=1,run=1]
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDECODE meanMS=0.192 worker=serial
+PEWINDOWFRAME count=210 meanRoundTripMS=36.5 bytes=17
+PEFRAMEBATCH full=26 fullMeanMS=28.8 unchanged=4 unchangedMeanMS=27.9 bytes=93462
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK keep: System Preferences[icon=1,run=1] Finder[icon=1,run=1] pesheetfixture[icon=1,run=1]
+PEDECODE meanMS=0.192 worker=serial
+PEWINDOWFRAME count=240 meanRoundTripMS=35.8 bytes=3554
+PEFRAMEBATCH full=26 fullMeanMS=28.8 unchanged=4 unchangedMeanMS=43.2 bytes=97016
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDECODE meanMS=0.193 worker=serial
+PEWINDOWFRAME count=270 meanRoundTripMS=35.0 bytes=3520
+PEFRAMEBATCH full=26 fullMeanMS=27.6 unchanged=4 unchangedMeanMS=34.9 bytes=95679
+PEDOCK keep: System Preferences[icon=1,run=1] Finder[icon=1,run=1] pesheetfixture[icon=1,run=1]
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEPROXY source=complete captureCount=291 pending=136 100:frame=(100,342,640,462),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 102:frame=(208,642,424,140),vis=1,a=1.00,contents=1,lvl=0,sheetParent=100,attachedTo=100,dragImage=0 121:frame=(202,772,437,10),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 136:frame=(465,610,750,436),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 58:frame=(506,126,668,597),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder,probe tiles=3
+PEDOCK built probe at /Users/adam/Library/Caches/PowerEmu/GuestApps/probe.app
+PEDOCK icon for 888: 19176 bytes
+PEDOCK starting probe
+PEDOCK keep: System Preferences[icon=1,run=1] Finder[icon=1,run=1] probe[icon=1,run=1] pesheetfixture[icon=1,run=1]
+PEDECODE meanMS=0.191 worker=serial
+PEWINDOWFRAME count=300 meanRoundTripMS=36.8 bytes=18
+PEFRAMEBATCH full=17 fullMeanMS=66.8 unchanged=13 unchangedMeanMS=35.9 bytes=343075
+PEPROXY source=complete captureCount=302 pending=0 100:frame=(100,342,640,462),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 102:frame=(208,642,424,140),vis=1,a=1.00,contents=1,lvl=0,sheetParent=100,attachedTo=100,dragImage=0 121:frame=(202,772,437,10),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 136:frame=(465,610,750,436),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 58:frame=(506,126,668,597),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder,probe tiles=4
+PEPROXY source=complete captureCount=305 pending=58 100:frame=(100,342,640,462),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 102:frame=(208,642,424,140),vis=1,a=1.00,contents=1,lvl=0,sheetParent=100,attachedTo=100,dragImage=0 121:frame=(202,772,437,10),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 136:frame=(465,610,750,436),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 58:frame=(506,126,668,597),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder,Finder,probe tiles=4
+PEPROXY source=complete captureCount=311 pending=0 100:frame=(100,342,640,462),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 102:frame=(208,642,424,140),vis=1,a=1.00,contents=1,lvl=0,sheetParent=100,attachedTo=100,dragImage=0 121:frame=(202,772,437,10),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 136:frame=(465,610,750,436),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 137:frame=(687,928,178,17),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=1 58:frame=(506,126,668,597),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0
+PEDOCK keep: System Preferences[icon=1,run=1] Finder[icon=1,run=1] probe[icon=1,run=1] pesheetfixture[icon=1,run=1]
+PEPROXY source=complete captureCount=318 pending=0 100:frame=(100,342,640,462),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 102:frame=(208,642,424,140),vis=1,a=1.00,contents=1,lvl=0,sheetParent=100,attachedTo=100,dragImage=0 121:frame=(202,772,437,10),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 136:frame=(465,610,750,436),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 137:frame=(703,928,178,17),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=1 58:frame=(506,126,668,597),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder,Finder,probe tiles=4
+PEPROXY source=complete captureCount=323 pending=0 100:frame=(100,342,640,462),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 102:frame=(208,642,424,140),vis=1,a=1.00,contents=1,lvl=0,sheetParent=100,attachedTo=100,dragImage=0 121:frame=(202,772,437,10),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 136:frame=(465,610,750,436),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 137:frame=(687,928,178,17),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=1 58:frame=(506,126,668,597),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder,Finder,probe tiles=4
+PEPROXY source=complete captureCount=327 pending=0 100:frame=(100,342,640,462),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 102:frame=(208,642,424,140),vis=1,a=1.00,contents=1,lvl=0,sheetParent=100,attachedTo=100,dragImage=0 121:frame=(202,772,437,10),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 136:frame=(465,610,750,436),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 137:frame=(703,928,178,17),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=1 58:frame=(506,126,668,597),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder,Finder,probe tiles=4
+PEDOCK keep: System Preferences[icon=1,run=1] Finder[icon=1,run=1] probe[icon=1,run=1] pesheetfixture[icon=1,run=1]
+PEPROXY source=complete captureCount=329 pending=0 100:frame=(100,342,640,462),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 102:frame=(208,642,424,140),vis=1,a=1.00,contents=1,lvl=0,sheetParent=100,attachedTo=100,dragImage=0 121:frame=(202,772,437,10),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 136:frame=(465,610,750,436),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 137:frame=(687,928,178,17),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=1 58:frame=(506,126,668,597),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0
+PEDECODE meanMS=0.177 worker=serial
+PEWINDOWFRAME count=330 meanRoundTripMS=36.7 bytes=18
+PEFRAMEBATCH full=2 fullMeanMS=34.5 unchanged=28 unchangedMeanMS=35.2 bytes=131924
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder,Finder,probe tiles=4
+PEPROXY source=complete captureCount=333 pending=0 100:frame=(100,342,640,462),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 102:frame=(208,642,424,140),vis=1,a=1.00,contents=1,lvl=0,sheetParent=100,attachedTo=100,dragImage=0 121:frame=(202,772,437,10),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 136:frame=(465,610,750,436),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 137:frame=(703,928,178,17),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=1 58:frame=(506,126,668,597),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=4
+PEPROXY source=complete captureCount=335 pending=0 100:frame=(100,342,640,462),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 102:frame=(208,642,424,140),vis=1,a=1.00,contents=1,lvl=0,sheetParent=100,attachedTo=100,dragImage=0 121:frame=(202,772,437,10),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 136:frame=(465,610,750,436),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 137:frame=(645,958,178,17),vis=0,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 58:frame=(506,126,668,597),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0
+PEDOCK keep: System Preferences[icon=1,run=1] Finder[icon=1,run=1] pesheetfixture[icon=1,run=1]
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEPROXY source=complete captureCount=338 pending=0 100:frame=(100,342,640,462),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 102:frame=(208,642,424,140),vis=1,a=1.00,contents=1,lvl=0,sheetParent=100,attachedTo=100,dragImage=0 121:frame=(202,772,437,10),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 136:frame=(465,610,750,436),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 137:frame=(645,958,178,17),vis=0,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 58:frame=(506,126,668,597),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEPROXY source=complete captureCount=340 pending=0 100:frame=(100,342,640,462),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 102:frame=(208,642,424,140),vis=1,a=1.00,contents=1,lvl=0,sheetParent=100,attachedTo=100,dragImage=0 121:frame=(202,772,437,10),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 136:frame=(465,610,750,436),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 58:frame=(506,126,668,597),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK keep: System Preferences[icon=1,run=1] Finder[icon=1,run=1] pesheetfixture[icon=1,run=1]
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK keep: System Preferences[icon=1,run=1] Finder[icon=1,run=1] pesheetfixture[icon=1,run=1]
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK keep: System Preferences[icon=1,run=1] Finder[icon=1,run=1] pesheetfixture[icon=1,run=1]
+PEDECODE meanMS=0.163 worker=serial
+PEWINDOWFRAME count=360 meanRoundTripMS=37.6 bytes=17
+PEFRAMEBATCH full=0 fullMeanMS=0.0 unchanged=30 unchangedMeanMS=47.8 bytes=527
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK keep: System Preferences[icon=1,run=1] Finder[icon=1,run=1] pesheetfixture[icon=1,run=1]
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK keep: System Preferences[icon=1,run=1] Finder[icon=1,run=1] pesheetfixture[icon=1,run=1]
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK keep: System Preferences[icon=1,run=1] Finder[icon=1,run=1] pesheetfixture[icon=1,run=1]
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK keep: System Preferences[icon=1,run=1] Finder[icon=1,run=1] pesheetfixture[icon=1,run=1]
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDECODE meanMS=0.152 worker=serial
+PEWINDOWFRAME count=390 meanRoundTripMS=38.3 bytes=17
+PEFRAMEBATCH full=0 fullMeanMS=0.0 unchanged=30 unchangedMeanMS=46.4 bytes=528
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK keep: System Preferences[icon=1,run=1] Finder[icon=1,run=1] pesheetfixture[icon=1,run=1]
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK keep: System Preferences[icon=1,run=1] Finder[icon=1,run=1] pesheetfixture[icon=1,run=1]
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDECODE meanMS=0.142 worker=serial
+PEWINDOWFRAME count=420 meanRoundTripMS=38.6 bytes=17
+PEFRAMEBATCH full=0 fullMeanMS=0.0 unchanged=30 unchangedMeanMS=43.1 bytes=528
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK keep: System Preferences[icon=1,run=1] Finder[icon=1,run=1] pesheetfixture[icon=1,run=1]
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK keep: System Preferences[icon=1,run=1] Finder[icon=1,run=1] pesheetfixture[icon=1,run=1]
+PEDECODE meanMS=0.133 worker=serial
+PEWINDOWFRAME count=450 meanRoundTripMS=38.7 bytes=17
+PEFRAMEBATCH full=0 fullMeanMS=0.0 unchanged=30 unchangedMeanMS=39.3 bytes=528
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK keep: System Preferences[icon=1,run=1] Finder[icon=1,run=1] pesheetfixture[icon=1,run=1]
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDECODE meanMS=0.125 worker=serial
+PEWINDOWFRAME count=480 meanRoundTripMS=39.1 bytes=17
+PEFRAMEBATCH full=0 fullMeanMS=0.0 unchanged=30 unchangedMeanMS=45.7 bytes=528
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK keep: System Preferences[icon=1,run=1] Finder[icon=1,run=1] pesheetfixture[icon=1,run=1]
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK keep: System Preferences[icon=1,run=1] Finder[icon=1,run=1] pesheetfixture[icon=1,run=1]
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDECODE meanMS=0.118 worker=serial
+PEWINDOWFRAME count=510 meanRoundTripMS=39.3 bytes=17
+PEFRAMEBATCH full=0 fullMeanMS=0.0 unchanged=30 unchangedMeanMS=43.3 bytes=528
+PEDOCK keep: System Preferences[icon=1,run=1] Finder[icon=1,run=1] pesheetfixture[icon=1,run=1]
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder tiles=3
+PEDOCK keep: System Preferences[icon=1,run=1] Finder[icon=1,run=1] pesheetfixture[icon=1,run=1]

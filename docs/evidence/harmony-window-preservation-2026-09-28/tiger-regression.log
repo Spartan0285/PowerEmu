@@ -1,0 +1,5 @@
+PASS preserved PE-preserve-A (1 windows)
+PASS preserved PE-preserve-B (2 windows)
+PASS preserved PE-preserve-after-toggle (1 windows)
+PASS preserved PE-preserve-after-exit (1 windows)
+PASS production Harmony entry, rapid off/on, and exit delays

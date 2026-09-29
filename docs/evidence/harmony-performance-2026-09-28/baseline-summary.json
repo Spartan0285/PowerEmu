@@ -1,0 +1,58 @@
+{
+  "0": {
+    "setupMS": {
+      "medianMS": 9.173,
+      "p95MS": 10.698
+    },
+    "captureMS": {
+      "medianMS": 30.853,
+      "p95MS": 38.179
+    },
+    "compareMS": {
+      "medianMS": 0.126,
+      "p95MS": 0.26
+    },
+    "cacheMS": {
+      "medianMS": 3.816,
+      "p95MS": 5.362
+    },
+    "compressMS": {
+      "medianMS": 28.838,
+      "p95MS": 47.068
+    },
+    "totalMS": {
+      "medianMS": 73.457,
+      "p95MS": 104.175
+    },
+    "samples": 38
+  },
+  "1": {
+    "setupMS": {
+      "medianMS": 9.398,
+      "p95MS": 10.946
+    },
+    "captureMS": {
+      "medianMS": 31.632,
+      "p95MS": 37.567
+    },
+    "compareMS": {
+      "medianMS": 1.19,
+      "p95MS": 1.4
+    },
+    "cacheMS": {
+      "medianMS": 3.958,
+      "p95MS": 4.759
+    },
+    "compressMS": {
+      "medianMS": 0.0,
+      "p95MS": 0.0
+    },
+    "totalMS": {
+      "medianMS": 46.447,
+      "p95MS": 54.392
+    },
+    "samples": 38
+  },
+  "conditions": "Tiger 10.4.11 isolated clone, two CPUs; 615x407 stationary Finder window; 80 requests alternating forced full and acknowledged unchanged; first four excluded. Test agent connected through an SSH reverse tunnel, not the production guestfwd bridge. User VM remained running; results include concurrent host load. Forced full frames measure compression of stationary contents, not animation. Local socket writes are not end-to-end latency.",
+  "baselineAgentSHA256": "44b759cfd6ea4b101703b58417ce2fe105f4f16368b4aeebab9ae44a118198ba"
+}

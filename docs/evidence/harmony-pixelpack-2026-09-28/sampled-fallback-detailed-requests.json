@@ -1,0 +1,58 @@
+[
+  {
+    "seq": 1,
+    "encoding": 1,
+    "bytes": 2205036,
+    "pixelSHA256": "44671a1086d51f56252452bd4c10b3fbd8a829d334c54756e8610ec329d7d2f1",
+    "roundTripMS": 987.0788749540225
+  },
+  {
+    "seq": 2,
+    "encoding": 1,
+    "bytes": 2205036,
+    "pixelSHA256": "44671a1086d51f56252452bd4c10b3fbd8a829d334c54756e8610ec329d7d2f1",
+    "roundTripMS": 976.6567090991884
+  },
+  {
+    "seq": 3,
+    "encoding": 1,
+    "bytes": 2205036,
+    "pixelSHA256": "44671a1086d51f56252452bd4c10b3fbd8a829d334c54756e8610ec329d7d2f1",
+    "roundTripMS": 977.1976670017466
+  },
+  {
+    "seq": 4,
+    "encoding": 1,
+    "bytes": 2205036,
+    "pixelSHA256": "44671a1086d51f56252452bd4c10b3fbd8a829d334c54756e8610ec329d7d2f1",
+    "roundTripMS": 1031.0765840113163
+  },
+  {
+    "seq": 5,
+    "encoding": 1,
+    "bytes": 2205036,
+    "pixelSHA256": "44671a1086d51f56252452bd4c10b3fbd8a829d334c54756e8610ec329d7d2f1",
+    "roundTripMS": 1056.9641250185668
+  },
+  {
+    "seq": 6,
+    "encoding": 1,
+    "bytes": 2205036,
+    "pixelSHA256": "44671a1086d51f56252452bd4c10b3fbd8a829d334c54756e8610ec329d7d2f1",
+    "roundTripMS": 1004.9874170217663
+  },
+  {
+    "seq": 7,
+    "encoding": 1,
+    "bytes": 2205036,
+    "pixelSHA256": "44671a1086d51f56252452bd4c10b3fbd8a829d334c54756e8610ec329d7d2f1",
+    "roundTripMS": 1032.2432919638231
+  },
+  {
+    "seq": 8,
+    "encoding": 1,
+    "bytes": 2205036,
+    "pixelSHA256": "44671a1086d51f56252452bd4c10b3fbd8a829d334c54756e8610ec329d7d2f1",
+    "roundTripMS": 997.7507499279454
+  }
+]

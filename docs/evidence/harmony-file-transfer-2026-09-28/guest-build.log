@@ -1,0 +1,38 @@
+mkdir -p build
+gcc-4.0 -arch ppc -isysroot /Developer/SDKs/MacOSX10.4u.sdk -mmacosx-version-min=10.4 -Os -Wall -Wno-unused-parameter -arch ppc -isysroot /Developer/SDKs/MacOSX10.4u.sdk -Wl,-syslibroot,/Developer/SDKs/MacOSX10.4u.sdk -mmacosx-version-min=10.4 -o build/PowerEmuAgent src/PEAgent.m -framework Cocoa -framework Carbon -lz
+rm -rf "build/PowerEmu Agent.app"; mkdir -p "build/PowerEmu Agent.app/Contents/MacOS"
+cp build/PowerEmuAgent "build/PowerEmu Agent.app/Contents/MacOS/PowerEmu Agent"
+cp Resources/Agent-Info.plist "build/PowerEmu Agent.app/Contents/Info.plist"
+mkdir -p build
+gcc-4.0 -arch ppc -isysroot /Developer/SDKs/MacOSX10.4u.sdk -mmacosx-version-min=10.4 -Os -Wall -Wno-unused-parameter -arch ppc -isysroot /Developer/SDKs/MacOSX10.4u.sdk -Wl,-syslibroot,/Developer/SDKs/MacOSX10.4u.sdk -mmacosx-version-min=10.4 -o build/PowerEmuClock src/PEClock.c
+mkdir -p build
+gcc-4.0 -arch ppc -isysroot /Developer/SDKs/MacOSX10.4u.sdk -mmacosx-version-min=10.4 -Os -Wall -Wno-unused-parameter -arch ppc -isysroot /Developer/SDKs/MacOSX10.4u.sdk -Wl,-syslibroot,/Developer/SDKs/MacOSX10.4u.sdk -mmacosx-version-min=10.4 -o build/PowerEmuInstaller src/PEInstaller.m -framework Cocoa -framework Security
+rm -rf "build/Install PowerEmu Tools.app"; mkdir -p "build/Install PowerEmu Tools.app/Contents/MacOS" "build/Install PowerEmu Tools.app/Contents/Resources"
+cp build/PowerEmuInstaller "build/Install PowerEmu Tools.app/Contents/MacOS/Install PowerEmu Tools"
+cp Resources/Installer-Info.plist "build/Install PowerEmu Tools.app/Contents/Info.plist"
+cp Resources/PowerEmu.icns "build/Install PowerEmu Tools.app/Contents/Resources/"
+rm -rf "build/Uninstall PowerEmu Tools.app"; mkdir -p "build/Uninstall PowerEmu Tools.app/Contents/MacOS" "build/Uninstall PowerEmu Tools.app/Contents/Resources"
+cp build/PowerEmuInstaller "build/Uninstall PowerEmu Tools.app/Contents/MacOS/Uninstall PowerEmu Tools"
+cp Resources/Uninstaller-Info.plist "build/Uninstall PowerEmu Tools.app/Contents/Info.plist"
+cp Resources/PowerEmu.icns "build/Uninstall PowerEmu Tools.app/Contents/Resources/"
+cp -R "build/PowerEmu Agent.app" "build/Install PowerEmu Tools.app/Contents/Resources/"
+cp build/PowerEmuClock Resources/com.spartan0285.poweremu.clock.plist "build/Install PowerEmu Tools.app/Contents/Resources/"
+2026-09-28 21:49:30.491 packagemaker[5882:10b] Setting to : 0 (null)
+2026-09-28 21:49:30.497 packagemaker[5882:10b] Setting to : 0 (null)
+2026-09-28 21:49:30.502 packagemaker[5882:10b] relocate: (null) 0
+2026-09-28 21:49:30.506 packagemaker[5882:10b] Setting to : 0 com.spartan0285.poweremu.tools-install
+2026-09-28 21:49:32.004 packagemaker[5901:10b] Setting to : 0 (null)
+2026-09-28 21:49:32.009 packagemaker[5901:10b] Setting to : 0 (null)
+2026-09-28 21:49:32.015 packagemaker[5901:10b] relocate: (null) 0
+2026-09-28 21:49:32.018 packagemaker[5901:10b] Setting to : 0 com.spartan0285.poweremu.tools-uninstall
+Install PowerEmu Tools.app
+Install PowerEmu Tools.pkg
+PowerEmu Agent.app
+PowerEmuClock
+Uninstall PowerEmu Tools.app
+Uninstall PowerEmu Tools.pkg
+pecapturecheck
+pefiletransferprobe
+pepixelpackcheck
+pewindowcapture
+pixelpack-fixtures.bin

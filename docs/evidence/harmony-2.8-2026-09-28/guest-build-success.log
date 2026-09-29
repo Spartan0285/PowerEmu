@@ -1,0 +1,27 @@
+mkdir -p build
+gcc-4.0 -arch ppc -isysroot /Developer/SDKs/MacOSX10.4u.sdk -mmacosx-version-min=10.4 -Os -Wall -Wno-unused-parameter -arch ppc -isysroot /Developer/SDKs/MacOSX10.4u.sdk -Wl,-syslibroot,/Developer/SDKs/MacOSX10.4u.sdk -mmacosx-version-min=10.4 -o build/PowerEmuAgent src/PEAgent.m -framework Cocoa -framework Carbon -lz
+src/PEAgent.m: In function '-[PEAgent handle:payload:]':
+src/PEAgent.m:764: warning: 'PEAgent' may not respond to '-minimizeWindow:'
+src/PEAgent.m:764: warning: (Messages without a matching method signature
+src/PEAgent.m:764: warning: will be assumed to return 'id' and accept
+src/PEAgent.m:764: warning: '...' as arguments.)
+src/PEAgent.m: In function '-[PEAgent harmony:]':
+src/PEAgent.m:978: warning: 'PEAgent' may not respond to '-setMinimiseEffect:'
+src/PEAgent.m:980: warning: 'PEAgent' may not respond to '-setMinimiseEffect:'
+rm -rf "build/PowerEmu Agent.app"; mkdir -p "build/PowerEmu Agent.app/Contents/MacOS"
+cp build/PowerEmuAgent "build/PowerEmu Agent.app/Contents/MacOS/PowerEmu Agent"
+cp Resources/Agent-Info.plist "build/PowerEmu Agent.app/Contents/Info.plist"
+mkdir -p build
+gcc-4.0 -arch ppc -isysroot /Developer/SDKs/MacOSX10.4u.sdk -mmacosx-version-min=10.4 -Os -Wall -Wno-unused-parameter -arch ppc -isysroot /Developer/SDKs/MacOSX10.4u.sdk -Wl,-syslibroot,/Developer/SDKs/MacOSX10.4u.sdk -mmacosx-version-min=10.4 -o build/PowerEmuClock src/PEClock.c
+mkdir -p build
+gcc-4.0 -arch ppc -isysroot /Developer/SDKs/MacOSX10.4u.sdk -mmacosx-version-min=10.4 -Os -Wall -Wno-unused-parameter -arch ppc -isysroot /Developer/SDKs/MacOSX10.4u.sdk -Wl,-syslibroot,/Developer/SDKs/MacOSX10.4u.sdk -mmacosx-version-min=10.4 -o build/PowerEmuInstaller src/PEInstaller.m -framework Cocoa -framework Security
+rm -rf "build/Install PowerEmu Tools.app"; mkdir -p "build/Install PowerEmu Tools.app/Contents/MacOS" "build/Install PowerEmu Tools.app/Contents/Resources"
+cp build/PowerEmuInstaller "build/Install PowerEmu Tools.app/Contents/MacOS/Install PowerEmu Tools"
+cp Resources/Installer-Info.plist "build/Install PowerEmu Tools.app/Contents/Info.plist"
+cp -R "build/PowerEmu Agent.app" "build/Install PowerEmu Tools.app/Contents/Resources/"
+cp build/PowerEmuClock Resources/com.spartan0285.poweremu.clock.plist "build/Install PowerEmu Tools.app/Contents/Resources/"
+Install PowerEmu Tools.app
+PowerEmu Agent.app
+PowerEmuClock
+pecapturecheck
+pewindowcapture

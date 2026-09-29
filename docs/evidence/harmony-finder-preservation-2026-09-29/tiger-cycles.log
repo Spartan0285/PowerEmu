@@ -1,0 +1,12 @@
+ 1605  ??  S      0:26.73 /System/Library/CoreServices/Finder.app/Contents/MacOS/Finder -psn_0_16908289
+ 1904  ??  Ss     0:00.06 bash -c ps -axww | grep Finder.app; /tmp/pekeepfinder219; result=$?; ps -axww | grep Finder.app; exit $result
+ 1906  ??  R      0:00.04 grep Finder.app
+PASS preserved PE-keep-B (6 windows)
+PASS cycle 1: same Finder window IDs; desktop excluded
+PASS preserved PE-keep-B (6 windows)
+PASS cycle 2: same Finder window IDs; desktop excluded
+PASS preserved PE-keep-B (6 windows)
+PASS cycle 3: same Finder window IDs; desktop excluded
+ 1605  ??  S      0:29.37 /System/Library/CoreServices/Finder.app/Contents/MacOS/Finder -psn_0_16908289
+ 1904  ??  Ss     0:00.08 bash -c ps -axww | grep Finder.app; /tmp/pekeepfinder219; result=$?; ps -axww | grep Finder.app; exit $result
+ 1939  ??  R      0:00.04 grep Finder.app

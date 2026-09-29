@@ -1,0 +1,3 @@
+PASS: directory, Unicode/newline names, data/resource forks, collision refusal, symlink refusal, malformed archives
+PASS: persistent image transport, simultaneous control, stale session rejection, control reconnect
+PASS: native promise delegates, receiver-selected names, serialized exports, active + queued disconnect completion

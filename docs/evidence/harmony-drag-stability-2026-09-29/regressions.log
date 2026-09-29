@@ -1,0 +1,4 @@
+PASS: drag image classification precedes geometry; invalid IDs rejected; dismissal clears IDs
+PASS: persistent image transport, simultaneous control, stale session rejection, control reconnect
+PASS: native promise delegates, receiver-selected names, serialized exports, active + queued disconnect completion
+PASS: packaged app strict/deep signature verification

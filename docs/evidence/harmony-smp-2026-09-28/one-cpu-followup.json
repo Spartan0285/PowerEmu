@@ -1,0 +1,30 @@
+{
+  "qmp_capabilities": {
+    "return": {}
+  },
+  "query-cpus-fast": {
+    "return": [
+      {
+        "thread-id": 98387,
+        "qom-path": "/machine/unattached/device[0]",
+        "cpu-index": 0,
+        "target": "ppc64"
+      }
+    ]
+  },
+  "human-monitor-command": {
+    "return": ""
+  },
+  "stop": {
+    "return": {}
+  },
+  "quit": {
+    "return": {}
+  },
+  "offline_check": {
+    "exit": 0,
+    "output": "{\n    \"image-end-offset\": 11375149056,\n    \"total-clusters\": 327680,\n    \"check-errors\": 0,\n    \"allocated-clusters\": 166582,\n    \"filename\": \"/Users/adam/Developer/PowerEmu/build/integration-tests/leopard-retry-1/Support/Virtual Machines/Leopard.poweremu/Disks/Macintosh HD.qcow2\",\n    \"format\": \"qcow2\",\n    \"fragmented-clusters\": 1296\n}\n"
+  },
+  "memory_marker_readback": "combined-memory-1790567749483459000",
+  "note": "The original harness failed on exact kern.boottime equality (five-second shift). Follow-up verified the unique in-memory server response and -loadvm launch argument. Original result retained."
+}

@@ -1,0 +1,13 @@
+PECMD harmony off
+PEAGENT harmony off
+PECMD harmony on
+PEAGENT harmony on
+PECMD harmony off
+PEAGENT harmony off
+PECMD harmony on
+PEAGENT harmony on
+PECMD harmony off
+PEAGENT harmony off
+PECMD harmony on
+PEAGENT harmony on
+PEPROXY source=complete captureCount=29573 pending=0 100:frame=(100,342,640,462),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 102:frame=(208,642,424,140),vis=1,a=1.00,contents=1,lvl=0,sheetParent=100,attachedTo=100,dragImage=0 121:frame=(202,772,437,10),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 144:frame=(465,628,896,436),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 145:frame=(4,730,750,436),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 146:frame=(24,710,750,436),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0 58:frame=(506,126,668,597),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0,dragImage=0

@@ -1,0 +1,16 @@
+installer package exit=0
+Install PowerEmu Tools
+
+uninstaller package exit=0
+Uninstall PowerEmu Tools
+
+install helper exit=0
+
+installed file exit=0
+
+uninstall helper exit=0
+
+removed file exit=0
+
+reinstall helper exit=0
+No matching processes belonging to you were found

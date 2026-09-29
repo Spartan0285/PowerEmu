@@ -1,0 +1,11 @@
+request=1 accepted=0 encoding=1 size=615x407 bytes=33514 elapsed_ms=85.05
+request=2 accepted=1 encoding=2 size=615x407 bytes=15 elapsed_ms=43.55
+request=3 accepted=0 encoding=1 size=615x407 bytes=33514 elapsed_ms=59.63
+request=4 accepted=2 encoding=1 size=615x407 bytes=33514 elapsed_ms=70.65
+request=5 accepted=0 encoding=0 size=0x0 bytes=11 elapsed_ms=0.28
+request=6 accepted=4 encoding=2 size=615x407 bytes=15 elapsed_ms=42.40
+request=7 accepted=6 encoding=2 size=615x407 bytes=15 elapsed_ms=33.23
+request=8 accepted=0 encoding=1 size=1680x1088 bytes=31935 elapsed_ms=438.07
+request=9 accepted=7 encoding=2 size=615x407 bytes=15 elapsed_ms=43.73
+PASS checks exercised: scratch isolation, cleared corners, context size replacement
+PASS: complete frame, unchanged acknowledgment, missing/stale base, invalid window

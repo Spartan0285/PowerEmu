@@ -43,6 +43,8 @@ struct VMConfig: Codable, Equatable {
     /// The processor Mac OS X reports, in MHz: cosmetic only, the emulated
     /// CPU runs the same whatever it says. nil = the emulator's own figure.
     var cpuMHz: Int?
+    /// One CPU preserves existing packages; two requires the experimental helper.
+    var cpuCount: Int = 1
     var memoryMB: Int = 2048
 
     var disks: [DiskConfig] = []
@@ -85,7 +87,7 @@ struct VMConfig: Codable, Equatable {
     var embeddedDisplay = true
     /// Video memory of the emulated Radeon, in MB: 64, 128 or 256 (the
     /// driver sees 4 MB less).  More than 64 needs poweremu-qemu's wider
-    /// uni-north PCI window.
+    /// uni-north PCI window and matching Open Firmware ranges.
     var vramMB = 128
     static let vramChoices = [64, 128, 256]
     /// "seamless" (USB tablet: the pointer moves in and out freely) or
@@ -141,7 +143,7 @@ struct VMConfig: Codable, Equatable {
     init(name: String) { self.name = name }
 
     enum CodingKeys: String, CodingKey {
-        case name, osName, model, cpuMHz, memoryMB, disks, startupDisk, discs, insertedDisc, discRecordable, bootFromDisc
+        case name, osName, model, cpuMHz, cpuCount, memoryMB, disks, startupDisk, discs, insertedDisc, discRecordable, bootFromDisc
         case hardwareCursor, extraDisplayModes, startFullscreen, embeddedDisplay, vramMB, mouseMode
         case bootChime, chimeSound, chimeFile, bootWidth, bootHeight, autoStart, verboseBoot, safeBoot, singleUser, audio, network, sshPort, shareClipboard, sharedFolders
         case agpBridge, monitorPort, gpuTrace, extraQEMUArgs, gamepad, shareOnNetwork, bridgedInterface
@@ -157,6 +159,10 @@ struct VMConfig: Codable, Equatable {
         try get(.osName, &d.osName); try get(.memoryMB, &d.memoryMB)
         d.model = try c.decodeIfPresent(String.self, forKey: .model)
         d.cpuMHz = try c.decodeIfPresent(Int.self, forKey: .cpuMHz)
+        try get(.cpuCount, &d.cpuCount)
+        guard [1, 2].contains(d.cpuCount) else {
+            throw DecodingError.dataCorruptedError(forKey: .cpuCount, in: c, debugDescription: "CPU count must be 1 or 2")
+        }
         try get(.disks, &d.disks)
         d.startupDisk = try c.decodeIfPresent(UUID.self, forKey: .startupDisk)
         try get(.discs, &d.discs)

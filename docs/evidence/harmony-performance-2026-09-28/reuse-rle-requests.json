@@ -1,0 +1,482 @@
+[
+  {
+    "seq": 1,
+    "encoding": 1,
+    "bytes": 67646,
+    "roundTripMS": 164.9247909663245
+  },
+  {
+    "seq": 2,
+    "encoding": 2,
+    "bytes": 15,
+    "roundTripMS": 65.89633296243846
+  },
+  {
+    "seq": 3,
+    "encoding": 1,
+    "bytes": 67646,
+    "roundTripMS": 78.42625002376735
+  },
+  {
+    "seq": 4,
+    "encoding": 2,
+    "bytes": 15,
+    "roundTripMS": 70.41754201054573
+  },
+  {
+    "seq": 5,
+    "encoding": 1,
+    "bytes": 67646,
+    "roundTripMS": 79.1315829847008
+  },
+  {
+    "seq": 6,
+    "encoding": 2,
+    "bytes": 15,
+    "roundTripMS": 69.83612501062453
+  },
+  {
+    "seq": 7,
+    "encoding": 1,
+    "bytes": 67646,
+    "roundTripMS": 77.13424996472895
+  },
+  {
+    "seq": 8,
+    "encoding": 2,
+    "bytes": 15,
+    "roundTripMS": 67.81395804136992
+  },
+  {
+    "seq": 9,
+    "encoding": 1,
+    "bytes": 67646,
+    "roundTripMS": 75.94849995803088
+  },
+  {
+    "seq": 10,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 68.80524998996407
+  },
+  {
+    "seq": 11,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 75.42437489610165
+  },
+  {
+    "seq": 12,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 69.00308304466307
+  },
+  {
+    "seq": 13,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 78.87758396100253
+  },
+  {
+    "seq": 14,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 68.90325003769249
+  },
+  {
+    "seq": 15,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 76.79429196286947
+  },
+  {
+    "seq": 16,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 67.31974997092038
+  },
+  {
+    "seq": 17,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 76.21945906430483
+  },
+  {
+    "seq": 18,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 68.35216598119587
+  },
+  {
+    "seq": 19,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 76.788124977611
+  },
+  {
+    "seq": 20,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 69.37462498899549
+  },
+  {
+    "seq": 21,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 76.90004096366465
+  },
+  {
+    "seq": 22,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 68.52950004395097
+  },
+  {
+    "seq": 23,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 75.26933297049254
+  },
+  {
+    "seq": 24,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 69.00941696949303
+  },
+  {
+    "seq": 25,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 75.22883405908942
+  },
+  {
+    "seq": 26,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 67.61412497144192
+  },
+  {
+    "seq": 27,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 74.7969999210909
+  },
+  {
+    "seq": 28,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 68.5025000711903
+  },
+  {
+    "seq": 29,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 78.09641701169312
+  },
+  {
+    "seq": 30,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 70.17562491819263
+  },
+  {
+    "seq": 31,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 79.16033291257918
+  },
+  {
+    "seq": 32,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 70.38183300755918
+  },
+  {
+    "seq": 33,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 74.4966670172289
+  },
+  {
+    "seq": 34,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 68.76512500457466
+  },
+  {
+    "seq": 35,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 75.48995793331414
+  },
+  {
+    "seq": 36,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 69.14929102640599
+  },
+  {
+    "seq": 37,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 76.6966249793768
+  },
+  {
+    "seq": 38,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 68.01408401224762
+  },
+  {
+    "seq": 39,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 78.42775003518909
+  },
+  {
+    "seq": 40,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 67.94274994172156
+  },
+  {
+    "seq": 41,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 77.7156250551343
+  },
+  {
+    "seq": 42,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 69.2149589303881
+  },
+  {
+    "seq": 43,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 78.19200004450977
+  },
+  {
+    "seq": 44,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 69.54549998044968
+  },
+  {
+    "seq": 45,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 75.49333397764713
+  },
+  {
+    "seq": 46,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 68.78620793577284
+  },
+  {
+    "seq": 47,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 75.6811669562012
+  },
+  {
+    "seq": 48,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 70.7720419159159
+  },
+  {
+    "seq": 49,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 74.43454198073596
+  },
+  {
+    "seq": 50,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 69.93754196446389
+  },
+  {
+    "seq": 51,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 75.81883296370506
+  },
+  {
+    "seq": 52,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 71.07233291026205
+  },
+  {
+    "seq": 53,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 76.55145798344165
+  },
+  {
+    "seq": 54,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 69.37458296306431
+  },
+  {
+    "seq": 55,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 77.8049579821527
+  },
+  {
+    "seq": 56,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 69.19362500775605
+  },
+  {
+    "seq": 57,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 77.33029196970165
+  },
+  {
+    "seq": 58,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 68.46220802981406
+  },
+  {
+    "seq": 59,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 77.17762503307313
+  },
+  {
+    "seq": 60,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 69.16095898486674
+  },
+  {
+    "seq": 61,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 78.25679203961045
+  },
+  {
+    "seq": 62,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 70.01241703983396
+  },
+  {
+    "seq": 63,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 77.19620899297297
+  },
+  {
+    "seq": 64,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 68.59849998727441
+  },
+  {
+    "seq": 65,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 75.29287494253367
+  },
+  {
+    "seq": 66,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 68.73058306518942
+  },
+  {
+    "seq": 67,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 77.86137494258583
+  },
+  {
+    "seq": 68,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 69.78370901197195
+  },
+  {
+    "seq": 69,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 76.29829202778637
+  },
+  {
+    "seq": 70,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 68.73929197899997
+  },
+  {
+    "seq": 71,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 78.06587498635054
+  },
+  {
+    "seq": 72,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 68.62091599032283
+  },
+  {
+    "seq": 73,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 76.25291601289064
+  },
+  {
+    "seq": 74,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 67.89683399256319
+  },
+  {
+    "seq": 75,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 76.93795801606029
+  },
+  {
+    "seq": 76,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 68.51141597144306
+  },
+  {
+    "seq": 77,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 75.99962502717972
+  },
+  {
+    "seq": 78,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 68.0924589978531
+  },
+  {
+    "seq": 79,
+    "encoding": 1,
+    "bytes": 67647,
+    "roundTripMS": 77.58770801592618
+  },
+  {
+    "seq": 80,
+    "encoding": 2,
+    "bytes": 16,
+    "roundTripMS": 68.25483299326152
+  }
+]

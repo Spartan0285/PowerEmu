@@ -1,0 +1,20 @@
+{
+  "Install": {
+    "id": "com.spartan0285.poweremu.tools-install",
+    "authorization": "RootAuthorization",
+    "version": "2.13"
+  },
+  "Uninstall": {
+    "id": "com.spartan0285.poweremu.tools-uninstall",
+    "authorization": "RootAuthorization",
+    "version": "2.13"
+  },
+  "agent_sha256": "2e552a09cdbb90b674cb0a2eae26020ea278319b88a73b8628c677a2307d6034",
+  "host_sha256": "00bf52d49c11ca43aec3fff9b1b90feea6f63111aa98b1cdb444d0d18eb33fac",
+  "disc_entries": [
+    ".VolumeIcon.icns",
+    "Install PowerEmu Tools.pkg",
+    "Read Me.txt",
+    "Uninstall PowerEmu Tools.pkg"
+  ]
+}

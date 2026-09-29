@@ -1,0 +1,12 @@
+{
+  "tools_version": "2.12",
+  "app": "/Users/adam/Developer/PowerEmu/build/Harmony Tile Refresh/PowerEmu.app",
+  "guest_agent_sha256": "88e41922528ca500db8473ca5902df01c3e15c648313f5a3fe2f20577d6f4e00",
+  "host_sha256": "ec46e6de2856a7e611dbe857918ecd0444c63d489f28c332352ab300a2d210d9",
+  "sources": {
+    "guest/src/PEAgent.m": "1594f39940a732047fce41d78841ded9f3e89baf3e9d4aefcbeaed595b089f21",
+    "guest/src/PETilePack.h": "8c55c6498734910539e58d05a6c9a85bd8d235fc77274c21261f199b63619a80",
+    "app/Sources/PowerEmu/HarmonyWindowFrame.swift": "e649f739c3afdc2d765f2f14d840763edb5740a4ff350e42bddec5efdbb6d4c1",
+    "app/Sources/PowerEmu/HarmonyWindows.swift": "09d769f133c4808011d4a5969af5126d0f76065953ed94395a779b905ba17a28"
+  }
+}

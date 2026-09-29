@@ -108,7 +108,7 @@ final class ToolsAssistant: NSWindowController {
             actionButton.title = discIn ? "Disc Inserted" : "Insert Tools Disc"
             actionButton.isEnabled = !discIn
             stepLabel.stringValue = discIn
-                ? "In the virtual Mac, open the PowerEmu Tools disc and run Install PowerEmu Tools. "
+                ? "In the virtual Mac, open the PowerEmu Tools disc and open Install PowerEmu Tools.pkg. "
                 + "It will ask for an administrator's password — that is what lets PowerEmu move and "
                 + "raise the virtual Mac's windows."
                 : "Put the Tools disc into the virtual Mac's drive to begin."
@@ -128,7 +128,7 @@ final class ToolsAssistant: NSWindowController {
             actionButton.title = discIn ? "Disc Inserted" : "Insert Tools Disc"
             actionButton.isEnabled = !discIn
             stepLabel.stringValue = discIn
-                ? "In the virtual Mac, open the PowerEmu Tools disc and run Install PowerEmu Tools."
+                ? "In the virtual Mac, open the PowerEmu Tools disc and open Install PowerEmu Tools.pkg."
                 : "Put the Tools disc into the virtual Mac's drive to begin."
             spinner.startAnimation(nil)
         }

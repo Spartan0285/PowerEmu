@@ -1,0 +1,36 @@
+[TILE_PATH] rt_off=0x300000 path=present_blit_src_check tiling_applied=NO_TILED_SURFACE src_offset=0x300000 src_pitch=4096 mc_surface_found=no mc_slot=-1 mc_surf_base=0x0 mc_surf_pitch=0 skip=no src_po=0x50000c00 src_po_macro=1 note=blit_1024x768
+
+[FRAME_SUMMARY] frame=0 events=1 comp_rt=0 win_rt=0 present=0 fallback=1 host_upload=0 blit_upload=0 drag_copy=0 drag=0 mixed_owner=0 forced=0 remaining=0
+[FRAME_PASS] frame=0 pass=0
+  [FRAME_PASS] frame=0 pass=0 event=fallback_2d surface_id=0x300000 pitch=1024 class=visible_fb src_off=0x300000 dst_off=0x0 1024x768 src=(0,0) dst=(0,0) move=(0,0) srt=0
+[FRAME_SURFACE] frame=0 surface=0x300000 pitch=1024 class=visible_fb owners=cpu_present qe=0 cpu=1 drag=0 host=0 blit=0 render=0
+[FRAME_END] frame=0
+
+[TILE_PATH] rt_off=0x6f6000 path=present_blit_src_check tiling_applied=NO_TILED_SURFACE src_offset=0x6f6000 src_pitch=6912 mc_surface_found=no mc_slot=-1 mc_surf_base=0x0 mc_surf_pitch=0 skip=no src_po=0x5b001bd8 src_po_macro=1 note=blit_656x768
+[TILE_PATH] rt_off=0x6f6000 path=present_blit_src_check tiling_applied=NO_TILED_SURFACE src_offset=0x6f6000 src_pitch=6912 mc_surface_found=no mc_slot=-1 mc_surf_base=0x0 mc_surf_pitch=0 skip=no src_po=0x5b001bd8 src_po_macro=1 note=blit_1680x282
+
+[FRAME_SUMMARY] frame=1 events=3 comp_rt=0 win_rt=0 present=0 fallback=1 host_upload=0 blit_upload=0 drag_copy=0 drag=0 mixed_owner=0 forced=0 remaining=0
+[FRAME_PASS] frame=1 pass=0
+  [FRAME_PASS] frame=1 pass=0 event=fallback_2d surface_id=0x6f6000 pitch=1728 class=visible_fb src_off=0x6f6000 dst_off=0x0 656x768 src=(1024,0) dst=(1024,0) move=(0,0) srt=0
+  [FRAME_PASS] frame=1 pass=0 event=fallback_2d surface_id=0x6f6000 pitch=1728 class=visible_fb src_off=0x6f6000 dst_off=0x0 1680x282 src=(0,768) dst=(0,768) move=(0,0) srt=0
+  [FRAME_PASS] frame=1 pass=0 event=fallback_2d surface_id=0x6f6000 pitch=1728 class=visible_fb src_off=0x6f6000 dst_off=0x0 1680x1050 src=(0,0) dst=(0,0) move=(0,0) srt=0
+[FRAME_SURFACE] frame=1 surface=0x6f6000 pitch=1728 class=visible_fb owners=cpu_present qe=0 cpu=3 drag=0 host=0 blit=0 render=0
+[FRAME_END] frame=1
+
+
+[FRAME_SUMMARY] frame=2 events=1 comp_rt=0 win_rt=0 present=0 fallback=1 host_upload=0 blit_upload=0 drag_copy=0 drag=0 mixed_owner=0 forced=0 remaining=0
+[FRAME_PASS] frame=2 pass=0
+  [FRAME_PASS] frame=2 pass=0 event=fallback_2d surface_id=0x6f6000 pitch=1728 class=visible_fb src_off=0x6f6000 dst_off=0x0 1680x1050 src=(0,0) dst=(0,0) move=(0,0) srt=0
+[FRAME_SURFACE] frame=2 surface=0x6f6000 pitch=1728 class=visible_fb owners=cpu_present qe=0 cpu=1 drag=0 host=0 blit=0 render=0
+[FRAME_END] frame=2
+
+
+[FRAME_SUMMARY] frame=3 events=1 comp_rt=0 win_rt=0 present=0 fallback=1 host_upload=0 blit_upload=0 drag_copy=0 drag=0 mixed_owner=0 forced=0 remaining=0
+[FRAME_PASS] frame=3 pass=0
+  [FRAME_PASS] frame=3 pass=0 event=fallback_2d surface_id=0x6f6000 pitch=1728 class=visible_fb src_off=0x6f6000 dst_off=0x0 1680x1028 src=(0,0) dst=(0,22) move=(0,0) srt=0
+[FRAME_SURFACE] frame=3 surface=0x6f6000 pitch=1728 class=visible_fb owners=cpu_present qe=0 cpu=1 drag=0 host=0 blit=0 render=0
+[FRAME_END] frame=3
+
+GPU MODE: 1680x1050 bpp=32 stride=6720 offset=0x0 pitch_reg=0xd2 crtc_gen=0x3000600
+[STRIDE_CHANGE] update_display_mode: 0 -> 6720 (override=no val=0)
+qemu-system-ppc: terminating on signal 15 from pid 66106 (<unknown process>)

@@ -1,0 +1,22 @@
+Graphics/Displays:
+
+    QEMU VGA:
+
+      Chipset Model: QEMU VGA
+      Type: Display
+      Bus: AGP
+      VRAM (Total): 128 MB
+      Vendor: ATI (0x1002)
+      Device ID: 0x5960
+      Revision ID: 0x0001
+      Displays:
+        不明のディスプレイ:
+          Resolution: 1680 x 1088
+          Depth: 32-bit Color
+          Core Image: Not Supported
+          Main Display: Yes
+          Mirror: Off
+          Online: Yes
+          Quartz Extreme: Supported
+
+SHA1(/Users/adam/Library/PowerEmu/PowerEmu Agent.app/Contents/MacOS/PowerEmu Agent)= 1e2e6ab049940dcd70916ddc1dd7f4210f67e979

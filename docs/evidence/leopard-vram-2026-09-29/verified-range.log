@@ -1,0 +1,86 @@
+Started 128 PID 64172
+Started 256 PID 64173
+128 {'ssh': True, 'finder': True, 'elapsed': 21} 2026-09-29 02:24:08.783 sw_vers[93:10b] _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+ProductName:	Mac OS X
+ProductVersion:	10.5.8
+BuildVersion:	9L31a
+   31 ??         0:01.24 /System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow console
+   52 ??         0:01.42 /System/Library/Frameworks/ApplicationServices.framework/Frameworks/CoreGraphics.framework/Resources/WindowServer -daemon
+   84 ??         0:00.38 /System/Library/CoreServices/Finder.app/Contents/MacOS/Finder -psn_0_36873
+2026-09-29 02:24:09.104 system_profiler[96:10b] _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+Graphics/Displays:
+
+    QEMU VGA:
+
+      Chipset Model: QEMU VGA
+      Type: Display
+      Bus: AGP
+      VRAM (Total): 128 MB
+      Vendor: ATI (0x1002)
+      Device ID: 0x5960
+      Revision ID: 0x0001
+      Displays:
+        Display:
+          Resolution: 1680 x 1050
+          Depth: 32-Bit Color
+          Core Image: Software
+          Main Display: Yes
+          Mirror: Off
+          Online: Yes
+          Quartz Extreme: Supported
+
+
+256 {'ssh': True, 'finder': True, 'elapsed': 24} 2026-09-29 02:24:14.250 sw_vers[101:10b] _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+ProductName:	Mac OS X
+ProductVersion:	10.5.8
+BuildVersion:	9L31a
+   31 ??         0:01.72 /System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow console
+   52 ??         0:05.69 /System/Library/Frameworks/ApplicationServices.framework/Frameworks/CoreGraphics.framework/Resources/WindowServer -daemon
+   86 ??         0:02.01 /System/Library/CoreServices/Finder.app/Contents/MacOS/Finder -psn_0_36873
+2026-09-29 02:24:14.481 system_profiler[104:10b] _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+Graphics/Displays:
+
+    QEMU VGA:
+
+      Chipset Model: QEMU VGA
+      Type: Display
+      Bus: AGP
+      VRAM (Total): 256 MB
+      Vendor: ATI (0x1002)
+      Device ID: 0x5960
+      Revision ID: 0x0001
+      Displays:
+        Display:
+          Resolution: 1680 x 1050
+          Depth: 32-Bit Color
+          Core Image: Software
+          Main Display: Yes
+          Mirror: Off
+          Online: Yes
+          Quartz Extreme: Supported
+
+
+{
+  "128": {
+    "ssh": true,
+    "finder": true,
+    "elapsed": 21,
+    "status": {
+      "return": {
+        "status": "running",
+        "running": true
+      }
+    }
+  },
+  "256": {
+    "ssh": true,
+    "finder": true,
+    "elapsed": 24,
+    "status": {
+      "return": {
+        "status": "running",
+        "running": true
+      }
+    }
+  }
+}

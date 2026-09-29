@@ -1,0 +1,6 @@
+PASS captured Leopard quad, texture and shader replay: 786432 pixels
+PASS updated constants with cached pipeline: 786432 pixels
+PASS updated texture with cached pipeline: 786432 pixels
+PASS scissor preserves destination pixels: 786432 pixels
+PASS color mask preserves destination channels: 786432 pixels
+PASS unsupported shader leaves destination unchanged: 786432 pixels

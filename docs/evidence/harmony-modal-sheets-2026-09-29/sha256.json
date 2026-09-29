@@ -1,0 +1,10 @@
+{
+  "guest/src/PEAgent.m": "81593c3cd8f7138a139cdce1c084655db1fb98c5f09f2188d78746dd0f09dd8f",
+  "guest/src/PESheets.inc": "bfb87d583148a8f8be6d5c4adddbd9c9a7af208f383a098b0e45d847c80700e1",
+  "app/Sources/PowerEmu/HarmonyWindows.swift": "3304aed89552cb7e5017ac0308848eda3744951722fd4b9da3820cfa4f67c4ca",
+  "app/Sources/PowerEmu/GuestAgent.swift": "118e3b64ff336b424d79dfc30e81c8e7a8bd8e514110a0fe1e89ba81e45cdb78",
+  "app/Sources/PowerEmu/VMDisplay.swift": "f1c55d92db9b413249353e26aa4fc39139c47ab0208c42bf81a4cca233ccd670",
+  "app/Sources/PowerEmu/VirtualMachine.swift": "49312764bc14f4b6e4e95b2d0133f1d78e2f594913a2405025a4a9601c203a42",
+  "build/Harmony Sheets Test/PowerEmu.app/Contents/MacOS/PowerEmu": "b1c2bc2095e2aa0f3312a633c021f916a826cd232b520eec2359c70a80b57a1a",
+  "guest/build/PowerEmu Agent.app/Contents/MacOS/PowerEmu Agent": "370fe522f192539ff0c7b6aa63de44f889077502cf1d3392ba9846ea17032f80"
+}

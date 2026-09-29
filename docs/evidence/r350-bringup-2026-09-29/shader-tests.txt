@@ -1,0 +1,9 @@
+R300 fragment compiler tests, 29 September 2026
+
+Local Apple M5: all five Metal pixel cases passed.
+Mac Studio Apple M4 Max: all five Metal pixel cases passed.
+Each case compared 3,644 non-edge pixels against expected triangle colors and clear exterior.
+Both hosts passed unsupported-state rejection and bounded output tests.
+
+See poweremu-qemu/tests/poweremu/README-r300.md for exact scope.
+This validates a restricted fragment decoder with fixed host vertex geometry, not guest R300 rendering.

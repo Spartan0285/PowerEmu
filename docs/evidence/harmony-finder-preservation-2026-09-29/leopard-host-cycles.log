@@ -1,0 +1,26 @@
+Before host toggles:
+  982 ??         0:02.89 /System/Library/CoreServices/Finder.app/Contents/MacOS/Finder -psn_0_385118
+2026-09-29 01:50:52.196 osascript[1072:10b] _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+97, 66, 27
+
+After False
+  982 ??         0:03.01 /System/Library/CoreServices/Finder.app/Contents/MacOS/Finder -psn_0_385118
+2026-09-29 01:50:58.106 osascript[1086:10b] _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+97, 66, 27
+
+After True
+  982 ??         0:03.20 /System/Library/CoreServices/Finder.app/Contents/MacOS/Finder -psn_0_385118
+2026-09-29 01:51:04.238 osascript[1099:10b] _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+97, 66, 27
+
+After False
+  982 ??         0:03.33 /System/Library/CoreServices/Finder.app/Contents/MacOS/Finder -psn_0_385118
+2026-09-29 01:51:10.083 osascript[1112:10b] _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+97, 66, 27
+
+After True
+  982 ??         0:03.53 /System/Library/CoreServices/Finder.app/Contents/MacOS/Finder -psn_0_385118
+2026-09-29 01:51:16.214 osascript[1125:10b] _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+97, 66, 27
+
+PASS host-driven off/on/off/on: Finder PID and all window IDs retained

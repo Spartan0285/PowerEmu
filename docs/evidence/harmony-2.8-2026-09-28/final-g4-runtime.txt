@@ -1,0 +1,25 @@
+PEFRAMEBATCH full=3 fullMeanMS=214.2 unchanged=27 unchangedMeanMS=65.1 bytes=233980
+PEFRAMEBATCH full=0 fullMeanMS=0.0 unchanged=30 unchangedMeanMS=50.2 bytes=510
+PEFRAMEBATCH full=3 fullMeanMS=79.1 unchanged=27 unchangedMeanMS=51.2 bytes=41297
+PEFRAMEBATCH full=0 fullMeanMS=0.0 unchanged=30 unchangedMeanMS=44.8 bytes=531
+PEFRAMEBATCH full=0 fullMeanMS=0.0 unchanged=30 unchangedMeanMS=42.8 bytes=540
+PEFRAMEBATCH full=0 fullMeanMS=0.0 unchanged=30 unchangedMeanMS=42.9 bytes=540
+PEFRAMEBATCH full=0 fullMeanMS=0.0 unchanged=30 unchangedMeanMS=46.1 bytes=540
+PEFRAMEBATCH full=0 fullMeanMS=0.0 unchanged=30 unchangedMeanMS=60.2 bytes=540
+PEFRAMEBATCH full=0 fullMeanMS=0.0 unchanged=30 unchangedMeanMS=47.6 bytes=540
+PEFRAMEBATCH full=0 fullMeanMS=0.0 unchanged=30 unchangedMeanMS=48.2 bytes=540
+PEMIN id=200 asked the guest
+PEAGENT MINIMIZE 200 ax=0 pid=370
+PEUNMIN id=200 pid=370/0
+PEFRAMEBATCH full=1 fullMeanMS=90.3 unchanged=29 unchangedMeanMS=71.4 bytes=41285
+PEFRAMEBATCH full=0 fullMeanMS=0.0 unchanged=30 unchangedMeanMS=58.6 bytes=540
+PEFRAMEBATCH full=0 fullMeanMS=0.0 unchanged=30 unchangedMeanMS=63.2 bytes=540
+PEFRAMEBATCH full=0 fullMeanMS=0.0 unchanged=30 unchangedMeanMS=52.4 bytes=540
+PEFRAMEBATCH full=0 fullMeanMS=0.0 unchanged=30 unchangedMeanMS=50.6 bytes=540
+PEFRAMEBATCH full=0 fullMeanMS=0.0 unchanged=30 unchangedMeanMS=52.0 bytes=540
+PEFRAMEBATCH full=0 fullMeanMS=0.0 unchanged=30 unchangedMeanMS=50.9 bytes=540
+PEFRAMEBATCH full=0 fullMeanMS=0.0 unchanged=30 unchangedMeanMS=51.9 bytes=540
+PEFRAMEBATCH full=0 fullMeanMS=0.0 unchanged=30 unchangedMeanMS=51.3 bytes=540
+PEFRAMEBATCH full=0 fullMeanMS=0.0 unchanged=30 unchangedMeanMS=54.4 bytes=540
+PEFRAMEBATCH full=0 fullMeanMS=0.0 unchanged=30 unchangedMeanMS=59.8 bytes=540
+PEFRAMEBATCH full=0 fullMeanMS=0.0 unchanged=30 unchangedMeanMS=52.1 bytes=540

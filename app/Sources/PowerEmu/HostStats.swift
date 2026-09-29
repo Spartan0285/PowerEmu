@@ -38,7 +38,19 @@ struct HostSample {
     /// ran at half speed. The starvation is obvious from the emulator's own
     /// share and nearly invisible from everything else.
     var contended: Bool {
-        (running && qemuCPU < 70) || load1 > Double(cores) * 1.5
+        /*
+         * Starved means somebody else took the processor, not that the guest
+         * had nothing to do with it.
+         *
+         * "Under seventy per cent of a core" on its own says only that the
+         * emulator is not busy, and a virtual Mac sitting at a desktop with
+         * nothing happening is not busy -- so the warning appeared whenever
+         * the guest was idle, which is most of the time, and read as an
+         * explanation for every slow thing anybody was looking at.  It cost
+         * hours.  For it to mean anything, this Mac has to be busy with
+         * something else at the same time.
+         */
+        (running && qemuCPU < 70 && hostBusy > 70) || load1 > Double(cores) * 1.5
     }
 
     /// Whether a VM is running at all; without one, a low emulator share is

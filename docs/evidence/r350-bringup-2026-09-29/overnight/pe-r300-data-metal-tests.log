@@ -1,0 +1,13 @@
+PASS R300 float24 constants, captured immediate layout, packed colors, swizzles and bounds
+PASS constant MAD: 3644 pixels checked on Apple M5
+PASS independent RGB/alpha source banks: 3644 pixels checked on Apple M5
+PASS multiply-add without implicit saturation: 3644 pixels checked on Apple M5
+PASS explicit RGB saturation: 3644 pixels checked on Apple M5
+PASS constant 31, swizzle, abs then negate: 3644 pixels checked on Apple M5
+PASS TEX nearest 2D gradient: 3644 pixels checked on Apple M5
+PASS TXP divide by W, image binding 5: 3644 pixels checked on Apple M5
+PASS relocated texture bank and nonzero node starts: 3644 pixels checked on Apple M5
+PASS Leopard captured TXP/MAD at ALU offset 2: 3644 pixels checked on Apple M5
+PASS captured Leopard vertex + fragment programs: 3644 pixels checked on Apple M5
+PASS paired ALU old-value reads and partial output preservation: 3644 pixels checked on Apple M5
+PASS unsupported-state rejection and bounded output

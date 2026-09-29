@@ -1,0 +1,1 @@
+SHA2-256(build/PowerEmu Integration.app/Contents/MacOS/PowerEmu)= 7b681bfa0e6fd658feab741c661802b5a010281279e57b1bd2537872a02431bb

@@ -1,0 +1,16 @@
+PEWINDOWFRAME count=15540 meanRoundTripMS=64.9 bytes=42321
+PEWINDOWFRAME count=15570 meanRoundTripMS=64.9 bytes=42321
+PEWINDOWFRAME count=15600 meanRoundTripMS=65.0 bytes=42321
+PEWINDOWFRAME count=15630 meanRoundTripMS=65.1 bytes=42321
+PEWINDOWFRAME count=15660 meanRoundTripMS=65.1 bytes=42321
+PEMOVE id=128 556,154 -> 713,224
+PEMOVE id=128 713,224 -> 838,87
+PEMOVE id=128 838,87 -> 938,137
+PEAGENT MOVEWINDOW 128 -> (713,224) ax=0
+PEAGENT MOVEWINDOW 128 -> (838,87) ax=0
+PEAGENT MOVEWINDOW 128 -> (938,137) ax=0
+PEHARMONY host=(967,938) fromTop=169 screen=1710x1107 surface=1728x1095 scale=1.0000 offsetY=12 hostMB=34 guestMB=22 guestPt=(967,157) guestRect=(556.0, 154.0, 615.0, 407.0) frame=(556.0, 534.0, 615.0, 407.0) want=(556.0, 534.0, 615.0, 407.0)
+PEHARMONY host=(1140,865) fromTop=242 screen=1710x1107 surface=1728x1095 scale=1.0000 offsetY=12 hostMB=34 guestMB=22 guestPt=(1140,230) guestRect=(713.0, 224.0, 615.0, 407.0) frame=(713.0, 464.0, 615.0, 407.0) want=(713.0, 464.0, 615.0, 407.0)
+PEHARMONY host=(1140,865) fromTop=242 screen=1710x1107 surface=1728x1095 scale=1.0000 offsetY=12 hostMB=34 guestMB=22 guestPt=(1140,230) guestRect=(713.0, 224.0, 615.0, 407.0) frame=(713.0, 464.0, 615.0, 407.0) want=(713.0, 464.0, 615.0, 407.0)
+PEHARMONY host=(876,993) fromTop=114 screen=1710x1107 surface=1728x1095 scale=1.0000 offsetY=12 hostMB=34 guestMB=22 guestPt=(876,102) guestRect=(838.0, 87.0, 615.0, 407.0) frame=(838.0, 601.0, 615.0, 407.0) want=(838.0, 601.0, 615.0, 407.0)
+PEHARMONY host=(1017,448) fromTop=659 screen=1710x1107 surface=1728x1095 scale=1.0000 offsetY=12 hostMB=34 guestMB=22 guestPt=(1017,647) guestRect=(838.0, 87.0, 615.0, 407.0) frame=(838.0, 601.0, 615.0, 407.0) want=(838.0, 601.0, 615.0, 407.0)

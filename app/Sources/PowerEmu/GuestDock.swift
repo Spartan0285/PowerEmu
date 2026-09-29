@@ -19,6 +19,8 @@ import AppKit
 final class GuestDock {
     /// Bring a guest application to the front, or quit it.
     var activate: ((Int) -> Void)?
+    var openFiles: (([URL], Int) -> Bool)?
+    private let session = UUID().uuidString
     var quit: ((Int) -> Void)?
     /// Ask the guest for an application's icon.
     var wantIcon: ((Int) -> Void)?
@@ -56,6 +58,8 @@ final class GuestDock {
     func start() {
         guard !running else { return }
         running = true
+        observeFileDrops()
+        reapStrays()
         /*
          * Keep the tiles standing.  Starting one is not reliably a single
          * event -- LaunchServices refuses a bundle it has only just been
@@ -69,17 +73,59 @@ final class GuestDock {
         observers.append(c.addObserver(forName: .init("com.spartan0285.poweremu.guestapp.clicked"),
                                        object: nil, queue: .main) { [weak self] n in
             MainActor.assumeIsolated {
-                guard let pid = Int((n.userInfo?["pid"] as? String) ?? "") else { return }
+                guard n.userInfo?["session"] as? String == self?.session, let pid = Int((n.userInfo?["pid"] as? String) ?? "") else { return }
                 self?.activate?(pid)
             }
         })
         observers.append(c.addObserver(forName: .init("com.spartan0285.poweremu.guestapp.quit"),
                                        object: nil, queue: .main) { [weak self] n in
             MainActor.assumeIsolated {
-                guard let pid = Int((n.userInfo?["pid"] as? String) ?? "") else { return }
+                guard n.userInfo?["session"] as? String == self?.session, let pid = Int((n.userInfo?["pid"] as? String) ?? "") else { return }
                 self?.quit?(pid)
             }
         })
+    }
+
+    private func observeFileDrops() {
+        observers.append(DistributedNotificationCenter.default().addObserver(forName: .init("com.spartan0285.poweremu.guestapp.open"), object: nil, queue: .main) { [weak self] n in
+            MainActor.assumeIsolated {
+                guard let self, n.userInfo?["session"] as? String == self.session,
+                      let value = n.userInfo?["pid"] as? String, let pid = Int(value), self.tiles[pid] != nil,
+                      let paths = n.userInfo?["paths"] as? [String] else { return }
+                _ = self.openFiles?(paths.map { URL(fileURLWithPath: $0) }, pid)
+            }
+        })
+    }
+
+    /*
+     * Tiles left over from a PowerEmu that is no longer here.
+     *
+     * A tile is held by a small application of its own, and it is only taken
+     * down when Harmony is switched off tidily.  If PowerEmu goes without
+     * doing that -- it crashed, it was force quit, it was killed while being
+     * worked on -- every one of those helpers carries on running, and its
+     * icon sits in the Dock for a guest application that stopped existing with
+     * the virtual Mac it belonged to.  The next run adds its own on top, so
+     * they pile up.  Nothing else can tidy them: they are ordinary
+     * applications as far as this Mac is concerned.
+     *
+     * So each run clears out whatever the last one left behind.  Only helpers
+     * are touched -- applications living inside PowerEmu's own cache folder,
+     * which nothing else has any reason to put there.
+     */
+    private func reapStrays() {
+        let root = Self.root.standardizedFileURL.path
+        var found = 0
+        for app in NSWorkspace.shared.runningApplications {
+            guard let u = app.bundleURL?.standardizedFileURL.path,
+                  u.hasPrefix(root + "/") else { continue }
+            app.forceTerminate()
+            found += 1
+        }
+        if found > 0 { harmonyDebug("PEDOCK reaped \(found) tile(s) from a previous run") }
+        // Their bundles are named after guest process ids, which mean nothing
+        // once that virtual Mac has restarted.
+        try? FileManager.default.removeItem(at: Self.root)
     }
 
     func stop() {
@@ -104,7 +150,7 @@ final class GuestDock {
         for a in apps where tiles[a.pid] == nil {
             // PowerEmu itself is already in the Dock, and the guest's own
             // helpers have no windows to come back to.
-            guard !a.name.hasPrefix("PowerEmu"), a.name != "Finder" else { continue }
+            guard !a.name.hasPrefix("PowerEmu") else { continue }
             add(pid: a.pid, name: a.name)
         }
     }
@@ -172,6 +218,8 @@ final class GuestDock {
             "LSMinimumSystemVersion": "12.0",
             // The pid is how the helper says which guest application it stands for.
             "PEGuestPID": String(pid),
+            "PESession": session,
+            "CFBundleDocumentTypes": [["CFBundleTypeName": "Files", "CFBundleTypeRole": "Viewer", "LSItemContentTypes": ["public.item"], "CFBundleTypeExtensions": ["*"]]],
         ]
         if let data = try? PropertyListSerialization.data(fromPropertyList: plist,
                                                           format: .xml, options: 0) {
@@ -219,7 +267,9 @@ final class GuestDock {
 
     private func remove(_ pid: Int) {
         guard let t = tiles[pid] else { return }
-        t.process?.terminate()
+        // This tears down only our representative after the guest exits (or
+        // Harmony ends); asking it to Quit would send another guest request.
+        t.process?.forceTerminate()
         t.child?.terminate()
         tiles[pid] = nil
         lastLaunch[pid] = nil

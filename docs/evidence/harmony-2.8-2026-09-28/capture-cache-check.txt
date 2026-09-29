@@ -1,0 +1,6 @@
+request=1 accepted=0 encoding=1 size=615x407 bytes=41731 elapsed_ms=275.80
+request=2 accepted=1 encoding=2 size=615x407 bytes=15 elapsed_ms=186.48
+request=3 accepted=0 encoding=1 size=615x407 bytes=41731 elapsed_ms=363.97
+request=4 accepted=2 encoding=1 size=615x407 bytes=41731 elapsed_ms=266.86
+request=5 accepted=0 encoding=0 size=0x0 bytes=11 elapsed_ms=1.16
+PASS: complete frame, unchanged acknowledgment, missing/stale base, invalid window

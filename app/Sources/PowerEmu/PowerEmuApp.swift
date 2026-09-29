@@ -8,9 +8,10 @@ struct PowerEmuApp: App {
     @StateObject private var library = VMLibrary()
 
     var body: some Scene {
-        WindowGroup("PowerEmu") {
+        Window("PowerEmu", id: "configuration") {
             ContentView()
                 .environmentObject(library)
+                .background(ConfigurationWindowAccess(delegate: appDelegate))
                 .frame(minWidth: 760, minHeight: 520)
                 .onAppear {
                     appDelegate.library = library
@@ -93,11 +94,15 @@ extension Notification.Name {
 /// controls, so ask first.
 final class AppDelegate: NSObject, NSApplicationDelegate {
     weak var library: VMLibrary?
+    weak var configurationWindow: NSWindow?
+    var openConfiguration: (() -> Void)?
 
     /// The Dock menu.  In Harmony the guest's windows have no shared title bar
     /// or toolbar to reach, so offer a way out here.
     func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
         let menu = NSMenu()
+        menu.addItem(withTitle: "Show Configuration", action: #selector(showConfiguration), keyEquivalent: "").target = self
+        menu.addItem(.separator())
         if MainActor.assumeIsolated({ VMDisplayView.harmonized }) != nil {
             menu.addItem(withTitle: "Exit Harmony", action: #selector(exitHarmony), keyEquivalent: "")
                 .target = self
@@ -150,6 +155,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                          action: #selector(togglePerfOverlay), keyEquivalent: "").target = self
         }
         return menu.numberOfItems > 0 ? menu : nil
+    }
+
+    @MainActor @objc private func showConfiguration() {
+        NSApp.unhide(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        openConfiguration?()
+        if let window = configurationWindow {
+            if window.isMiniaturized { window.deminiaturize(nil) }
+            window.makeKeyAndOrderFront(nil)
+        }
     }
 
     @MainActor @objc private func exitHarmony() {
@@ -307,5 +322,24 @@ struct AppSettingsView: View {
         .formStyle(.grouped)
         .frame(width: 440)
         .onAppear { status = SMAppService.mainApp.status }
+    }
+}
+
+/// Keeps the Dock action available even after the configuration window closes.
+private struct ConfigurationWindowAccess: NSViewRepresentable {
+    @Environment(\.openWindow) private var openWindow
+    let delegate: AppDelegate
+    func makeNSView(context: Context) -> Probe { Probe() }
+    func updateNSView(_ view: Probe, context: Context) {
+        delegate.openConfiguration = { openWindow(id: "configuration") }
+        view.register = { [weak delegate] window in delegate?.configurationWindow = window }
+        if let window = view.window { view.register?(window) }
+    }
+    final class Probe: NSView {
+        var register: ((NSWindow) -> Void)?
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if let window { register?(window) }
+        }
     }
 }

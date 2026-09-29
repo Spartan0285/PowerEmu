@@ -1,0 +1,8 @@
+{
+  "PowerEmu.app/Contents/MacOS/PowerEmu": "b39c1c9499ff9fb0593a2ac0bb03db0031775a44e381a7db0c23449304f06305",
+  "PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/MacOS/qemu-system-ppc": "43c2738856d1ec2309b72cb2ea653dbf8f13fb68fb51804d022b30ccde835cf2",
+  "PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Resources/firmware/openbios-ppc": "d06bf412c583c618922de3cbcec5eb87201afa9ab836ee8723d30b9406ecaf67",
+  "PowerEmu Integration.app/Contents/MacOS/PowerEmu": "0fa51fb756786f3338227bae620b2ebe1d4aba8c86d234b89f9cd5ccfed9c15d",
+  "PowerEmu Integration.app/Contents/Helpers/PowerEmu VM.app/Contents/MacOS/qemu-system-ppc": "8be13c7f5f8513a75431d5f18e8cda353784a3ecddb3e14d0b35d0a9b1154b19",
+  "PowerEmu Integration.app/Contents/Helpers/PowerEmu VM.app/Contents/Resources/firmware/openbios-ppc": "8f01bb0c217d692f1ae228f57508417cdbd100f422d626a2cfe6a422cdbe747b"
+}

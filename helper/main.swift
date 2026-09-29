@@ -37,14 +37,28 @@ final class Delegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminate(_ s: NSApplication) -> NSApplication.TerminateReply {
         tell("quit")
-        return .terminateNow
+        // The guest may present a Save dialog or decline to quit. Keep its
+        // tile until PowerEmu observes the guest process actually disappear.
+        return .terminateCancel
+    }
+
+    func application(_ sender: NSApplication, openFiles filenames: [String]) {
+        let info = Bundle.main.infoDictionary ?? [:]
+        guard let pid = info["PEGuestPID"] as? String, let session = info["PESession"] as? String else {
+            sender.reply(toOpenOrPrint: .failure); return
+        }
+        DistributedNotificationCenter.default().postNotificationName(
+            .init("com.spartan0285.poweremu.guestapp.open"), object: nil,
+            userInfo: ["pid": pid, "session": session, "paths": filenames], deliverImmediately: true)
+        sender.reply(toOpenOrPrint: .success)
+        NSApp.hide(nil)
     }
 
     private func tell(_ what: String) {
         guard !pid.isEmpty else { return }
         DistributedNotificationCenter.default().postNotificationName(
             .init("com.spartan0285.poweremu.guestapp.\(what)"),
-            object: nil, userInfo: ["pid": pid], deliverImmediately: true)
+            object: nil, userInfo: ["pid": pid, "session": Bundle.main.object(forInfoDictionaryKey: "PESession") as? String ?? ""], deliverImmediately: true)
     }
 }
 

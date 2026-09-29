@@ -1,0 +1,134 @@
+Sep 24 15:48:42  [52] CGXMappedDisplayStart: Unit 0: no display alias property
+Sep 24 15:48:43  [52] CGXPerformInitialDisplayConfiguration
+Sep 24 15:48:43  [52]   Display 0x5b81c5c0: MappedDisplay Unit 0; Vendor 0x756e6b6e Model 0x717 S/N 0; online enabled (0,0)[1680 x 1050], base addr 0xb0018000
+Sep 24 15:48:43  [52] AGCAttach: Couldn't find any matches
+Sep 24 15:48:45  [52] GLCompositor: GL renderer id 0x00021601, GL mask 0x00000001, accelerator 0x00002913, unit 0, caps 0x00000001, vram 60 MB
+Sep 24 15:48:45  [52] GLCompositor: GL renderer id 0x00021601, GL mask 0x00000001, texture units 6, texture max 2048, viewport max {2048, 2048} extensions 0x00000004
+Sep 24 16:12:46  [52] kCGErrorIllegalArgument: CGXSetTrackingAreaOption : Invalid tracking area
+Sep 24 16:12:46  [52] kCGErrorIllegalArgument: Set a breakpoint at CGErrorBreakpoint() to catch errors as they are returned
+Sep 24 16:12:46  [52] kCGErrorIllegalArgument: CGXSetTrackingAreaOption : Invalid tracking area
+Sep 24 16:21:15  [52] kCGErrorIllegalArgument: CGXSetWindowListTags: Operation on a window 0x6 not owned by caller SecurityAgent
+Sep 24 18:15:59  [52] Server is starting up
+Sep 24 18:16:00  [52] CGXMappedDisplayStart: Unit 0: boot screen
+Sep 24 18:16:00  [52] CGXMappedDisplayStart: Unit 0: no display alias property
+Sep 24 18:16:01  [52] CGXPerformInitialDisplayConfiguration
+Sep 24 18:16:01  [52]   Display 0x5b81c5c0: MappedDisplay Unit 0; Vendor 0x756e6b6e Model 0x717 S/N 0; online enabled (0,0)[1680 x 1050], base addr 0xb0018000
+Sep 24 18:16:01  [52] AGCAttach: Couldn't find any matches
+Sep 24 18:16:04  [52] GLCompositor: GL renderer id 0x00021601, GL mask 0x00000001, accelerator 0x00002913, unit 0, caps 0x00000001, vram 60 MB
+Sep 24 18:16:04  [52] GLCompositor: GL renderer id 0x00021601, GL mask 0x00000001, texture units 6, texture max 2048, viewport max {2048, 2048} extensions 0x00000004
+Sep 24 18:16:17  [52] kCGErrorFailure: CGXDisableUpdate: UI updates were forcibly disabled by application "SystemUIServer" for over 1 second. Server has re-enabled them.
+Sep 24 18:16:17  [52] kCGErrorFailure: Set a breakpoint at CGErrorBreakpoint() to catch errors as they are returned
+Sep 24 18:23:09  [55] Server is starting up
+Sep 24 18:23:09  [55] CGXMappedDisplayStart: Unit 0: boot screen
+Sep 24 18:23:09  [55] CGXMappedDisplayStart: Unit 0: no display alias property
+Sep 24 18:23:09  [55] CGXPerformInitialDisplayConfiguration
+Sep 24 18:23:09  [55]   Display 0x5b81c5c0: MappedDisplay Unit 0; Vendor 0x756e6b6e Model 0x717 S/N 0; online enabled (0,0)[1024 x 768], base addr 0xb0018000
+Sep 24 18:23:09  [55] AGCAttach: Couldn't find any matches
+Sep 24 18:23:11  [55] GLCompositor: GL renderer id 0x00021601, GL mask 0x00000001, accelerator 0x00002913, unit 0, caps 0x00000001, vram 60 MB
+Sep 24 18:23:11  [55] GLCompositor: GL renderer id 0x00021601, GL mask 0x00000001, texture units 6, texture max 2048, viewport max {2048, 2048} extensions 0x00000004
+Sep 24 18:46:36  [53] Server is starting up
+Sep 24 18:46:36  [53] CGXMappedDisplayStart: Unit 0: boot screen
+Sep 24 18:46:36  [53] CGXMappedDisplayStart: Unit 0: no display alias property
+Sep 24 18:46:37  [53] CGXPerformInitialDisplayConfiguration
+Sep 24 18:46:37  [53]   Display 0x5b81c5c0: MappedDisplay Unit 0; Vendor 0x756e6b6e Model 0x717 S/N 0; online enabled (0,0)[1024 x 768], base addr 0xb0018000
+Sep 24 18:46:37  [53] AGCAttach: Couldn't find any matches
+Sep 24 18:46:39  [53] GLCompositor: GL renderer id 0x00021601, GL mask 0x00000001, accelerator 0x00002913, unit 0, caps 0x00000001, vram 60 MB
+Sep 24 18:46:39  [53] GLCompositor: GL renderer id 0x00021601, GL mask 0x00000001, texture units 6, texture max 2048, viewport max {2048, 2048} extensions 0x00000004
+Sep 24 18:59:27  [55] Server is starting up
+Sep 24 18:59:28  [55] CGXMappedDisplayStart: Unit 0: boot screen
+Sep 24 18:59:28  [55] CGXMappedDisplayStart: Unit 0: no display alias property
+Sep 24 18:59:29  [55] CGXPerformInitialDisplayConfiguration
+Sep 24 18:59:29  [55]   Display 0x5b81c5c0: MappedDisplay Unit 0; Vendor 0x756e6b6e Model 0x717 S/N 0; online enabled (0,0)[1024 x 768], base addr 0xb0018000
+Sep 24 18:59:29  [55] AGCAttach: Couldn't find any matches
+Sep 24 18:59:31  [55] GLCompositor: GL renderer id 0x00021601, GL mask 0x00000001, accelerator 0x00002913, unit 0, caps 0x00000001, vram 60 MB
+Sep 24 18:59:31  [55] GLCompositor: GL renderer id 0x00021601, GL mask 0x00000001, texture units 6, texture max 2048, viewport max {2048, 2048} extensions 0x00000004
+Sep 24 19:28:36  [55] Server is starting up
+Sep 24 19:28:36  [55] CGXMappedDisplayStart: Unit 0: boot screen
+Sep 24 19:28:36  [55] CGXMappedDisplayStart: Unit 0: no display alias property
+Sep 24 19:28:37  [55] CGXPerformInitialDisplayConfiguration
+Sep 24 19:28:37  [55]   Display 0x5b81c5c0: MappedDisplay Unit 0; Vendor 0x756e6b6e Model 0x717 S/N 0; online enabled (0,0)[1024 x 768], base addr 0xb0018000
+Sep 24 19:28:37  [55] AGCAttach: Couldn't find any matches
+Sep 24 19:28:39  [55] GLCompositor: GL renderer id 0x00021601, GL mask 0x00000001, accelerator 0x00002913, unit 0, caps 0x00000001, vram 60 MB
+Sep 24 19:28:39  [55] GLCompositor: GL renderer id 0x00021601, GL mask 0x00000001, texture units 6, texture max 2048, viewport max {2048, 2048} extensions 0x00000004
+Sep 29 02:47:10  [55] Server is starting up
+Sep 29 02:47:11  [55] CGXMappedDisplayStart: Unit 0: boot screen
+Sep 29 02:47:11  [55] CGXMappedDisplayStart: Unit 0: no display alias property
+Sep 29 02:47:11  [55] CGXPerformInitialDisplayConfiguration
+Sep 29 02:47:11  [55]   Display 0x5b81c5c0: MappedDisplay Unit 0; Vendor 0x756e6b6e Model 0x717 S/N 0; online enabled (0,0)[1024 x 768], base addr 0xb0018000
+Sep 29 02:47:11  [55] AGCAttach: Couldn't find any matches
+Sep 29 02:47:13  [55] GLCompositor: GL renderer id 0x00021804, GL mask 0x00000001, accelerator 0x00002917, unit 0, caps 0x00000003, vram 124 MB
+Sep 29 02:47:13  [55] GLCompositor: GL renderer id 0x00021804, GL mask 0x00000001, texture units 8, texture max 2048, viewport max {2656, 2656} extensions 0x0000000f
+Sep 29 02:47:07 localhost kernel[0]: Matching service count = 1
+Sep 29 02:47:07 localhost configd[14]: _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+Sep 29 02:47:07 localhost DirectoryService[11]: _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+Sep 29 02:47:07 localhost kernel[0]: UniNEnet::monitorLinkStatus - Link is up at 100 Mbps - Full Duplex (PHY regs 5,6:0x0100,0x0000)
+Sep 29 02:47:07 localhost configd[14]: InterfaceNamer: no network interfaces, could not update platform UUID
+Sep 29 02:47:07 localhost mDNSResponder mDNSResponder-176.3 (Jun 17 2009 18:57:52)[19]: starting
+Sep 29 02:47:08 adam-cipolettis-power-mac-g4-agp-graphics configd[14]: setting hostname to "adam-cipolettis-power-mac-g4-agp-graphics.local"
+Sep 29 02:47:08 adam-cipolettis-power-mac-g4-agp-graphics securityd[23]: _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+Sep 29 02:47:08 adam-cipolettis-power-mac-g4-agp-graphics mDNSResponder[19]: _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+Sep 29 02:47:08 adam-cipolettis-power-mac-g4-agp-graphics com.apple.launchd[1] (com.openssh.sshd): Unknown key: SHAuthorizationRight
+Sep 29 02:47:09 adam-cipolettis-power-mac-g4-agp-graphics rpc.statd[31]: statd.notify - no notifications needed
+Sep 29 02:47:09 adam-cipolettis-power-mac-g4-agp-graphics bootlog[45]: BOOT_TIME: 1790664423 0
+Sep 29 02:47:09 adam-cipolettis-power-mac-g4-agp-graphics fseventsd[38]: bumping event counter to: 0x433e (current 0x0) from log file '0000000000000054'
+Sep 29 02:47:09 adam-cipolettis-power-mac-g4-agp-graphics mds[33]: _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+Sep 29 02:47:09 adam-cipolettis-power-mac-g4-agp-graphics socketfilterfw[47]: _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+Sep 29 02:47:10 adam-cipolettis-power-mac-g4-agp-graphics usbmuxd[28]: _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+Sep 29 02:47:10 adam-cipolettis-power-mac-g4-agp-graphics com.apple.usbmuxd[28]: usbmuxd-268.5 on Apr  5 2012 at 15:33:47, running 32 bit
+Sep 29 02:47:10 adam-cipolettis-power-mac-g4-agp-graphics diskarbitrationd[42]: _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+Sep 29 02:47:10 adam-cipolettis-power-mac-g4-agp-graphics CoreRAIDServer[43]: _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+Sep 29 02:47:10 adam-cipolettis-power-mac-g4-agp-graphics /System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow[34]: Login Window Application Started -- Threaded auth
+Sep 29 02:47:10 adam-cipolettis-power-mac-g4-agp-graphics loginwindow[34]: _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+Sep 29 02:47:10 adam-cipolettis-power-mac-g4-agp-graphics ifcstart[36]: _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+Sep 29 02:47:10 adam-cipolettis-power-mac-g4-agp-graphics WindowServer[55]: _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+Sep 29 02:47:10 adam-cipolettis-power-mac-g4-agp-graphics backupd-helper[56]: _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+Sep 29 02:47:11 adam-cipolettis-power-mac-g4-agp-graphics /usr/sbin/ocspd[57]: starting
+Sep 29 02:47:11 adam-cipolettis-power-mac-g4-agp-graphics DMProxy[59]: _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+Sep 29 02:47:11 adam-cipolettis-power-mac-g4-agp-graphics ATSServer[58]: _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+Sep 29 02:47:12 adam-cipolettis-power-mac-g4-agp-graphics activateSettings[65]: _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+Sep 29 02:47:13 adam-cipolettis-power-mac-g4-agp-graphics loginwindow[34]: Login Window Started Security Agent
+Sep 29 02:47:13 adam-cipolettis-power-mac-g4-agp-graphics authorizationhost[69]: _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+Sep 29 02:47:13 adam-cipolettis-power-mac-g4-agp-graphics ManagedClient[67]: _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+Sep 29 02:47:13 adam-cipolettis-power-mac-g4-agp-graphics com.apple.loginwindow[34]: 2026-09-29 02:47:13.312 ManagedClient[67:10b] _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+Sep 29 02:47:13 adam-cipolettis-power-mac-g4-agp-graphics mdworker[68]: _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+Sep 29 02:47:14 adam-cipolettis-power-mac-g4-agp-graphics SecurityAgent[70]: _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+Sep 29 02:47:15 adam-cipolettis-power-mac-g4-agp-graphics lsregister[71]: _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+Sep 29 02:47:15 adam-cipolettis-power-mac-g4-agp-graphics com.apple.coreservicesd[53]: 2026-09-29 02:47:15.345 lsregister[71:807] _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+Sep 29 02:47:18 adam-cipolettis-power-mac-g4-agp-graphics kextd[10]: writing kernel link data to /var/run/mach.sym
+Sep 29 02:47:19 adam-cipolettis-power-mac-g4-agp-graphics sw_vers[85]: _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+Sep 29 02:47:19 adam-cipolettis-power-mac-g4-agp-graphics system_profiler[89]: _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+Sep 29 02:47:21 adam-cipolettis-power-mac-g4-agp-graphics mdworker[93]: _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
++-o ATIRadeon9700  <class ATIRadeon9700, registered, matched, active, busy 0, retain 7>
+  | {
+  |   "IOProbeScore" = 0
+  |   "ATIUseTearingWideBlit" = No
+  |   "CFBundleIdentifier" = "com.apple.ATIRadeon9700"
+  |   "IOPCIMatch" = "0x4E441002 0x41441002 0x4E481002 0x41481002 0x41501002 0x4E501002 0x41521002 0x4E541002 0x4A481002 0x4A491002 0x4A4A1002 0x4A4B1002 0x4A4C1002 0x4A4D1002 0x4A4E1002 0x5B601002 0x5B621002 0x3E501002 0x4E561002 0x5B641002 0x3E541002"
+  |   "IOMatchCategory" = "IOAccelerator"
+  |   "PerformanceStatistics" = {"gartFreeBytes"=134119424,"contextGLSwitchCount"=0,"freeContextBuffer2DWaitTime"=0,"surfaceReadLockIdleWaitTime"=0,"freeContextBufferGLWaitTime"=0,"texturePageInBytesPerSample"=0,"commandDVDBytesPerSample"=0,"dataGLBytesPerSample"=0,"bufferSwapCount"=0,"freeSurfaceSwapBufferWaitTime"=0,"hardwareSubmitWaitTime"=0,"swapCompleteDVDWaitTime"=0,"contextDVDCount"=0,"finishAll2DWaitTime"=0,"freeDataBufferGLWaitTime"=0,"freeCommandBuffer2DWaitTime"=0,"vramFreeBytes"=126877696,"freeContextBufferDVDWaitTime"=0,"textureCount"=0,"context2DCount"=1,"finish2DWaitTime"=0,"contextGLCount"=1,"submitStamp"=3,"context2DSwitchCount"=0,"gartMapOutBytesPerSample"=0,"commandBytesPerSample"=0,"surfacePageOutBytesPerSample"=0,"clientGLWaitTime"=0,"swapComplete2DWaitTime"=0,"finishDVDWaitTime"=0,"gartUsedBytes"=98304,"surfaceCopyOutWaitTime"=0,"swapCompleteGLWaitTime"=0,"commandGLBytesPerSample"=0,"surfaceSetShapeIdleWaitTime"=0,"finishGLWaitTime"=0,"hardwareWaitTime"=0,"freeCommandBufferGLWaitTime"=0,"textureWaitTime"=0,"swapBytesPerSample"=0,"freeCommandBufferDVDWaitTime"=0,"volatileSurfaceCount"=0,"contextDVDSwitchCount"=0,"dataBufferCount"=0,"freeSurfaceBackingWaitTime"=0,"gartMapInBytesPerSample"=0,"texturePageInWaitTime"=0,"surfaceCount"=1,"surfaceCopyInWaitTime"=0,"surfacePageInBytesPerSample"=0,"texturePageOutBytesPerSample"=0,"texturePageOutWaitTime"=0,"command2DBytesPerSample"=0,"lastReadStamp"=0,"gartSizeBytes"=134217728,"removeFromGARTWaitTime"=0,"surfaceWriteLockIdleWaitTime"=0,"gartCacheBytes"=33554432}
+  |   "IOAccelRevision" = 2
+  |   "IOProviderClass" = "IOPCIDevice"
+  |   "IOGLBundleName" = "ATIRadeon9700GLDriver"
+  |   "IOSourceVersion" = "1.5.48.6"
+  |   "IOCFPlugInTypes" = {"ACCF0000-0000-0000-0000-000a2789904e"="ATIRadeon9700GA.plugin"}
+  |   "ATIEnableWideBlitSupport" = Yes
+  |   "IODVDBundleName" = "ATIRadeon9700VADriver"
+  |   "AccelCaps" = 3
+  |   "IOClass" = "ATIRadeon9700"
+  |   "SurfaceList" = ({"pid"=55,"width"=1024,"height"=768,"surfaceType"="gl"})
+  | }
+  | 
+  +-o ATIR3002DContext  <class ATIR3002DContext, !registered, !matched, active, busy 0, retain 6>
+  |   {
+  |   }
+  |   
+  +-o ATIR300Surface  <class ATIR300Surface, !registered, !matched, active, busy 0, retain 5>
+  |   {
+  |     "IOUserClientCrossEndianCompatible" = Yes
+  |   }
+  |   
+  +-o ATIR300GLContext  <class ATIR300GLContext, !registered, !matched, active, busy 0, retain 5>
+      {
+      }
+      
+

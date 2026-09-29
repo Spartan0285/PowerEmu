@@ -1,0 +1,48 @@
+HELLO ('HELLO', b'2.14\t10.4.11\tadam')
+OPEN 100, 100, 650, 480
+
+WINDOWS owner 2 0
+owner 33 103
+owner 34 0
+owner 31 103
+owner 62 961
+owner 76 0
+owner 12 0
+owner 23 0
+owner 11 0
+owner 22 0
+owner 21 0
+owner 20 0
+owner 19 0
+owner 18 0
+owner 17 0
+owner 16 0
+owner 15 0
+owner 14 0
+owner 13 0
+owner 10 0
+owner 79 961
+79	/Users/adam/Desktop/PowerEmu Transfer Integration f15683/
+owner 63 961
+owner 64 961
+owner 65 961
+65	/Applications/
+owner 77 1374
+owner 27 0
+owner 1 0
+
+IMPORT 0 {'folder': '/Users/adam/Desktop/PowerEmu Transfer Integration f15683/', 'request': 'aef070a5-ab53-46af-a780-e3abc0fcec18'}
+IMPORT 1 {'folder': '/Users/adam/Desktop/PowerEmu Transfer Integration f15683/', 'request': '9ffac2c6-43d5-43ca-b040-8e953befb500'}
+FILES Transfer Résumé abd35e
+Transfer Résumé abd35e (2)
+
+PASS: guest data/resource fork and collision copy
+
+GUEST POINTER 333 193 buttons=1 result=0
+SELECTION {'entries': [{'directory': True, 'name': 'Transfer Résumé abd35e'}], 'request': 'bbc6c5e4-7ac2-431f-9d7d-12d6053dcbc6'}
+GUEST POINTER 333 193 buttons=0 result=0
+EXPORT {'request': 'c4e988b9-dfcc-45cf-9fae-91b98a1cf09e'}
+PASS: missing target rejected
+PASS: malicious guest import rejected {'error': 'Invalid or unsupported transfer archive (maximum 4 GB per item).', 'folder': '/Users/adam/Desktop/PowerEmu Transfer Integration f15683/', 'request': 'e622445e-2b6f-4a61-ac97-8cbbf9181810'}
+PASS: Open Documents delivered to the selected guest application
+PASS: production guest agent + production WebDAV, both directions

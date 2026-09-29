@@ -4,7 +4,8 @@
 #   PowerEmu.app/Contents/Helpers/PowerEmu VM.app      QEMU + libraries + firmware
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-OUT="$ROOT/build/PowerEmu.app"
+OUT="${POWEREMU_APP_OUT:-$ROOT/build/PowerEmu.app}"
+HELPER_STAGE="${POWEREMU_HELPER_STAGE:-$ROOT/build/PowerEmu VM.app}"
 # A release sets these (see scripts/release.sh); a development build keeps
 # the defaults so it always looks older than anything published.
 VERSION="${POWEREMU_VERSION:-0.1}"
@@ -16,6 +17,9 @@ BUILD_NUMBER="${POWEREMU_BUILD:-1}"
 # from both. Never put it in VERSION -- that string ends up in file names and
 # tags, and a space in it finds every one of them.
 STAGE=Alpha
+BUNDLE_ID="${POWEREMU_BUNDLE_ID:-com.spartan0285.poweremu}"
+DISPLAY_NAME="${POWEREMU_DISPLAY_NAME:-PowerEmu}"
+R350_EXPERIMENT="${POWEREMU_R350_EXPERIMENT:-0}"
 
 # The Tools disc and the app must agree on the version, or PowerEmu would
 # offer an update to the copy it is already running (or miss a real one).
@@ -32,16 +36,16 @@ BIN="$(cd "$ROOT/app" && swift build -c release --show-bin-path)/PowerEmu"
 # Restage the helper (QEMU + its libraries) whenever the emulator has been
 # rebuilt since; otherwise the app would keep shipping the QEMU it was first
 # packaged with, and changes to the emulator would silently never appear.
-QEMU_BIN="${POWEREMU_QEMU:-$HOME/Developer/poweremu-qemu}/build/qemu-system-ppc-unsigned"
-STAGED="$ROOT/build/PowerEmu VM.app/Contents/MacOS/qemu-system-ppc"
-if [ ! -d "$ROOT/build/PowerEmu VM.app" ] || [ "$QEMU_BIN" -nt "$STAGED" ]; then
-    "$ROOT/scripts/bundle-qemu.sh" "$ROOT/build/PowerEmu VM.app"
+QEMU_BIN="${POWEREMU_QEMU_BINARY:-${POWEREMU_QEMU:-$HOME/Developer/poweremu-qemu}/build/qemu-system-ppc-unsigned}"
+STAGED="$HELPER_STAGE/Contents/MacOS/qemu-system-ppc"
+if [ ! -d "$HELPER_STAGE" ] || [ "$QEMU_BIN" -nt "$STAGED" ] || [ -n "${POWEREMU_QEMU_BINARY:-}${POWEREMU_OPENBIOS:-}" ]; then
+    "$ROOT/scripts/bundle-qemu.sh" "$HELPER_STAGE"
 fi
 
 rm -rf "$OUT"
 mkdir -p "$OUT/Contents/MacOS" "$OUT/Contents/Helpers" "$OUT/Contents/Resources"
 cp "$BIN" "$OUT/Contents/MacOS/PowerEmu"
-ditto "$ROOT/build/PowerEmu VM.app" "$OUT/Contents/Helpers/PowerEmu VM.app"
+ditto "$HELPER_STAGE" "$OUT/Contents/Helpers/PowerEmu VM.app"
 # The network helper: the only piece that ever runs as an administrator,
 # and it does nothing but carry ethernet frames for a bridged virtual Mac.
 # One guest application's place in this Mac's Dock: PowerEmu copies this into
@@ -62,7 +66,7 @@ xattr -cr "$OUT/Contents/Resources" 2>/dev/null || true
 ICON_CAR_DIR="$OUT/Contents/Resources" \
     "$ROOT/scripts/make-icon.sh" "$OUT/Contents/Resources/PowerEmu.icns" >/dev/null
 # The PowerEmu Tools disc (guest/scripts/build.sh builds its apps on a PowerPC Mac).
-if [ -d "$ROOT/guest/build/Install PowerEmu Tools.app" ]; then
+if [ -d "$ROOT/guest/build/Install PowerEmu Tools.pkg" ]; then
     "$ROOT/scripts/make-tools-disc.sh" "$OUT/Contents/Resources/PowerEmu Tools.iso" >/dev/null
 else
     echo "warning: guest/build is empty; PowerEmu.app will have no Tools disc" >&2
@@ -83,11 +87,11 @@ cat > "$OUT/Contents/Info.plist" <<EOF
 	<key>CFBundleIconName</key>
 	<string>poweremu</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.spartan0285.poweremu</string>
+	<string>$BUNDLE_ID</string>
 	<key>CFBundleName</key>
-	<string>PowerEmu</string>
+	<string>$DISPLAY_NAME</string>
 	<key>CFBundleDisplayName</key>
-	<string>PowerEmu</string>
+	<string>$DISPLAY_NAME</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -96,6 +100,8 @@ cat > "$OUT/Contents/Info.plist" <<EOF
 	<string>$BUILD_NUMBER</string>
 	<key>PEBuildStage</key>
 	<string>$STAGE</string>
+	<key>PERadeon9800Experiment</key>
+	<$([ "$R350_EXPERIMENT" = 1 ] && echo true || echo false)/>
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
 	<key>LSApplicationCategoryType</key>
@@ -149,6 +155,17 @@ if [ "$SIGN" != "-" ]; then
 fi
 codesign --force --sign "$SIGN" $TIMESTAMP $RUNTIME "$OUT/Contents/Helpers/poweremu-netd" >/dev/null
 codesign --force --sign "$SIGN" $TIMESTAMP $RUNTIME --entitlements "$ROOT/app/Resources/PowerEmu.entitlements" "$OUT/Contents/MacOS/PowerEmu" >/dev/null
+if [ "${POWEREMU_SMP:-0}" = 1 ]; then
+    # Hash the final signed executable: signing changes its bytes. This record
+    # is outside the nested helper to avoid a circular signature dependency.
+    [ -n "${POWEREMU_QEMU_BINARY:-}" ] && [ -n "${POWEREMU_OPENBIOS:-}" ] || {
+        echo "SMP packaging requires explicit backend and firmware paths" >&2; exit 1;
+    }
+    backend_hash=$(shasum -a 256 "$HELPER/Contents/MacOS/qemu-system-ppc" | cut -d ' ' -f1)
+    firmware_hash=$(shasum -a 256 "$HELPER/Contents/Resources/firmware/openbios-ppc" | cut -d ' ' -f1)
+    printf '{"version":1,"backendSHA256":"%s","firmwareSHA256":"%s"}\n' "$backend_hash" "$firmware_hash" \
+        > "$OUT/Contents/Resources/PowerEmu VM.app.smp.json"
+fi
 codesign --force --sign "$SIGN" $TIMESTAMP $RUNTIME --entitlements "$ROOT/app/Resources/PowerEmu.entitlements" "$OUT" >/dev/null
 echo "signed: $SIGN"
 echo "built $OUT ($(du -sh "$OUT" | cut -f1))"

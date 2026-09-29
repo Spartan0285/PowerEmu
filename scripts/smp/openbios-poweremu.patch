@@ -1,0 +1,260 @@
+diff --git a/arch/ppc/qemu/init.c b/arch/ppc/qemu/init.c
+index 253394c..82e9040 100644
+--- a/arch/ppc/qemu/init.c
++++ b/arch/ppc/qemu/init.c
+@@ -50,6 +50,7 @@ struct cpudef {
+ };
+ 
+ static uint16_t machine_id = 0;
++static unsigned int cpu_index;
+ 
+ extern void unexpected_excep(int vector);
+ 
+@@ -331,7 +332,7 @@ cpu_generic_init(const struct cpudef *cpu)
+     push_str("bus-frequency");
+     fword("property");
+ 
+-    push_str("running");
++    push_str(cpu_index ? "stopped" : "running");
+     fword("encode-string");
+     push_str("state");
+     fword("property");
+@@ -345,11 +346,7 @@ cpu_generic_init(const struct cpudef *cpu)
+ static void
+ cpu_add_pir_property(void)
+ {
+-    unsigned long pir;
+-
+-    asm("mfspr %0, 1023\n"
+-        : "=r"(pir) :);
+-    PUSH(pir);
++    PUSH(cpu_index);
+     fword("encode-int");
+     push_str("reg");
+     fword("property");
+@@ -1074,10 +1071,13 @@ arch_of_init(void)
+     fword("property");
+ 
+     cpu = id_cpu();
+-    cpu->initfn(cpu);
++    for (cpu_index = 0; cpu_index < fw_cfg_read_i16(FW_CFG_NB_CPUS);
++         cpu_index++) {
++        cpu->initfn(cpu);
++    }
+     printk("CPU type %s\n", cpu->name);
+ 
+-    snprintf(buf, sizeof(buf), "/cpus/%s", cpu->name);
++    snprintf(buf, sizeof(buf), "/cpus/%s@0", cpu->name);
+     ofmem_register(find_dev("/memory"), find_dev(buf));
+     node_methods_init(buf);
+ 
+diff --git a/config/scripts/switch-arch b/config/scripts/switch-arch
+index 013116b..472bf2e 100755
+--- a/config/scripts/switch-arch
++++ b/config/scripts/switch-arch
+@@ -37,6 +37,7 @@ longbits()
+     cpu=$1
+     if test "$cpu" = "sparc64" -o "$cpu" = "ia64" \
+         -o "$cpu" = "amd64" -o "$cpu" = "x86_64" \
++        -o "$cpu" = "aarch64" -o "$cpu" = "arm64" \
+         -o "$cpu" = "powerpc64" -o "$cpu" = "ppc64" \
+         -o "$cpu" = "ppc64le" -o "$cpu" = "alpha" ; then
+         echo 64
+diff --git a/drivers/macio.c b/drivers/macio.c
+index 496bab1..8e26f76 100644
+--- a/drivers/macio.c
++++ b/drivers/macio.c
+@@ -32,6 +32,13 @@
+ #define IO_OPENPIC_SIZE    0x00040000
+ #define IO_OPENPIC_OFFSET  0x00040000
+ 
++#define DAVBUS_REG_OFFSET  0x14000
++#define DAVBUS_REG_SIZE    0x1000
++#define DAVBUS_TX_OFFSET   0x8800
++#define DAVBUS_TX_SIZE     0x100
++#define DAVBUS_RX_OFFSET   0x8900
++#define DAVBUS_RX_SIZE     0x100
++
+ static char *nvram;
+ 
+ static int macio_nvram_shift(void)
+@@ -188,6 +195,135 @@ openpic_init(const char *path, phys_addr_t addr)
+         fword("finish-device");
+ }
+ 
++static void
++screamer_init(const char *path)
++{
++        phandle_t dnode;
++        int props[3];
++        char buf[256];
++
++        fword("new-device");
++        push_str("sound");
++        fword("device-name");
++        push_str("soundchip");
++        fword("device-type");
++
++        snprintf(buf, sizeof(buf), "%s/sound", path);
++        dnode = find_dev(buf);
++        set_property(dnode, "compatible", "screamer\0awacs\0", 15);
++        set_property(dnode, "model", "343S0184", 9);
++        set_int_property(dnode, "vendor-id", 0x106b);
++        set_int_property(dnode, "device-id", 0x5);
++        set_int_property(dnode, "sub-frame", 0x0);
++        set_int_property(dnode, "object-model-version", 0x1);
++        props[0] = 0x2;
++        props[1] = 0x56220000;
++        props[2] = 0xac440000;
++        set_property(dnode, "sample-rates", (char *)&props, 3 * sizeof(props[0]));
++
++        if (is_oldworld()) {
++            set_int_property(dnode, "driver-ptr", 0x3a4060);
++            set_int_property(dnode, "driver-ref", 0xffcb);
++            set_int_property(dnode, "AAPL,sndhw-plugin-id", 0x3a3350);
++            set_int_property(dnode, "AAPL,output-component", 0xc0021);
++            set_int_property(dnode, "AAPL,input-component", 0x20023);
++            set_int_property(dnode, "AAPL,port-handler-component", 0x20024);
++        } else {
++            set_int_property(dnode, "#-detects", 3);
++            set_int_property(dnode, "#-features", 3);
++            set_int_property(dnode, "#-outputs", 2);
++            set_int_property(dnode, "#-inputs", 1);
++            set_int_property(dnode, "icon-id", 0xffffbf4d);
++            set_int_property(dnode, "info-id", 0xffffbf44);
++            set_int_property(dnode, "name-id", 0xffffbf4d);
++            set_property(dnode, "default-monitor", "none", 5);
++    
++            set_property(dnode, "sound-objects",
++                                "init operation 2 param 00000001 param-size 4\0"
++                                "feature index 0 model Proj7PowerControl\0"
++                                "feature index 1 model USBSubwoofer\0"
++                                "feature index 2 model NotifySSprockets\0"
++                                "detect bit-mask 2 bit-match 2 device 2 index 0 model InSenseBitsDetect\0"
++                                "detect bit-mask 4 bit-match 4 device 16 index 1 model InSenseBitsDetect\0"
++                                "detect bit-mask 1 bit-match 0 device 32 index 2 model InSenseBitsDetect\0"
++                                "input icon-id -16526 index 0 name-id -20520 port-connection 2 "
++                                "port-type 0x656D6963 zero-gain 0 model ExternalMic\0"
++                                "input icon-id -16526 index 1 name-id -20528 port-connection 2 "
++                                "port-type 0x73696E6A zero-gain 0 model InputPort\0"
++                                "input icon-id -20184 index 2 name-id -20540 port-connection 3 "
++                                "port-type 0x6d6f646d zero-gain 0 model InputPort\0"
++                                "input index 3 model NoInput\0"
++                                "output device-mask 2 device-match 0 icon-id -16563 index 0 name-id -20525 "
++                                "port-connection 2 port-type 0x6973706B model OutputPort\0"
++                                "output device-mask 2 device-match 2 icon-id -16563 index 1 name-id -20524 "
++                                "port-connection 1 port-type 0x6864706E model OutputPort\0", 0x3e4);
++        }
++
++        fword("finish-device");
++}
++
++static void
++davbus_init(const char *path, phys_addr_t addr)
++{
++        phandle_t dnode;
++        int props[6];
++        char buf[128];
++
++        fword("new-device");
++        push_str("davbus");
++        fword("device-name");
++        push_str("soundbus");
++        fword("device-type");
++
++        snprintf(buf, sizeof(buf), "%s/davbus", path);
++        dnode = find_dev(buf);
++        set_property(dnode, "compatible", "davbus", 7);
++        set_property(dnode, "built-in", "", 0);
++
++        props[0] = DAVBUS_REG_OFFSET;
++        props[1] = DAVBUS_REG_SIZE;
++        props[2] = DAVBUS_TX_OFFSET;
++        props[3] = DAVBUS_TX_SIZE;
++        props[4] = DAVBUS_RX_OFFSET;
++        props[5] = DAVBUS_RX_SIZE;
++        set_property(dnode, "reg", (char *)&props, 6 * sizeof(props[0]));
++
++        if (is_oldworld()) {
++            props[0] = 0x11;
++            props[1] = 0x8;
++            props[2] = 0x9;
++            set_property(dnode, "AAPL,interrupts", (char *)&props, 3 * sizeof(props[0]));
++
++            props[0] = addr + DAVBUS_REG_OFFSET;
++            props[1] = addr + DAVBUS_TX_OFFSET;
++            props[2] = addr + DAVBUS_RX_OFFSET;
++            set_property(dnode, "AAPL,address", (char *)&props, 3 * sizeof(props[0]));
++ 
++            set_int_property(dnode, "driver-ptr", 0x390510);
++            set_int_property(dnode, "driver-ref", 0xffcc);
++            set_int_property(dnode, "AAPL,sndio-plugin-id", 0x1ce080);
++        } else {
++            props[0] = 0x18;
++            props[1] = 0x1;
++            props[2] = 0x9;
++            props[3] = 0x0;
++            props[4] = 0xa;
++            props[5] = 0x0;
++            set_property(dnode, "interrupts", (char *)&props, 6 * sizeof(props[0]));
++
++            props[0] = 0x2;
++            props[1] = 0x4;
++            props[2] = 0x4;
++            set_property(dnode, "AAPL,requested-priorities", (char *)&props, 3 * sizeof(props[0]));
++
++            set_property(dnode, "AAPL,clock-id", "dav au45au49", 13);
++        }
++
++        screamer_init(buf);
++
++        fword("finish-device");
++}
++
+ DECLARE_UNNAMED_NODE(ob_macio, 0, sizeof(int));
+ 
+ /* ( str len -- addr ) */
+@@ -369,6 +505,7 @@ ob_macio_heathrow_init(const char *path, phys_addr_t addr)
+     macio_nvram_init(path, addr);
+     escc_init(path, addr);
+     macio_ide_init(path, addr, 2);
++    davbus_init(path, addr);
+ 
+     aliases = find_dev("/aliases");
+     set_property(aliases, "mac-io", path, strlen(path) + 1);
+@@ -391,6 +528,7 @@ ob_macio_keylargo_init(const char *path, phys_addr_t addr)
+     escc_init(path, addr);
+     macio_ide_init(path, addr, 2);
+     openpic_init(path, addr);
++    davbus_init(path, addr);
+ 
+     aliases = find_dev("/aliases");
+     set_property(aliases, "mac-io", path, strlen(path) + 1);
+diff --git a/drivers/pci.c b/drivers/pci.c
+index f30e427..c7ae0aa 100644
+--- a/drivers/pci.c
++++ b/drivers/pci.c
+@@ -1939,6 +1939,10 @@ static phandle_t ob_pci_host_set_interrupt_map(phandle_t host)
+         target_node = find_dev(buf);
+         set_int_property(target_node, "interrupt-parent", dnode);
+ 
++        snprintf(buf, sizeof(buf), "%s/mac-io/davbus", path);
++        target_node = find_dev(buf);
++        set_int_property(target_node, "interrupt-parent", dnode);
++
+         /* QEMU only emulates 2 of the 3 ata buses currently */
+         /* On a new world Mac these are not numbered but named by the
+          * ATA version they support. Thus we have: ata-3, ata-3, ata-4
+diff --git a/drivers/pci_database.c b/drivers/pci_database.c
+index 1cb0727..d910ecd 100644
+--- a/drivers/pci_database.c
++++ b/drivers/pci_database.c
+@@ -246,7 +246,7 @@ static const pci_dev_t vga_devices[] = {
+         NULL, NULL,
+     },
+     {
+-        PCI_VENDOR_ID_QEMU, PCI_DEVICE_ID_QEMU_VGA,
++        PCI_VENDOR_ID_ATI, 0x5960, /* PowerEmu RV280: match the bundled firmware. */
+         NULL, "QEMU,VGA", "QEMU VGA",    "VGA\0",
+         0, 0, 0,
+         NULL, NULL,

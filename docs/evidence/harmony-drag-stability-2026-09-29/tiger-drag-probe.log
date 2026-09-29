@@ -1,0 +1,26 @@
+2026-09-28 20:26:48.500 probe[1749] START 297.5,181.5
+2026-09-28 20:26:48.931 probe[1749] step=1 top=178 level=24 AXfocused=60,86 785x443 buttonHeld=1
+2026-09-28 20:26:49.036 probe[1749] step=2 top=321 level=500 AXfocused=60,86 785x443 buttonHeld=1
+2026-09-28 20:26:49.280 probe[1749] step=3 top=321 level=500 AXfocused=60,86 785x443 buttonHeld=1
+2026-09-28 20:26:49.532 probe[1749] step=4 top=321 level=500 AXfocused=60,86 785x443 buttonHeld=1
+2026-09-28 20:26:49.783 probe[1749] step=5 top=321 level=500 AXfocused=60,86 785x443 buttonHeld=1
+2026-09-28 20:26:50.030 probe[1749] step=6 top=321 level=500 AXfocused=60,86 785x443 buttonHeld=1
+2026-09-28 20:26:50.281 probe[1749] step=7 top=321 level=500 AXfocused=60,86 785x443 buttonHeld=1
+2026-09-28 20:26:50.533 probe[1749] step=8 top=321 level=500 AXfocused=60,86 785x443 buttonHeld=1
+2026-09-28 20:26:50.870 probe[1749] step=9 top=321 level=500 AXfocused=60,86 785x443 buttonHeld=1
+2026-09-28 20:26:51.030 probe[1749] step=10 top=321 level=500 AXfocused=60,86 785x443 buttonHeld=1
+2026-09-28 20:26:51.280 probe[1749] step=11 top=321 level=500 AXfocused=60,86 785x443 buttonHeld=1
+2026-09-28 20:26:51.531 probe[1749] step=12 top=321 level=500 AXfocused=60,86 785x443 buttonHeld=1
+2026-09-28 20:26:51.781 probe[1749] step=13 top=321 level=500 AXfocused=60,86 785x443 buttonHeld=1
+2026-09-28 20:26:52.031 probe[1749] step=14 top=321 level=500 AXfocused=60,86 785x443 buttonHeld=1
+2026-09-28 20:26:52.281 probe[1749] step=15 top=321 level=500 AXfocused=60,86 785x443 buttonHeld=1
+2026-09-28 20:26:52.531 probe[1749] step=16 top=321 level=500 AXfocused=60,86 785x443 buttonHeld=1
+2026-09-28 20:26:52.781 probe[1749] step=17 top=321 level=500 AXfocused=60,86 785x443 buttonHeld=1
+2026-09-28 20:26:53.034 probe[1749] step=18 top=321 level=500 AXfocused=60,86 785x443 buttonHeld=1
+2026-09-28 20:26:53.281 probe[1749] step=19 top=321 level=500 AXfocused=60,86 785x443 buttonHeld=1
+2026-09-28 20:26:53.535 probe[1749] step=20 top=321 level=500 AXfocused=60,86 785x443 buttonHeld=1
+2026-09-28 20:26:53.781 probe[1749] step=21 top=321 level=500 AXfocused=60,86 785x443 buttonHeld=1
+2026-09-28 20:26:54.041 probe[1749] step=22 top=321 level=500 AXfocused=60,86 785x443 buttonHeld=1
+2026-09-28 20:26:54.288 probe[1749] step=23 top=321 level=500 AXfocused=60,86 785x443 buttonHeld=1
+2026-09-28 20:26:54.536 probe[1749] step=24 top=321 level=500 AXfocused=60,86 785x443 buttonHeld=1
+2026-09-28 20:26:54.585 probe[1749] END explicit release after six seconds

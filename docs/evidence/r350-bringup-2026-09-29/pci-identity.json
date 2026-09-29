@@ -1,0 +1,86 @@
+{
+  "ppc-mac-gpu": {
+    "irq_pin": 1,
+    "bus": 0,
+    "qdev_id": "",
+    "irq": 0,
+    "slot": 13,
+    "class_info": {
+      "class": 768,
+      "desc": "VGA controller"
+    },
+    "id": {
+      "device": 22880,
+      "subsystem-vendor": 4098,
+      "vendor": 4098,
+      "subsystem": 22880
+    },
+    "function": 0,
+    "regions": [
+      {
+        "prefetch": true,
+        "mem_type_64": false,
+        "bar": 0,
+        "size": 134217728,
+        "address": -1,
+        "type": "memory"
+      },
+      {
+        "bar": 1,
+        "size": 256,
+        "address": -1,
+        "type": "io"
+      },
+      {
+        "prefetch": false,
+        "mem_type_64": false,
+        "bar": 2,
+        "size": 65536,
+        "address": -1,
+        "type": "memory"
+      }
+    ]
+  },
+  "ppc-mac-r350-probe": {
+    "irq_pin": 1,
+    "bus": 0,
+    "qdev_id": "",
+    "irq": 0,
+    "slot": 13,
+    "class_info": {
+      "class": 768,
+      "desc": "VGA controller"
+    },
+    "id": {
+      "device": 20040,
+      "subsystem-vendor": 4098,
+      "vendor": 4098,
+      "subsystem": 20040
+    },
+    "function": 0,
+    "regions": [
+      {
+        "prefetch": true,
+        "mem_type_64": false,
+        "bar": 0,
+        "size": 134217728,
+        "address": -1,
+        "type": "memory"
+      },
+      {
+        "bar": 1,
+        "size": 256,
+        "address": -1,
+        "type": "io"
+      },
+      {
+        "prefetch": false,
+        "mem_type_64": false,
+        "bar": 2,
+        "size": 65536,
+        "address": -1,
+        "type": "memory"
+      }
+    ]
+  }
+}

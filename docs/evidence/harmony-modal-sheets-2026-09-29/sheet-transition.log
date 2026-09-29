@@ -1,0 +1,9 @@
+PECMD harmony off
+PEPROXY source=complete captureCount=6265 pending=0 
+PECMD harmony on
+PETOOLS Optional(PowerEmu.GuestTools.State.upToDate("2.17"))
+PEPROXY source=complete captureCount=6313 pending=102 100:frame=(100,342,640,462),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0 102:frame=(208,642,424,140),vis=1,a=1.00,contents=1,lvl=0,sheetParent=100,attachedTo=100 121:frame=(202,772,437,10),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0 58:frame=(506,126,668,597),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0
+PEHOSTSTACK guest:58(native:8332) > guest:102(native:8330) > guest:100(native:8331) > guest:121(native:8329) > host:Finder(native:6242) > host:Finder(native:4109)
+PECMD raise 100
+PEAGENT RAISE 102 ax=0 pid=711
+PEHOSTSTACK guest:102(native:8330) > guest:100(native:8331) > guest:58(native:8332) > guest:121(native:8329) > host:Finder(native:6242) > host:Finder(native:4109)

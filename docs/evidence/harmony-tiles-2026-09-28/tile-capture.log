@@ -1,0 +1,14 @@
+run=0 encoding=4 candidateMS=37.888 candidateBytes=6801 fullMS=126.924 fullBytes=1064496
+run=1 encoding=4 candidateMS=36.366 candidateBytes=6833 fullMS=127.352 fullBytes=1064533
+run=2 encoding=4 candidateMS=36.614 candidateBytes=6802 fullMS=129.530 fullBytes=1064496
+run=3 encoding=4 candidateMS=36.183 candidateBytes=6834 fullMS=126.763 fullBytes=1064534
+run=4 encoding=4 candidateMS=37.012 candidateBytes=6802 fullMS=127.077 fullBytes=1064497
+run=5 encoding=4 candidateMS=36.056 candidateBytes=6833 fullMS=128.421 fullBytes=1064534
+run=6 encoding=4 candidateMS=36.678 candidateBytes=6802 fullMS=127.515 fullBytes=1064497
+run=7 encoding=4 candidateMS=36.461 candidateBytes=6835 fullMS=128.899 fullBytes=1064534
+run=8 encoding=4 candidateMS=36.328 candidateBytes=6802 fullMS=128.102 fullBytes=1064497
+run=9 encoding=4 candidateMS=37.476 candidateBytes=6835 fullMS=129.189 fullBytes=1064534
+run=10 encoding=1 candidateMS=134.245 candidateBytes=1064665 fullMS=128.321 fullBytes=1064665
+run=11 encoding=1 candidateMS=139.742 candidateBytes=1028585 fullMS=125.289 fullBytes=1028585
+run=12 encoding=1 candidateMS=132.958 candidateBytes=1028541 fullMS=126.123 fullBytes=1028541
+run=13 encoding=1 candidateMS=134.097 candidateBytes=1028585 fullMS=124.994 fullBytes=1028585

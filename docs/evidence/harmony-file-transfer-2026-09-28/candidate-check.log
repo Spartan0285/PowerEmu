@@ -1,0 +1,57 @@
+--prepared:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/poweremu-netd
+--validated:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/poweremu-netd
+--prepared:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmuGuestApp
+--validated:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmuGuestApp
+--prepared:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app
+--prepared:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libslirp.0.dylib
+--validated:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libslirp.0.dylib
+--prepared:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libpcre2-8.0.dylib
+--validated:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libpcre2-8.0.dylib
+--prepared:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libusb-1.0.0.dylib
+--validated:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libusb-1.0.0.dylib
+--prepared:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libidn2.0.dylib
+--validated:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libidn2.0.dylib
+--prepared:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libpng16.16.dylib
+--validated:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libpng16.16.dylib
+--prepared:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libtasn1.6.dylib
+--validated:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libtasn1.6.dylib
+--prepared:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libgmodule-2.0.0.dylib
+--validated:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libgmodule-2.0.0.dylib
+--prepared:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libgobject-2.0.0.dylib
+--validated:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libgobject-2.0.0.dylib
+--prepared:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libp11-kit.0.dylib
+--validated:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libp11-kit.0.dylib
+--prepared:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/MacOS/qemu-img
+--validated:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/MacOS/qemu-img
+--prepared:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libhogweed.6.dylib
+--validated:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libhogweed.6.dylib
+--prepared:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libintl.8.dylib
+--validated:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libintl.8.dylib
+--prepared:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libnettle.8.dylib
+--validated:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libnettle.8.dylib
+--prepared:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libzstd.1.dylib
+--validated:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libzstd.1.dylib
+--prepared:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libglib-2.0.0.dylib
+--validated:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libglib-2.0.0.dylib
+--prepared:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libgnutls.30.dylib
+--validated:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libgnutls.30.dylib
+--prepared:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libgmp.10.dylib
+--validated:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libgmp.10.dylib
+--prepared:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libjpeg.8.dylib
+--validated:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libjpeg.8.dylib
+--prepared:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libpixman-1.0.dylib
+--validated:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libpixman-1.0.dylib
+--prepared:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libunistring.5.dylib
+--validated:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libunistring.5.dylib
+--prepared:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libgio-2.0.0.dylib
+--validated:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/Frameworks/libgio-2.0.0.dylib
+--validated:/Users/adam/Developer/PowerEmu/build/Harmony File Transfer/PowerEmu.app/Contents/Helpers/PowerEmu VM.app
+build/Harmony File Transfer/PowerEmu.app: valid on disk
+build/Harmony File Transfer/PowerEmu.app: satisfies its Designated Requirement
+Identifier=com.spartan0285.poweremu
+Authority=Developer ID Application: Adam Cipoletti (7B2D3VV69V)
+Authority=Developer ID Certification Authority
+Authority=Apple Root CA
+TeamIdentifier=7B2D3VV69V
+63e8422b805ac11477ac6d9249bd357b9b84d2f4f98693df61d9c4066c2b0462  build/Harmony File Transfer/PowerEmu.app/Contents/Resources/PowerEmu Tools.iso
+2.14

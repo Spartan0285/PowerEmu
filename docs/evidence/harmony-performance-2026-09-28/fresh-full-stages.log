@@ -1,0 +1,160 @@
+PECAPTURE id=28 seq=1 unchanged=0 setupMS=13.769 captureMS=30.441 compareMS=0.136 cacheMS=0.134 compressMS=28.217 packetMS=0.598 totalMS=73.296 bytes=33514
+PEDELIVERY request=28 1 0 socketWriteMS=2.470 bytes=33582 delivered=1
+PECAPTURE id=28 seq=2 unchanged=0 setupMS=9.110 captureMS=30.055 compareMS=0.107 cacheMS=3.584 compressMS=28.380 packetMS=0.605 totalMS=71.843 bytes=33514
+PEDELIVERY request=28 2 0 socketWriteMS=1.393 bytes=33532 delivered=1
+PECAPTURE id=28 seq=3 unchanged=0 setupMS=8.998 captureMS=30.847 compareMS=0.111 cacheMS=4.247 compressMS=28.304 packetMS=0.637 totalMS=73.146 bytes=33514
+PEDELIVERY request=28 3 0 socketWriteMS=1.345 bytes=33532 delivered=1
+PECAPTURE id=28 seq=4 unchanged=0 setupMS=9.195 captureMS=31.842 compareMS=0.116 cacheMS=3.662 compressMS=28.018 packetMS=0.609 totalMS=73.443 bytes=33514
+PEDELIVERY request=28 4 0 socketWriteMS=1.239 bytes=33532 delivered=1
+PECAPTURE id=28 seq=5 unchanged=0 setupMS=8.925 captureMS=32.113 compareMS=0.115 cacheMS=3.904 compressMS=28.478 packetMS=0.577 totalMS=74.113 bytes=33514
+PEDELIVERY request=28 5 0 socketWriteMS=1.339 bytes=33532 delivered=1
+PECAPTURE id=28 seq=6 unchanged=0 setupMS=9.231 captureMS=32.176 compareMS=0.098 cacheMS=3.922 compressMS=28.045 packetMS=0.585 totalMS=74.059 bytes=33514
+PEDELIVERY request=28 6 0 socketWriteMS=1.144 bytes=33532 delivered=1
+PECAPTURE id=28 seq=7 unchanged=0 setupMS=9.658 captureMS=31.729 compareMS=0.107 cacheMS=3.783 compressMS=28.078 packetMS=0.630 totalMS=73.987 bytes=33514
+PEDELIVERY request=28 7 0 socketWriteMS=1.228 bytes=33532 delivered=1
+PECAPTURE id=28 seq=8 unchanged=0 setupMS=9.294 captureMS=30.319 compareMS=0.107 cacheMS=3.687 compressMS=28.062 packetMS=0.606 totalMS=72.077 bytes=33514
+PEDELIVERY request=28 8 0 socketWriteMS=1.185 bytes=33532 delivered=1
+PECAPTURE id=28 seq=9 unchanged=0 setupMS=9.250 captureMS=30.323 compareMS=0.116 cacheMS=3.783 compressMS=28.330 packetMS=0.576 totalMS=72.380 bytes=33514
+PEDELIVERY request=28 9 0 socketWriteMS=1.417 bytes=33532 delivered=1
+PECAPTURE id=28 seq=10 unchanged=0 setupMS=9.592 captureMS=31.144 compareMS=0.114 cacheMS=3.765 compressMS=28.336 packetMS=0.575 totalMS=73.528 bytes=33515
+PEDELIVERY request=28 10 0 socketWriteMS=1.195 bytes=33533 delivered=1
+PECAPTURE id=28 seq=11 unchanged=0 setupMS=8.935 captureMS=30.972 compareMS=0.112 cacheMS=3.530 compressMS=28.330 packetMS=0.595 totalMS=72.476 bytes=33515
+PEDELIVERY request=28 11 0 socketWriteMS=1.259 bytes=33533 delivered=1
+PECAPTURE id=28 seq=12 unchanged=0 setupMS=10.518 captureMS=30.719 compareMS=0.116 cacheMS=3.329 compressMS=27.766 packetMS=0.601 totalMS=73.050 bytes=33515
+PEDELIVERY request=28 12 0 socketWriteMS=1.280 bytes=33533 delivered=1
+PECAPTURE id=28 seq=13 unchanged=0 setupMS=15.574 captureMS=31.289 compareMS=0.116 cacheMS=3.365 compressMS=28.255 packetMS=0.657 totalMS=79.258 bytes=33515
+PEDELIVERY request=28 13 0 socketWriteMS=1.209 bytes=33533 delivered=1
+PECAPTURE id=28 seq=14 unchanged=0 setupMS=9.683 captureMS=30.261 compareMS=0.104 cacheMS=3.943 compressMS=27.990 packetMS=0.590 totalMS=72.572 bytes=33515
+PEDELIVERY request=28 14 0 socketWriteMS=1.237 bytes=33533 delivered=1
+PECAPTURE id=28 seq=15 unchanged=0 setupMS=9.625 captureMS=32.194 compareMS=0.120 cacheMS=3.448 compressMS=28.319 packetMS=0.565 totalMS=74.272 bytes=33515
+PEDELIVERY request=28 15 0 socketWriteMS=1.167 bytes=33533 delivered=1
+PECAPTURE id=28 seq=16 unchanged=0 setupMS=9.230 captureMS=30.369 compareMS=0.148 cacheMS=3.638 compressMS=28.033 packetMS=0.615 totalMS=72.034 bytes=33515
+PEDELIVERY request=28 16 0 socketWriteMS=1.200 bytes=33533 delivered=1
+PECAPTURE id=28 seq=17 unchanged=0 setupMS=9.499 captureMS=31.024 compareMS=0.099 cacheMS=3.440 compressMS=28.521 packetMS=0.558 totalMS=73.142 bytes=33515
+PEDELIVERY request=28 17 0 socketWriteMS=1.238 bytes=33533 delivered=1
+PECAPTURE id=28 seq=18 unchanged=0 setupMS=9.486 captureMS=30.658 compareMS=0.114 cacheMS=3.602 compressMS=28.268 packetMS=0.584 totalMS=72.713 bytes=33515
+PEDELIVERY request=28 18 0 socketWriteMS=1.172 bytes=33533 delivered=1
+PECAPTURE id=28 seq=19 unchanged=0 setupMS=8.965 captureMS=31.645 compareMS=0.099 cacheMS=3.568 compressMS=28.464 packetMS=0.562 totalMS=73.304 bytes=33515
+PEDELIVERY request=28 19 0 socketWriteMS=1.369 bytes=33533 delivered=1
+PECAPTURE id=28 seq=20 unchanged=0 setupMS=9.127 captureMS=31.483 compareMS=0.203 cacheMS=3.568 compressMS=28.104 packetMS=0.574 totalMS=73.060 bytes=33515
+PEDELIVERY request=28 20 0 socketWriteMS=1.178 bytes=33533 delivered=1
+PECAPTURE id=28 seq=21 unchanged=0 setupMS=9.470 captureMS=30.995 compareMS=0.106 cacheMS=3.692 compressMS=28.100 packetMS=0.582 totalMS=72.946 bytes=33515
+PEDELIVERY request=28 21 0 socketWriteMS=1.130 bytes=33533 delivered=1
+PECAPTURE id=28 seq=22 unchanged=0 setupMS=8.849 captureMS=30.004 compareMS=0.103 cacheMS=3.892 compressMS=28.234 packetMS=0.565 totalMS=71.648 bytes=33515
+PEDELIVERY request=28 22 0 socketWriteMS=1.329 bytes=33533 delivered=1
+PECAPTURE id=28 seq=23 unchanged=0 setupMS=9.071 captureMS=29.971 compareMS=0.186 cacheMS=3.735 compressMS=28.138 packetMS=0.549 totalMS=71.652 bytes=33515
+PEDELIVERY request=28 23 0 socketWriteMS=1.243 bytes=33533 delivered=1
+PECAPTURE id=28 seq=24 unchanged=0 setupMS=8.956 captureMS=30.996 compareMS=0.127 cacheMS=3.798 compressMS=27.827 packetMS=0.654 totalMS=72.360 bytes=33515
+PEDELIVERY request=28 24 0 socketWriteMS=1.142 bytes=33533 delivered=1
+PECAPTURE id=28 seq=25 unchanged=0 setupMS=9.621 captureMS=28.455 compareMS=0.109 cacheMS=4.172 compressMS=28.036 packetMS=0.562 totalMS=70.956 bytes=33515
+PEDELIVERY request=28 25 0 socketWriteMS=1.090 bytes=33533 delivered=1
+PECAPTURE id=28 seq=26 unchanged=0 setupMS=9.451 captureMS=30.068 compareMS=0.108 cacheMS=3.596 compressMS=28.482 packetMS=0.555 totalMS=72.261 bytes=33515
+PEDELIVERY request=28 26 0 socketWriteMS=1.490 bytes=33533 delivered=1
+PECAPTURE id=28 seq=27 unchanged=0 setupMS=8.995 captureMS=30.092 compareMS=0.108 cacheMS=3.528 compressMS=28.064 packetMS=0.622 totalMS=71.410 bytes=33515
+PEDELIVERY request=28 27 0 socketWriteMS=1.287 bytes=33533 delivered=1
+PECAPTURE id=28 seq=28 unchanged=0 setupMS=9.113 captureMS=29.691 compareMS=0.100 cacheMS=3.885 compressMS=27.871 packetMS=0.554 totalMS=71.215 bytes=33515
+PEDELIVERY request=28 28 0 socketWriteMS=1.295 bytes=33533 delivered=1
+PECAPTURE id=28 seq=29 unchanged=0 setupMS=9.871 captureMS=29.702 compareMS=0.109 cacheMS=3.910 compressMS=28.041 packetMS=0.606 totalMS=72.241 bytes=33515
+PEDELIVERY request=28 29 0 socketWriteMS=1.261 bytes=33533 delivered=1
+PECAPTURE id=28 seq=30 unchanged=0 setupMS=9.010 captureMS=29.989 compareMS=0.109 cacheMS=3.382 compressMS=27.950 packetMS=0.600 totalMS=71.042 bytes=33515
+PEDELIVERY request=28 30 0 socketWriteMS=1.272 bytes=33533 delivered=1
+PECAPTURE id=28 seq=31 unchanged=0 setupMS=9.936 captureMS=30.327 compareMS=0.110 cacheMS=3.978 compressMS=28.428 packetMS=0.619 totalMS=73.399 bytes=33515
+PEDELIVERY request=28 31 0 socketWriteMS=1.354 bytes=33533 delivered=1
+PECAPTURE id=28 seq=32 unchanged=0 setupMS=9.403 captureMS=30.474 compareMS=0.136 cacheMS=3.749 compressMS=28.525 packetMS=0.729 totalMS=73.018 bytes=33515
+PEDELIVERY request=28 32 0 socketWriteMS=1.281 bytes=33533 delivered=1
+PECAPTURE id=28 seq=33 unchanged=0 setupMS=9.092 captureMS=31.081 compareMS=0.106 cacheMS=4.339 compressMS=28.572 packetMS=0.573 totalMS=73.765 bytes=33515
+PEDELIVERY request=28 33 0 socketWriteMS=1.311 bytes=33533 delivered=1
+PECAPTURE id=28 seq=34 unchanged=0 setupMS=9.153 captureMS=31.142 compareMS=0.096 cacheMS=3.709 compressMS=28.697 packetMS=0.648 totalMS=73.446 bytes=33515
+PEDELIVERY request=28 34 0 socketWriteMS=1.237 bytes=33533 delivered=1
+PECAPTURE id=28 seq=35 unchanged=0 setupMS=9.029 captureMS=32.058 compareMS=0.120 cacheMS=4.364 compressMS=28.470 packetMS=0.605 totalMS=74.647 bytes=33515
+PEDELIVERY request=28 35 0 socketWriteMS=1.259 bytes=33533 delivered=1
+PECAPTURE id=28 seq=36 unchanged=0 setupMS=9.366 captureMS=30.951 compareMS=0.117 cacheMS=3.881 compressMS=28.434 packetMS=0.593 totalMS=73.343 bytes=33515
+PEDELIVERY request=28 36 0 socketWriteMS=1.324 bytes=33533 delivered=1
+PECAPTURE id=28 seq=37 unchanged=0 setupMS=9.107 captureMS=30.936 compareMS=0.108 cacheMS=3.270 compressMS=28.337 packetMS=0.615 totalMS=72.375 bytes=33515
+PEDELIVERY request=28 37 0 socketWriteMS=1.308 bytes=33533 delivered=1
+PECAPTURE id=28 seq=38 unchanged=0 setupMS=9.187 captureMS=30.092 compareMS=0.116 cacheMS=3.593 compressMS=28.190 packetMS=0.567 totalMS=71.747 bytes=33515
+PEDELIVERY request=28 38 0 socketWriteMS=1.163 bytes=33533 delivered=1
+PECAPTURE id=28 seq=39 unchanged=0 setupMS=9.290 captureMS=31.031 compareMS=0.116 cacheMS=3.988 compressMS=28.353 packetMS=0.569 totalMS=73.348 bytes=33515
+PEDELIVERY request=28 39 0 socketWriteMS=1.253 bytes=33533 delivered=1
+PECAPTURE id=28 seq=40 unchanged=0 setupMS=9.063 captureMS=30.271 compareMS=0.107 cacheMS=3.602 compressMS=28.150 packetMS=0.566 totalMS=71.761 bytes=33515
+PEDELIVERY request=28 40 0 socketWriteMS=1.252 bytes=33533 delivered=1
+PECAPTURE id=28 seq=41 unchanged=0 setupMS=9.142 captureMS=30.946 compareMS=0.123 cacheMS=3.669 compressMS=28.437 packetMS=0.615 totalMS=72.934 bytes=33515
+PEDELIVERY request=28 41 0 socketWriteMS=1.225 bytes=33533 delivered=1
+PECAPTURE id=28 seq=42 unchanged=0 setupMS=9.028 captureMS=29.763 compareMS=0.107 cacheMS=4.805 compressMS=28.029 packetMS=0.550 totalMS=72.284 bytes=33515
+PEDELIVERY request=28 42 0 socketWriteMS=1.142 bytes=33533 delivered=1
+PECAPTURE id=28 seq=43 unchanged=0 setupMS=9.052 captureMS=30.835 compareMS=0.105 cacheMS=3.227 compressMS=27.454 packetMS=0.556 totalMS=71.230 bytes=33515
+PEDELIVERY request=28 43 0 socketWriteMS=1.266 bytes=33533 delivered=1
+PECAPTURE id=28 seq=44 unchanged=0 setupMS=8.862 captureMS=29.906 compareMS=0.089 cacheMS=4.001 compressMS=28.502 packetMS=0.600 totalMS=71.961 bytes=33515
+PEDELIVERY request=28 44 0 socketWriteMS=1.120 bytes=33533 delivered=1
+PECAPTURE id=28 seq=45 unchanged=0 setupMS=9.560 captureMS=29.296 compareMS=0.126 cacheMS=3.640 compressMS=28.223 packetMS=0.563 totalMS=71.409 bytes=33515
+PEDELIVERY request=28 45 0 socketWriteMS=1.286 bytes=33533 delivered=1
+PECAPTURE id=28 seq=46 unchanged=0 setupMS=9.808 captureMS=30.137 compareMS=0.109 cacheMS=3.651 compressMS=28.392 packetMS=0.593 totalMS=72.692 bytes=33515
+PEDELIVERY request=28 46 0 socketWriteMS=1.176 bytes=33533 delivered=1
+PECAPTURE id=28 seq=47 unchanged=0 setupMS=9.272 captureMS=30.734 compareMS=0.097 cacheMS=3.801 compressMS=28.201 packetMS=0.584 totalMS=72.690 bytes=33515
+PEDELIVERY request=28 47 0 socketWriteMS=1.251 bytes=33533 delivered=1
+PECAPTURE id=28 seq=48 unchanged=0 setupMS=9.796 captureMS=30.713 compareMS=0.113 cacheMS=3.629 compressMS=28.033 packetMS=0.546 totalMS=72.831 bytes=33515
+PEDELIVERY request=28 48 0 socketWriteMS=1.157 bytes=33533 delivered=1
+PECAPTURE id=28 seq=49 unchanged=0 setupMS=9.701 captureMS=31.325 compareMS=0.125 cacheMS=3.860 compressMS=28.231 packetMS=0.581 totalMS=73.825 bytes=33515
+PEDELIVERY request=28 49 0 socketWriteMS=1.250 bytes=33533 delivered=1
+PECAPTURE id=28 seq=50 unchanged=0 setupMS=9.130 captureMS=30.580 compareMS=0.107 cacheMS=3.601 compressMS=28.248 packetMS=0.589 totalMS=72.257 bytes=33515
+PEDELIVERY request=28 50 0 socketWriteMS=1.213 bytes=33533 delivered=1
+PECAPTURE id=28 seq=51 unchanged=0 setupMS=9.146 captureMS=30.591 compareMS=0.110 cacheMS=4.054 compressMS=27.929 packetMS=0.566 totalMS=72.398 bytes=33515
+PEDELIVERY request=28 51 0 socketWriteMS=1.225 bytes=33533 delivered=1
+PECAPTURE id=28 seq=52 unchanged=0 setupMS=9.171 captureMS=30.589 compareMS=0.109 cacheMS=4.099 compressMS=28.241 packetMS=0.581 totalMS=72.792 bytes=33515
+PEDELIVERY request=28 52 0 socketWriteMS=1.333 bytes=33533 delivered=1
+PECAPTURE id=28 seq=53 unchanged=0 setupMS=9.618 captureMS=30.383 compareMS=0.099 cacheMS=3.735 compressMS=28.009 packetMS=0.609 totalMS=72.456 bytes=33515
+PEDELIVERY request=28 53 0 socketWriteMS=1.252 bytes=33533 delivered=1
+PECAPTURE id=28 seq=54 unchanged=0 setupMS=9.202 captureMS=30.705 compareMS=0.143 cacheMS=4.419 compressMS=27.859 packetMS=0.617 totalMS=72.947 bytes=33515
+PEDELIVERY request=28 54 0 socketWriteMS=1.573 bytes=33533 delivered=1
+PECAPTURE id=28 seq=55 unchanged=0 setupMS=9.230 captureMS=31.640 compareMS=0.109 cacheMS=3.885 compressMS=28.617 packetMS=0.575 totalMS=74.057 bytes=33515
+PEDELIVERY request=28 55 0 socketWriteMS=1.215 bytes=33533 delivered=1
+PECAPTURE id=28 seq=56 unchanged=0 setupMS=9.389 captureMS=30.439 compareMS=0.102 cacheMS=3.694 compressMS=28.489 packetMS=0.584 totalMS=72.699 bytes=33515
+PEDELIVERY request=28 56 0 socketWriteMS=1.109 bytes=33533 delivered=1
+PECAPTURE id=28 seq=57 unchanged=0 setupMS=9.365 captureMS=31.386 compareMS=0.193 cacheMS=3.610 compressMS=27.999 packetMS=0.582 totalMS=73.137 bytes=33515
+PEDELIVERY request=28 57 0 socketWriteMS=1.220 bytes=33533 delivered=1
+PECAPTURE id=28 seq=58 unchanged=0 setupMS=9.012 captureMS=30.150 compareMS=0.112 cacheMS=3.514 compressMS=28.372 packetMS=0.603 totalMS=71.765 bytes=33515
+PEDELIVERY request=28 58 0 socketWriteMS=1.228 bytes=33533 delivered=1
+PECAPTURE id=28 seq=59 unchanged=0 setupMS=9.717 captureMS=31.092 compareMS=0.112 cacheMS=4.044 compressMS=28.452 packetMS=0.622 totalMS=74.042 bytes=33515
+PEDELIVERY request=28 59 0 socketWriteMS=1.513 bytes=33533 delivered=1
+PECAPTURE id=28 seq=60 unchanged=0 setupMS=9.578 captureMS=31.650 compareMS=0.126 cacheMS=3.549 compressMS=28.164 packetMS=0.617 totalMS=73.686 bytes=33515
+PEDELIVERY request=28 60 0 socketWriteMS=1.303 bytes=33533 delivered=1
+PECAPTURE id=28 seq=61 unchanged=0 setupMS=9.188 captureMS=31.474 compareMS=0.137 cacheMS=4.225 compressMS=28.445 packetMS=0.587 totalMS=74.058 bytes=33515
+PEDELIVERY request=28 61 0 socketWriteMS=1.797 bytes=33533 delivered=1
+PECAPTURE id=28 seq=62 unchanged=0 setupMS=9.202 captureMS=31.198 compareMS=0.111 cacheMS=3.686 compressMS=28.196 packetMS=0.586 totalMS=72.981 bytes=33515
+PEDELIVERY request=28 62 0 socketWriteMS=1.228 bytes=33533 delivered=1
+PECAPTURE id=28 seq=63 unchanged=0 setupMS=9.056 captureMS=32.123 compareMS=0.112 cacheMS=3.769 compressMS=28.376 packetMS=0.635 totalMS=74.073 bytes=33515
+PEDELIVERY request=28 63 0 socketWriteMS=1.161 bytes=33533 delivered=1
+PECAPTURE id=28 seq=64 unchanged=0 setupMS=9.244 captureMS=30.906 compareMS=0.107 cacheMS=4.081 compressMS=28.140 packetMS=0.629 totalMS=73.109 bytes=33515
+PEDELIVERY request=28 64 0 socketWriteMS=1.315 bytes=33533 delivered=1
+PECAPTURE id=28 seq=65 unchanged=0 setupMS=9.318 captureMS=30.631 compareMS=0.106 cacheMS=4.077 compressMS=28.254 packetMS=0.612 totalMS=73.000 bytes=33515
+PEDELIVERY request=28 65 0 socketWriteMS=1.304 bytes=33533 delivered=1
+PECAPTURE id=28 seq=66 unchanged=0 setupMS=9.108 captureMS=30.841 compareMS=0.111 cacheMS=3.791 compressMS=28.070 packetMS=0.557 totalMS=72.479 bytes=33515
+PEDELIVERY request=28 66 0 socketWriteMS=1.087 bytes=33533 delivered=1
+PECAPTURE id=28 seq=67 unchanged=0 setupMS=9.064 captureMS=31.347 compareMS=0.111 cacheMS=3.348 compressMS=27.840 packetMS=0.573 totalMS=72.284 bytes=33515
+PEDELIVERY request=28 67 0 socketWriteMS=1.292 bytes=33533 delivered=1
+PECAPTURE id=28 seq=68 unchanged=0 setupMS=9.858 captureMS=31.223 compareMS=0.146 cacheMS=3.610 compressMS=28.105 packetMS=0.566 totalMS=73.509 bytes=33515
+PEDELIVERY request=28 68 0 socketWriteMS=1.116 bytes=33533 delivered=1
+PECAPTURE id=28 seq=69 unchanged=0 setupMS=9.143 captureMS=30.658 compareMS=0.099 cacheMS=3.821 compressMS=28.209 packetMS=0.650 totalMS=72.581 bytes=33515
+PEDELIVERY request=28 69 0 socketWriteMS=1.090 bytes=33533 delivered=1
+PECAPTURE id=28 seq=70 unchanged=0 setupMS=9.159 captureMS=29.612 compareMS=0.106 cacheMS=3.718 compressMS=27.899 packetMS=0.551 totalMS=71.047 bytes=33515
+PEDELIVERY request=28 70 0 socketWriteMS=1.232 bytes=33533 delivered=1
+PECAPTURE id=28 seq=71 unchanged=0 setupMS=9.196 captureMS=31.049 compareMS=0.102 cacheMS=3.799 compressMS=28.161 packetMS=0.576 totalMS=72.885 bytes=33515
+PEDELIVERY request=28 71 0 socketWriteMS=1.153 bytes=33533 delivered=1
+PECAPTURE id=28 seq=72 unchanged=0 setupMS=9.281 captureMS=31.531 compareMS=0.111 cacheMS=3.675 compressMS=28.533 packetMS=0.601 totalMS=73.733 bytes=33515
+PEDELIVERY request=28 72 0 socketWriteMS=1.231 bytes=33533 delivered=1
+PECAPTURE id=28 seq=73 unchanged=0 setupMS=9.140 captureMS=30.168 compareMS=0.097 cacheMS=3.656 compressMS=28.970 packetMS=0.628 totalMS=72.660 bytes=33515
+PEDELIVERY request=28 73 0 socketWriteMS=1.168 bytes=33533 delivered=1
+PECAPTURE id=28 seq=74 unchanged=0 setupMS=9.112 captureMS=31.517 compareMS=0.105 cacheMS=3.739 compressMS=27.769 packetMS=0.580 totalMS=72.823 bytes=33515
+PEDELIVERY request=28 74 0 socketWriteMS=1.210 bytes=33533 delivered=1
+PECAPTURE id=28 seq=75 unchanged=0 setupMS=9.066 captureMS=30.205 compareMS=0.092 cacheMS=3.482 compressMS=28.528 packetMS=0.587 totalMS=71.961 bytes=33515
+PEDELIVERY request=28 75 0 socketWriteMS=1.349 bytes=33533 delivered=1
+PECAPTURE id=28 seq=76 unchanged=0 setupMS=9.050 captureMS=30.899 compareMS=0.104 cacheMS=3.773 compressMS=28.002 packetMS=0.553 totalMS=72.382 bytes=33515
+PEDELIVERY request=28 76 0 socketWriteMS=1.054 bytes=33533 delivered=1
+PECAPTURE id=28 seq=77 unchanged=0 setupMS=9.985 captureMS=30.484 compareMS=0.105 cacheMS=3.403 compressMS=27.875 packetMS=0.572 totalMS=72.426 bytes=33515
+PEDELIVERY request=28 77 0 socketWriteMS=1.204 bytes=33533 delivered=1
+PECAPTURE id=28 seq=78 unchanged=0 setupMS=8.921 captureMS=33.289 compareMS=0.119 cacheMS=4.045 compressMS=29.039 packetMS=0.672 totalMS=76.087 bytes=33515
+PEDELIVERY request=28 78 0 socketWriteMS=1.648 bytes=33533 delivered=1
+PECAPTURE id=28 seq=79 unchanged=0 setupMS=10.469 captureMS=33.561 compareMS=0.134 cacheMS=3.840 compressMS=28.621 packetMS=0.591 totalMS=77.217 bytes=33515
+PEDELIVERY request=28 79 0 socketWriteMS=1.671 bytes=33533 delivered=1
+PECAPTURE id=28 seq=80 unchanged=0 setupMS=9.550 captureMS=30.181 compareMS=0.091 cacheMS=3.913 compressMS=28.318 packetMS=0.604 totalMS=72.658 bytes=33515
+PEDELIVERY request=28 80 0 socketWriteMS=1.270 bytes=33533 delivered=1

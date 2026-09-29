@@ -1,0 +1,8 @@
+rgba 0 accessibility_enabled=1
+window=64 rect=532,131 615x407 nonzero=250157 capture_ms=33.783
+argb 0 accessibility_enabled=1
+window=64 rect=532,131 615x407 nonzero=250157 capture_ms=37.015
+rgba 0 accessibility_enabled=1
+window=64 rect=532,131 615x407 nonzero=250157 capture_ms=40.591
+argb 0 accessibility_enabled=1
+window=64 rect=532,131 615x407 nonzero=250157 capture_ms=45.668

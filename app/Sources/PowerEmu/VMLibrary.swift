@@ -30,22 +30,55 @@ final class VMLibrary: ObservableObject {
     /// ~/Library/Application Support/PowerEmu: the machines, the icons, the
     /// downloads.  Named once so everything that needs it agrees.
     nonisolated static var applicationSupport: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        if let path = ProcessInfo.processInfo.environment["POWEREMU_EXPERIMENT_SUPPORT"] {
+            return URL(fileURLWithPath: path, isDirectory: true)
+        }
+        return FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("PowerEmu", isDirectory: true)
     }
 
     init() {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        folder = base.appendingPathComponent("PowerEmu/Virtual Machines", isDirectory: true)
+        folder = Self.applicationSupport.appendingPathComponent("Virtual Machines", isDirectory: true)
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         reload()
     }
 
     func reload() {
         let urls = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
+        let existing = Dictionary(uniqueKeysWithValues: machines.map { ($0.url, $0) })
+        let savedOrder = (try? Data(contentsOf: folder.deletingLastPathComponent().appendingPathComponent("vm-order.json")))
+            .flatMap { try? JSONDecoder().decode([String].self, from: $0) } ?? []
+        let ranks = Dictionary(savedOrder.enumerated().map { ($0.element, $0.offset) }, uniquingKeysWith: min)
         machines = urls.filter { $0.pathExtension == "poweremu" }
-            .compactMap { try? VirtualMachine(url: $0) }
-            .sorted { $0.config.name.localizedStandardCompare($1.config.name) == .orderedAscending }
+            .compactMap { existing[$0] ?? (try? VirtualMachine(url: $0)) }
+            .sorted {
+                let left = ranks[$0.url.lastPathComponent] ?? Int.max
+                let right = ranks[$1.url.lastPathComponent] ?? Int.max
+                if left != right { return left < right }
+                return $0.config.name.localizedStandardCompare($1.config.name) == .orderedAscending
+            }
+    }
+
+    func moveMachines(from offsets: IndexSet, to destination: Int) {
+        guard !offsets.isEmpty, offsets.allSatisfy({ machines.indices.contains($0) }),
+              (0...machines.count).contains(destination) else { return }
+        var reordered = machines
+        // SwiftUI's destination is the index before removing the moved rows.
+        let moving = offsets.sorted().map { reordered[$0] }
+        for index in offsets.sorted(by: >) { reordered.remove(at: index) }
+        let insertion = destination - offsets.filter { $0 < destination }.count
+        reordered.insert(contentsOf: moving, at: insertion)
+        do {
+            let data = try JSONEncoder().encode(reordered.map { $0.url.lastPathComponent })
+            try data.write(to: folder.deletingLastPathComponent().appendingPathComponent("vm-order.json"), options: .atomic)
+            machines = reordered
+        } catch { loadError = "Could not save the virtual Mac order: \(error.localizedDescription)" }
+    }
+
+    func moveMachine(_ vm: VirtualMachine, by offset: Int) {
+        guard let index = machines.firstIndex(where: { $0.url == vm.url }),
+              machines.indices.contains(index + offset) else { return }
+        moveMachines(from: IndexSet(integer: index), to: index + offset + (offset > 0 ? 1 : 0))
     }
 
     /// Make a new package from existing files.  Disks and ROMs are cloned

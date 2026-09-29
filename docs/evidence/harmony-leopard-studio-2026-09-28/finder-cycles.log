@@ -1,0 +1,12 @@
+2026-09-28 22:38:54.228 defaults[133:10b] 
+The domain/default pair of (com.apple.finder, CreateDesktop) does not exist
+2026-09-28 22:38:54.282 pekeepfinder[134:10b] _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+PASS preserved PE-keep-A (1 windows)
+PASS preserved PE-keep-B (2 windows)
+PASS cycle 1: same Finder window IDs; desktop excluded
+PASS preserved PE-keep-A (1 windows)
+PASS preserved PE-keep-B (2 windows)
+PASS cycle 2: same Finder window IDs; desktop excluded
+PASS preserved PE-keep-A (1 windows)
+PASS preserved PE-keep-B (2 windows)
+PASS cycle 3: same Finder window IDs; desktop excluded

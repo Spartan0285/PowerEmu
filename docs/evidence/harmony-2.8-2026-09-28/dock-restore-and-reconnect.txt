@@ -1,0 +1,8 @@
+PEPROXY source=complete captureCount=263 pending=134 134:frame=(0,687,532,386),vis=1,a=1.00,contents=1,lvl=0
+PEPROXY source=complete captureCount=2017 pending=0 134:frame=(0,687,532,386),vis=0,a=1.00,contents=1,lvl=0
+PEMENUBAR pid=334 app=Finder tops=Finder,File,Edit,View,Go,Help built=21 filled=21 active=false
+PEMAINMENU PowerEmu | File | Edit | View | Machine | Window | Help
+PEUNMIN id=134 pid=334/0
+PEMIN id=134 asked the guest
+PEAGENT MINIMIZE 134 ax=0 pid=334
+PEUNMIN id=134 pid=334/0

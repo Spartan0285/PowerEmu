@@ -13,6 +13,12 @@
 #import <Security/Security.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <sys/stat.h>
+#include <pwd.h>
+#include <grp.h>
+#include <stdlib.h>
+#include <string.h>
+#include "PEAccessibility.h"
 
 #define AGENT_NAME @"PowerEmu Agent.app"
 #define CLOCK_PLIST "/Library/LaunchDaemons/com.spartan0285.poweremu.clock.plist"
@@ -112,11 +118,58 @@ static void StopAgent(void)
     [t waitUntilExit];
 }
 
+/* Native package helpers run for the logged-in guest user, never root's
+ * Library. Stage first; a failed update preserves the previous installation. */
+static BOOL InstallAgent(void)
+{
+    NSFileManager *fm=[NSFileManager defaultManager];
+    NSString *src=[[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:AGENT_NAME];
+    NSString *dst=InstalledAgentPath(), *dir=[dst stringByDeletingLastPathComponent];
+    NSString *stage=[dir stringByAppendingPathComponent:@"PowerEmu Agent.installing.app"];
+    NSString *backup=[dir stringByAppendingPathComponent:@"PowerEmu Agent.previous.app"];
+    if (![fm fileExistsAtPath:src]) return NO;
+    if (![fm fileExistsAtPath:dir] && ![fm createDirectoryAtPath:dir attributes:nil]) return NO;
+    if ([fm fileExistsAtPath:stage]) [fm removeFileAtPath:stage handler:nil];
+    if (![fm copyPath:src toPath:stage handler:nil]) return NO;
+    StopAgent();
+    if ([fm fileExistsAtPath:backup]) [fm removeFileAtPath:backup handler:nil];
+    BOOL hadOld=[fm fileExistsAtPath:dst];
+    if (hadOld && ![fm movePath:dst toPath:backup handler:nil]) { [[NSWorkspace sharedWorkspace] launchApplication:dst]; return NO; }
+    if (![fm movePath:stage toPath:dst handler:nil]) {
+        if(hadOld) [fm movePath:backup toPath:dst handler:nil];
+        [[NSWorkspace sharedWorkspace] launchApplication:dst];return NO;
+    }
+    NSMutableArray *items=LoginItemsWithoutAgent();
+    [items addObject:[NSDictionary dictionaryWithObjectsAndKeys:dst,@"Path",[NSNumber numberWithBool:YES],@"Hide",nil]];
+    SetLoginItems(items);
+    if(hadOld) [fm removeFileAtPath:backup handler:nil];
+    return [[NSWorkspace sharedWorkspace] launchApplication:dst];
+}
+static BOOL UninstallAgent(void)
+{
+    StopAgent();SetLoginItems(LoginItemsWithoutAgent());
+    NSFileManager *fm=[NSFileManager defaultManager];NSString *dst=InstalledAgentPath();
+    return ![fm fileExistsAtPath:dst] || [fm removeFileAtPath:dst handler:nil];
+}
+static BOOL BecomeConsoleUser(void)
+{
+    if(geteuid()!=0)return YES;
+    struct stat st;if(stat("/dev/console",&st)||st.st_uid==0)return NO;
+    struct passwd *pw=getpwuid(st.st_uid);if(!pw)return NO;
+    uid_t uid=pw->pw_uid;gid_t gid=pw->pw_gid;
+    char *name=strdup(pw->pw_name), *home=strdup(pw->pw_dir);
+    if(!name || !home) {free(name);free(home);return NO;}
+    BOOL ok=initgroups(name,gid)==0 && setgid(gid)==0 && setuid(uid)==0;
+    if(ok) {setenv("HOME",home,1);setenv("USER",name,1);setenv("LOGNAME",name,1);}
+    free(name);free(home);return ok;
+}
+
 @interface PEInstaller : NSObject {
     NSWindow *window;
     NSTextField *status;
     NSButton *removeButton;
     NSButton *clockBox;
+    BOOL uninstallMode;
 }
 @end
 
@@ -147,14 +200,14 @@ static void StopAgent(void)
 {
     window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 520, 240)
         styleMask:NSTitledWindowMask | NSClosableWindowMask backing:NSBackingStoreBuffered defer:NO];
-    [window setTitle:@"PowerEmu Tools"];
+    uninstallMode = [[[NSBundle mainBundle] objectForInfoDictionaryKey:@"PowerEmuUninstaller"] boolValue];
+    [window setTitle:uninstallMode ? @"Uninstall PowerEmu Tools" : @"Install PowerEmu Tools"];
     NSImageView *icon = [[[NSImageView alloc] initWithFrame:NSMakeRect(20, 156, 64, 64)] autorelease];
     [icon setImage:[NSApp applicationIconImage]];
     [[window contentView] addSubview:icon];
     [self label:@"PowerEmu Tools" frame:NSMakeRect(100, 190, 400, 24) size:16 bold:YES];
-    [self label:@"Lets this virtual Mac share the clipboard with your Mac, "
-                 "open shared folders, and shut down cleanly when PowerEmu asks. "
-                 "They are installed for your account and start when you log in."
+    [self label:uninstallMode ? @"Remove PowerEmu Tools from your account. Harmony, shared clipboard and guest integration will stop working." :
+                 @"Install Harmony window integration, shared clipboard and shared folders. Tools start automatically when you log in. Window control requires an administrator password."
           frame:NSMakeRect(100, 114, 400, 64) size:12 bold:NO];
     status = [[self label:@"" frame:NSMakeRect(100, 52, 400, 34) size:11 bold:NO] retain];
 
@@ -181,6 +234,7 @@ static void StopAgent(void)
 
     NSButton *install = [[[NSButton alloc] initWithFrame:NSMakeRect(400, 14, 106, 32)] autorelease];
     [install setTitle:@"Install"];
+    [install setHidden:uninstallMode];
     [install setBezelStyle:NSRoundedBezelStyle];
     [install setKeyEquivalent:@"\r"];
     [install setTarget:self];
@@ -188,7 +242,9 @@ static void StopAgent(void)
     [[window contentView] addSubview:install];
 
     removeButton = [[NSButton alloc] initWithFrame:NSMakeRect(294, 14, 106, 32)];
-    [removeButton setTitle:@"Remove"];
+    [removeButton setTitle:@"Uninstall"];
+    [removeButton setHidden:!uninstallMode];
+    [clockBox setHidden:uninstallMode];
     [removeButton setBezelStyle:NSRoundedBezelStyle];
     [removeButton setTarget:self];
     [removeButton setAction:@selector(remove:)];
@@ -201,23 +257,10 @@ static void StopAgent(void)
 
 - (void)install:(id)sender
 {
-    NSFileManager *fm = [NSFileManager defaultManager];
-    NSString *src = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:AGENT_NAME];
-    NSString *dst = InstalledAgentPath();
-    NSString *dir = [dst stringByDeletingLastPathComponent];
-
-    StopAgent();
-    if (![fm fileExistsAtPath:dir]) [fm createDirectoryAtPath:dir attributes:nil];
-    if ([fm fileExistsAtPath:dst]) [fm removeFileAtPath:dst handler:nil];
-    if (![fm copyPath:src toPath:dst handler:nil]) {
-        [status setStringValue:@"Could not copy PowerEmu Agent into your Library folder."];
+    if (!InstallAgent()) {
+        [status setStringValue:@"Installation could not finish. Your existing files were preserved where possible. Check access to your Library folder and try again."];
         return;
     }
-    NSMutableArray *items = LoginItemsWithoutAgent();
-    [items addObject:[NSDictionary dictionaryWithObjectsAndKeys:
-        dst, @"Path", [NSNumber numberWithBool:YES], @"Hide", nil]];
-    SetLoginItems(items);
-    [[NSWorkspace sharedWorkspace] launchApplication:dst];
     NSString *msg = @"Installed. PowerEmu Tools are running and will start whenever you log in.";
     /*
      * Harmony shows this Mac's windows on the other Mac's desktop, which means
@@ -244,6 +287,7 @@ static void StopAgent(void)
     }
     BOOL authed = RunAsAdmin(script, [[NSBundle mainBundle] resourcePath]);
     BOOL axOn = [[NSFileManager defaultManager] fileExistsAtPath:@"/var/db/.AccessibilityAPIEnabled"];
+    if (authed && axOn) PERefreshAccessibilityState();
     if (!authed || !axOn) {
         msg = @"Installed, but without window control (no administrator's password was given). "
                "Harmony will not be able to move or bring forward this Mac's windows.";
@@ -256,9 +300,9 @@ static void StopAgent(void)
 
 - (void)remove:(id)sender
 {
-    StopAgent();
-    SetLoginItems(LoginItemsWithoutAgent());
-    [[NSFileManager defaultManager] removeFileAtPath:InstalledAgentPath() handler:nil];
+    if (!uninstallMode) return;
+    if (NSRunAlertPanel(@"Uninstall PowerEmu Tools?", @"Harmony and shared clipboard will stop working. You can reinstall Tools from this disc.", @"Cancel", @"Uninstall", nil) != NSAlertAlternateReturn) return;
+    if (!UninstallAgent()) { [status setStringValue:@"PowerEmu Tools could not be removed. Check access to your Library folder."]; return; }
     NSString *msg = @"PowerEmu Tools have been removed.";
     if (ClockInstalled()) {
         RunAsAdmin(@LAUNCHCTL " unload " CLOCK_PLIST "; rm -f " CLOCK_PLIST "; rm -rf /Library/PowerEmu", @"");
@@ -274,8 +318,16 @@ static void StopAgent(void)
 
 int main(int argc, const char *argv[])
 {
+    BOOL packageInstall=argc==2 && !strcmp(argv[1],"--package-install");
+    BOOL packageUninstall=argc==2 && !strcmp(argv[1],"--package-uninstall");
+    if ((packageInstall || packageUninstall) && !BecomeConsoleUser()) return 2;
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
     [NSApplication sharedApplication];
+    if(packageInstall || packageUninstall) {
+        if (packageInstall) PERefreshAccessibilityState();
+        BOOL ok=packageInstall ? InstallAgent() : UninstallAgent();
+        [pool drain];return ok?0:1;
+    }
     [NSApp setDelegate:[[PEInstaller alloc] init]];
     /* A minimal menu so Quit works. */
     NSMenu *bar = [[[NSMenu alloc] init] autorelease];

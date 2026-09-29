@@ -1,0 +1,150 @@
+{
+  "fresh-compressed": {
+    "samples": 76,
+    "medianMS": 64.882,
+    "p95MS": 81.941,
+    "pixelHashes": []
+  },
+  "reuse-compressed": {
+    "samples": 76,
+    "medianMS": 70.498,
+    "p95MS": 80.651,
+    "pixelHashes": []
+  },
+  "reuse-raw": {
+    "samples": 76,
+    "medianMS": 86.55,
+    "p95MS": 99.851,
+    "pixelHashes": []
+  },
+  "reuse-explicit-copy": {
+    "samples": 76,
+    "medianMS": 70.685,
+    "p95MS": 73.506,
+    "pixelHashes": []
+  },
+  "reuse-rle": {
+    "samples": 76,
+    "medianMS": 72.753,
+    "p95MS": 78.257,
+    "pixelHashes": []
+  },
+  "fresh-full": {
+    "samples": 76,
+    "medianMS": 80.83,
+    "p95MS": 82.834,
+    "pixelHashes": []
+  },
+  "reuse-full": {
+    "samples": 76,
+    "medianMS": 94.455,
+    "p95MS": 96.207,
+    "pixelHashes": []
+  },
+  "fresh-idle": {
+    "samples": 76,
+    "medianMS": 46.475,
+    "p95MS": 48.38,
+    "pixelHashes": []
+  },
+  "reuse-idle": {
+    "samples": 76,
+    "medianMS": 34.521,
+    "p95MS": 35.881,
+    "pixelHashes": []
+  },
+  "reuse-stores-full": {
+    "samples": 76,
+    "medianMS": 82.305,
+    "p95MS": 96.212,
+    "pixelHashes": []
+  },
+  "reuse-stores-idle": {
+    "samples": 76,
+    "medianMS": 34.981,
+    "p95MS": 36.675,
+    "pixelHashes": []
+  },
+  "adaptive-full": {
+    "samples": 76,
+    "medianMS": 82.258,
+    "p95MS": 83.943,
+    "pixelHashes": []
+  },
+  "adaptive-idle": {
+    "samples": 76,
+    "medianMS": 34.566,
+    "p95MS": 36.072,
+    "pixelHashes": []
+  },
+  "adaptive-mixed": {
+    "samples": 76,
+    "medianMS": 58.781,
+    "p95MS": 69.188,
+    "pixelHashes": []
+  },
+  "final-baseline-idle": {
+    "samples": 76,
+    "medianMS": 59.712,
+    "p95MS": 67.45,
+    "pixelHashes": [
+      "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9"
+    ]
+  },
+  "final-adaptive-idle": {
+    "samples": 76,
+    "medianMS": 44.099,
+    "p95MS": 49.783,
+    "pixelHashes": [
+      "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9"
+    ]
+  },
+  "final-baseline-full": {
+    "samples": 76,
+    "medianMS": 107.31,
+    "p95MS": 131.633,
+    "pixelHashes": [
+      "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9"
+    ]
+  },
+  "final-adaptive-full": {
+    "samples": 76,
+    "medianMS": 105.052,
+    "p95MS": 132.189,
+    "pixelHashes": [
+      "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9"
+    ]
+  },
+  "verified-baseline-idle": {
+    "samples": 76,
+    "medianMS": 46.338,
+    "p95MS": 51.201,
+    "pixelHashes": [
+      "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9"
+    ]
+  },
+  "verified-adaptive-idle": {
+    "samples": 76,
+    "medianMS": 34.481,
+    "p95MS": 35.995,
+    "pixelHashes": [
+      "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9"
+    ]
+  },
+  "verified-baseline-full": {
+    "samples": 76,
+    "medianMS": 82.034,
+    "p95MS": 134.699,
+    "pixelHashes": [
+      "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9"
+    ]
+  },
+  "verified-adaptive-full": {
+    "samples": 76,
+    "medianMS": 80.516,
+    "p95MS": 83.084,
+    "pixelHashes": [
+      "f0b03423ec5d50cc346470cf80858d29c6336b303b8a821c91b702311063d2c9"
+    ]
+  }
+}

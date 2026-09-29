@@ -1,0 +1,8 @@
+PEHOSTSTACK guest:221(native:34194) > host:Finder(native:34199) > host:Finder(native:34158) > guest:220(native:34191) > guest:214(native:34187) > guest:66(native:34186) > host:Finder(native:34155) > host:Finder(native:33793) > host:Finder(native:33223)
+PEEVENT id=66 event=(300.0, 744.0) local=(300.0, 744.0) bounds=(0.0, 0.0, 1000.0, 754.0) host=(787.0, 978.0)
+PEHOSTSTACK guest:66(native:34186) > guest:221(native:34194) > host:Finder(native:34199) > host:Finder(native:34158) > guest:220(native:34191) > guest:214(native:34187) > host:Finder(native:34155) > host:Finder(native:33793) > host:Finder(native:33223)
+PEEVENT id=66 event=(300.0, 744.0) local=(300.0, 744.0) bounds=(0.0, 0.0, 1000.0, 754.0) host=(787.0, 978.0)
+PEMOVE id=66 487,107 -> 587,157
+PEAGENT MOVEWINDOW 66 -> (587,157) ax=0
+PEEVENT id=66 event=(36.0, 743.0) local=(36.0, 743.0) bounds=(0.0, 0.0, 1000.0, 754.0) host=(623.0, 927.0)
+PEPROXY source=complete captureCount=132 pending=221 214:frame=(532,557,615,407),vis=1,a=1.00,contents=1,lvl=0 220:frame=(0,687,532,386),vis=1,a=1.00,contents=1,lvl=0 221:frame=(291,438,785,443),vis=1,a=1.00,contents=1,lvl=0

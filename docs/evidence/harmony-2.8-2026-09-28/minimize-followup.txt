@@ -1,0 +1,6 @@
+PEEVENT id=270 event=(91.0, 370.0) local=(91.0, 370.0) bounds=(0.0, 0.0, 615.0, 407.0) host=(623.0, 927.0)
+PEPROXY source=complete captureCount=46 pending=270 270:frame=(532,557,615,407),vis=1,a=1.00,contents=1,lvl=0 294:frame=(0,687,532,386),vis=1,a=1.00,contents=1,lvl=0 295:frame=(291,438,785,443),vis=1,a=1.00,contents=1,lvl=0 66:frame=(587,184,1000,754),vis=1,a=1.00,contents=1,lvl=0
+PEEVENT id=270 event=(36.0, 396.0) local=(36.0, 396.0) bounds=(0.0, 0.0, 615.0, 407.0) host=(568.0, 953.0)
+PEMIN id=270 asked the guest
+PEAGENT MINIMIZE 270 ax=0 pid=347
+PEPROXY source=complete captureCount=251 pending=66 270:frame=(532,557,615,407),vis=0,a=1.00,contents=1,lvl=0 294:frame=(0,687,532,386),vis=1,a=1.00,contents=1,lvl=0 295:frame=(291,438,785,443),vis=1,a=1.00,contents=1,lvl=0 66:frame=(587,184,1000,754),vis=1,a=1.00,contents=1,lvl=0

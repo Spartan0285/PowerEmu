@@ -14,7 +14,9 @@ set -euo pipefail
 OUT=${1:?usage: bundle-qemu.sh OUT.app}
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 QEMU_SRC="${POWEREMU_QEMU:-$HOME/Developer/poweremu-qemu}"
-BIN="$QEMU_SRC/build/qemu-system-ppc-unsigned"
+BIN="${POWEREMU_QEMU_BINARY:-$QEMU_SRC/build/qemu-system-ppc-unsigned}"
+IMG_SOURCE="${POWEREMU_QEMU_IMG:-$QEMU_SRC/build/qemu-img}"
+OPENBIOS="${POWEREMU_OPENBIOS:-$QEMU_SRC/pc-bios/openbios-ppc}"
 ENT="$QEMU_SRC/accel/hvf/entitlements.plist"
 [ -x "$BIN" ] || { echo "no QEMU build at $BIN" >&2; exit 1; }
 
@@ -25,8 +27,8 @@ cp "$BIN" "$EXE"
 chmod u+w "$EXE"
 # qemu-img creates blank disks for the app (same libraries).
 IMG="$OUT/Contents/MacOS/qemu-img"
-if [ -x "$QEMU_SRC/build/qemu-img" ]; then
-    cp "$QEMU_SRC/build/qemu-img" "$IMG"
+if [ -x "$IMG_SOURCE" ]; then
+    cp "$IMG_SOURCE" "$IMG"
     chmod u+w "$IMG"
 fi
 
@@ -78,7 +80,8 @@ done
 # Firmware: OpenBIOS (patched for the RV280), the NDRV loader, QEMU's VGA NDRV
 # and PowerEmu's patched one (hardware cursor, extra modes).
 FW="$OUT/Contents/Resources/firmware"
-cp "$QEMU_SRC/pc-bios/openbios-ppc" "$QEMU_SRC/pc-bios/ppc-ndrvloader" "$FW/"
+cp "$OPENBIOS" "$FW/openbios-ppc"
+cp "$QEMU_SRC/pc-bios/ppc-ndrvloader" "$FW/"
 [ -f "$QEMU_SRC/pc-bios/qemu_vga.ndrv" ] && cp "$QEMU_SRC/pc-bios/qemu_vga.ndrv" "$FW/"
 cp "$HERE/ndrv/qemu_vga_hwc.ndrv" "$FW/"
 

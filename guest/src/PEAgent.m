@@ -26,6 +26,7 @@
  */
 #import <Cocoa/Cocoa.h>
 #import <Carbon/Carbon.h>
+#include "PEPixelPack.h"
 
 /*
  * Private CoreGraphics window-server calls (there is no public window list
@@ -78,8 +79,16 @@ extern CGError CGSConnectionGetPID(CGSConnectionID cid, pid_t *pid, CGSConnectio
 #include <sys/stat.h>
 #include <dirent.h>
 #include <dlfcn.h>
+#include <zlib.h>
+#include <limits.h>
 
-#define PE_AGENT_VERSION "1.6"
+#include "PEFullscreenState.h"
+#include "PEAccessibility.h"
+#include "PETilePack.h"
+
+#include "PETransferZip.h"
+
+#define PE_AGENT_VERSION "2.20"
 
 extern CGError CGSGetConnectionIDForPSN(CGSConnectionID cid, ProcessSerialNumber *psn,
                                         CGSConnectionID *out);
@@ -143,23 +152,56 @@ static int AgentPort(void)
 }
 
 @interface PEAgent : NSObject {
+    NSMutableDictionary *fileTransfers;
+    NSLock *fileTransferLock;
+    int fileTransferWorkers;
+    int fileDragWindow;
+    NSString *fileDragSourcePath;
+    NSArray *fileDragPaths;
     int sock;
+    BOOL completeCaptureMode;
+    PEFullscreenState fullscreenState;
+    BOOL deferredHarmonyExit;
+    int focusRequestSequence;
+    NSLock *captureLock;
+    int frameSock;
+    NSString *controlFrameSession;
+    NSString *workerFrameSession;
+    int pointerButtons;
+    NSMutableDictionary *captureHistory;
+    // Worker-owned capture storage. Recycle only when the cache retained a
+    // separate previous image, never while these pixels are the cached image.
+    NSMutableData *captureScratch;
+    CGContextRef captureContext;
+    BOOL captureScratchReusable;
     NSFileHandle *handle;
     NSMutableData *inbox;
     int lastChangeCount;        /* pasteboard change we have dealt with */
     NSString *lastClip;         /* text last exchanged, to stop echoes */
+    BOOL harmonyChangedFinder; /* latched on entry; CAPTUREMODE is cleared before exit */
     BOOL harmonyRemembered;     /* whether the two below have been read yet */
     BOOL dockHadAutohide;       /* whether these were set at all before */
     BOOL dockWasAutohidden;     /* what this Mac looked like before Harmony */
     BOOL finderHadDesktopKey;
     BOOL finderDrewDesktop;
     NSTimer *windowTimer;
+    NSString *savedMinEffect;
     int windowReportTick;       /* reports window rectangles while Harmony is on */
+    int sheetReportTick;
+    unsigned sheetEpoch;
+    BOOL sheetReportBusy;
     int lastWindowCount;        /* so a window going away is noticed at once */
     BOOL raiseBringsAppForward; /* RAISEHARD: raise the whole application */
     int hitTestProbed;
     pid_t menuBarPid;           /* application whose menus PowerEmu is showing */
+    CFAbsoluteTime menuBarReportedAt;
 }
+- (void)fileTransfer:(NSDictionary *)request;
+- (void)armFileDrag:(NSString *)spec;
+- (void)reportFocused;
+- (void)confirmFocus:(NSArray *)request;
+- (void)sheetWorker:(NSNumber *)epoch;
+- (void)sheetResult:(NSArray *)result;
 - (void)connect;
 - (void)disconnected;
 - (void)processInbox;
@@ -172,11 +214,12 @@ static int AgentPort(void)
 - (void)setResolution:(NSString *)wh;
 - (void)raiseWindow:(NSString *)idStr;
 - (void)moveWindow:(NSString *)args;
+- (void)minimizeWindow:(NSString *)args;
+- (void)setMinimiseEffect:(NSString *)effect;
 - (void)set:(NSString *)domain key:(NSString *)key yes:(BOOL)yes keep:(BOOL)keep;
 - (void)run:(NSString *)tool with:(NSArray *)args;
 - (void)sendAppIcon:(NSString *)pidStr;
-- (void)dropFiles:(NSString *)spec;
-- (void)reportMenuBarFor:(pid_t)pid;
+- (BOOL)reportMenuBarFor:(pid_t)pid;
 - (void)reportMenuItems:(NSString *)args;
 - (void)pickMenuItem:(NSString *)args;
 @end
@@ -191,6 +234,8 @@ static int AgentPort(void)
  * matched by their frame: every application with a user interface is asked for
  * its windows and the one sitting exactly where CGS says ours is, is it.
  */
+#include "PESheets.inc"
+
 static AXUIElementRef PEFindAXWindow(CGRect rect, pid_t *ownerOut)
 {
     ProcessSerialNumber psn = { 0, kNoProcess };
@@ -211,9 +256,12 @@ static AXUIElementRef PEFindAXWindow(CGRect rect, pid_t *ownerOut)
         if (!app) continue;
         if (AXUIElementCopyAttributeValue(app, kAXWindowsAttribute,
                                           (CFTypeRef *)&windows) == kAXErrorSuccess && windows) {
-            CFIndex i, n = CFArrayGetCount(windows);
+            NSMutableArray *all = [NSMutableArray arrayWithArray:(NSArray *)windows];
+            CFIndex i, roots = [all count];
+            for(i=0;i<roots;i++) PEAppendSheets((AXUIElementRef)[all objectAtIndex:i],all,0);
+            CFIndex n = [all count];
             for (i = 0; i < n; i++) {
-                AXUIElementRef w = (AXUIElementRef)CFArrayGetValueAtIndex(windows, i);
+                AXUIElementRef w = (AXUIElementRef)[all objectAtIndex:i];
                 CFTypeRef posRef = NULL, sizeRef = NULL;
                 CGPoint p; CGSize sz;
                 if (AXUIElementCopyAttributeValue(w, kAXPositionAttribute, &posRef) != kAXErrorSuccess)
@@ -441,6 +489,7 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
 {
     if ((self = [super init])) {
         sock = -1;
+        frameSock = -1;
         inbox = [[NSMutableData alloc] init];
         lastChangeCount = [[NSPasteboard generalPasteboard] changeCount];
     }
@@ -469,6 +518,250 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
     [self send:verb data:[text dataUsingEncoding:NSUTF8StringEncoding]];
 }
 
+/* Complete window backing-store capture, including covered pixels. Never
+ * substitute a screen crop here. The host permits only one request in flight.
+ * RGBA bytes avoid expensive guest PNG encoding and are immutable on receipt. */
+- (NSData *)captureWindow:(NSString *)request
+{
+    BOOL profile = getenv("POWEREMU_CAPTURE_PROFILE") != NULL;
+    const char *reuseSetting = getenv("PE_CAPTURE_REUSE");
+    BOOL reuse = (!reuseSetting || strcmp(reuseSetting, "0") != 0) && captureScratchReusable;
+    CFAbsoluteTime began = profile ? CFAbsoluteTimeGetCurrent() : 0;
+    int wid = [request intValue];
+    NSArray *fields = [request componentsSeparatedByString:@" "];
+    int sequence = [fields count] > 1 ? [[fields objectAtIndex:1] intValue] : 0;
+    NSData *failure = [[NSString stringWithFormat:@"%d 0 0 0 %d\n", wid, sequence] dataUsingEncoding:NSASCIIStringEncoding];
+    typedef void (*CaptureFn)(CGContextRef, CGRect, int, int, CGRect);
+    CaptureFn capture = (CaptureFn)dlsym(RTLD_DEFAULT, "CGContextCopyWindowCaptureContentsToRect");
+    CGRect rect, after;
+    int cid = _CGSDefaultConnection();
+    if (!capture || wid <= 0 || CGSGetScreenRectForWindow(cid, wid, &rect) != 0 ||
+        rect.size.width < 1 || rect.size.height < 1 || rect.size.width > 4096 || rect.size.height > 4096) {
+        return failure;
+    }
+    size_t w = (size_t)rect.size.width, h = (size_t)rect.size.height;
+    // Keep one bounded context for the current size. Explicitly zero every
+    // pixel before capture, including corners the private API may not paint.
+    // This preserves the old freshly allocated bitmap's initialization.
+    if (captureContext && (!reuse || CGBitmapContextGetWidth(captureContext) != w ||
+                           CGBitmapContextGetHeight(captureContext) != h)) {
+        CGContextRelease(captureContext); captureContext = NULL;
+        [captureScratch release]; captureScratch = nil;
+    }
+    if (!captureContext) {
+        [captureScratch release];
+        captureScratch = [[NSMutableData alloc] initWithLength:w*h*4];
+        CGColorSpaceRef color = CGColorSpaceCreateDeviceRGB();
+        captureContext = CGBitmapContextCreate([captureScratch mutableBytes], w, h, 8, w*4,
+                                              color, kCGImageAlphaPremultipliedLast);
+        CGColorSpaceRelease(color);
+    }
+    NSMutableData *pixels = captureScratch;
+    CGContextRef context = captureContext;
+    if (reuse) memset([pixels mutableBytes], 0, [pixels length]);
+    CFAbsoluteTime allocated = profile ? CFAbsoluteTimeGetCurrent() : 0;
+    if (context) {
+        CGRect local = CGRectMake(0,0,w,h);
+        CGContextSaveGState(context);
+        capture(context, local, cid, wid, local);
+        CGContextFlush(context);
+        CGContextRestoreGState(context);
+    }
+    if (!context || CGSGetScreenRectForWindow(cid, wid, &after) != 0 ||
+        !CGSizeEqualToSize(rect.size, after.size)) {
+        return failure;
+    }
+    CFAbsoluteTime captured = profile ? CFAbsoluteTimeGetCurrent() : 0;
+    // Compare complete pixels, not a hash: an unchanged window needs no
+    // compression, transfer or host texture upload. The host echoes the last
+    // sequence it actually accepted, so a dropped response forces a full image.
+    if (!captureHistory) captureHistory = [[NSMutableDictionary alloc] init];
+    NSString *key = [NSString stringWithFormat:@"%d", wid];
+    NSDictionary *previous = [captureHistory objectForKey:key];
+    int accepted = [fields count] > 2 ? [[fields objectAtIndex:2] intValue] : 0;
+    NSData *oldPixels = [previous objectForKey:@"pixels"];
+    BOOL baseMatches = accepted > 0 && accepted == [[previous objectForKey:@"sequence"] intValue]
+        && w == [[previous objectForKey:@"width"] unsignedIntValue]
+        && h == [[previous objectForKey:@"height"] unsignedIntValue]
+        && [oldPixels length] == [pixels length];
+    BOOL unchanged = baseMatches && memcmp([oldPixels bytes], [pixels bytes], [pixels length]) == 0;
+    NSMutableData *tilePacket = nil;
+    // Tiles are opt-in, lossless, and based only on the sequence the host
+    // actually accepted. Dense updates abort early to the independent codecs.
+    // Flat UI images already have a cheap pixel-packet codec; don't add work.
+    if (!unchanged && baseMatches && [fields count] > 4 &&
+        [[fields objectAtIndex:4] isEqualToString:@"tiles32"] &&
+        !getenv("PE_CAPTURE_RAW") && [pixels length] >= 16384 &&
+        !PEPixelPackWorthTrying([pixels bytes], [pixels length]/4) &&
+        PETileWorthTrying([oldPixels bytes], [pixels bytes], [pixels length]/4)) {
+        NSMutableData *tiles = [NSMutableData dataWithLength:[pixels length]/8];
+        size_t length = PETilePack([oldPixels bytes], [pixels bytes], w, h, accepted,
+                                   [tiles mutableBytes], [tiles length]);
+        if (length) {
+            uLongf packedLength = compressBound(length);
+            NSMutableData *candidate = [NSMutableData dataWithLength:packedLength+4];
+            if (compress2((Bytef *)[candidate mutableBytes]+4, &packedLength,
+                          [tiles bytes], length, 1) == Z_OK && packedLength+4 < [pixels length]/8) {
+                PETilePut32([candidate mutableBytes], length);
+                [candidate setLength:packedLength+4];
+                tilePacket = candidate;
+            }
+        }
+    }
+    CFAbsoluteTime compared = profile ? CFAbsoluteTimeGetCurrent() : 0;
+    if ([pixels length] <= 8 * 1024 * 1024) {
+        // Keep the recently used windows when one more application opens.
+        // Clearing the entire cache made five-window workloads resend every
+        // image repeatedly. Bound retained pixels to eight 8 MB entries.
+        if ([captureHistory count] >= 8 && !previous) {
+            NSString *oldest = nil;
+            NSEnumerator *keys = [captureHistory keyEnumerator];
+            NSString *candidate;
+            int oldestSequence = INT_MAX;
+            while ((candidate = [keys nextObject])) {
+                int candidateSequence = [[[captureHistory objectForKey:candidate] objectForKey:@"sequence"] intValue];
+                if (candidateSequence < oldestSequence) { oldest = candidate; oldestSequence = candidateSequence; }
+            }
+            if (oldest) [captureHistory removeObjectForKey:oldest];
+        }
+        [captureHistory setObject:[NSDictionary dictionaryWithObjectsAndKeys:
+            // Changed pixels become the retained image. Do not write this
+            // buffer again. Only an unchanged capture may reuse its scratch,
+            // because the cache keeps the separate previous image instead.
+            unchanged ? oldPixels : (NSData *)pixels, @"pixels",
+            [NSNumber numberWithInt:sequence], @"sequence",
+            [NSNumber numberWithUnsignedInt:w], @"width", [NSNumber numberWithUnsignedInt:h], @"height", nil] forKey:key];
+    } else [captureHistory removeObjectForKey:key];
+    captureScratchReusable = unchanged;
+    if (unchanged) {
+        if (profile) fprintf(stderr, "PECAPTURE id=%d seq=%d unchanged=1 setupMS=%.3f captureMS=%.3f compareMS=%.3f cacheMS=%.3f compressMS=0 totalMS=%.3f\n",
+            wid, sequence, (allocated-began)*1000, (captured-allocated)*1000,
+            (compared-captured)*1000, (CFAbsoluteTimeGetCurrent()-compared)*1000,
+            (CFAbsoluteTimeGetCurrent()-began)*1000);
+        return [[NSString stringWithFormat:@"%d %lu %lu 2 %d\n", wid,
+            (unsigned long)w, (unsigned long)h, sequence] dataUsingEncoding:NSASCIIStringEncoding];
+    }
+    if (tilePacket) {
+        NSMutableData *out = [NSMutableData dataWithData:[[NSString stringWithFormat:@"%d %lu %lu 4 %d\n",
+            wid, (unsigned long)w, (unsigned long)h, sequence] dataUsingEncoding:NSASCIIStringEncoding]];
+        [out appendData:tilePacket];
+        if (profile) fprintf(stderr, "PETILES id=%d seq=%d base=%d totalMS=%.3f bytes=%lu\n",
+            wid, sequence, accepted, (CFAbsoluteTimeGetCurrent()-began)*1000, (unsigned long)[out length]);
+        return out;
+    }
+    CFAbsoluteTime cached = profile ? CFAbsoluteTimeGetCurrent() : 0;
+    // Diagnostic A/B option: raw transport may cost less than guest zlib.
+    // Keep compression as the default until measured through the real bridge.
+    BOOL tryCompression = getenv("PE_CAPTURE_RAW") == NULL;
+    uLongf packedSize = 0;
+    NSMutableData *packed = nil;
+    BOOL compressed = NO;
+    int encoding = 0;
+    BOOL pixelPackets = [fields count] > 3 && [[fields objectAtIndex:3] isEqualToString:@"rle32"];
+    if (tryCompression && pixelPackets && PEPixelPackWorthTrying([pixels bytes], [pixels length] / 4)) {
+        // Require at least 4:1 reduction; abort early for detailed/noisy images.
+        packed = [NSMutableData dataWithLength:[pixels length] / 4];
+        packedSize = PEPixelPack([pixels bytes], [pixels length] / 4,
+                                 [packed mutableBytes], [packed length]);
+        if (packedSize) { compressed = YES; encoding = 3; }
+    }
+    if (!compressed) {
+        packedSize = tryCompression ? compressBound([pixels length]) : 0;
+        packed = tryCompression ? [NSMutableData dataWithLength:packedSize] : nil;
+        const char *memorySetting = getenv("PE_CAPTURE_MEMLEVEL");
+        int memoryLevel = memorySetting ? atoi(memorySetting) : 8;
+        if (memoryLevel < 1 || memoryLevel > 9) memoryLevel = 8;
+        if (tryCompression && (getenv("PE_CAPTURE_RLE") || memorySetting)) {
+            z_stream stream;
+            memset(&stream, 0, sizeof stream);
+            // RLE is still a standard zlib stream; the host decoder is unchanged.
+            if (deflateInit2(&stream, 1, Z_DEFLATED, MAX_WBITS, memoryLevel,
+                             getenv("PE_CAPTURE_RLE") ? Z_RLE : Z_DEFAULT_STRATEGY) == Z_OK) {
+                stream.next_in = (Bytef *)[pixels bytes]; stream.avail_in = [pixels length];
+                stream.next_out = [packed mutableBytes]; stream.avail_out = packedSize;
+                compressed = deflate(&stream, Z_FINISH) == Z_STREAM_END;
+                packedSize = stream.total_out;
+                deflateEnd(&stream);
+            }
+        } else if (tryCompression) {
+            compressed = compress2([packed mutableBytes], &packedSize, [pixels bytes], [pixels length], 1) == Z_OK;
+        }
+        if (compressed) encoding = 1;
+    }
+    // Incompressible pixels should never cost more wire bytes than raw RGBA.
+    compressed = compressed && packedSize < [pixels length];
+    if (compressed) [packed setLength:packedSize];
+    CFAbsoluteTime packedAt = profile ? CFAbsoluteTimeGetCurrent() : 0;
+    NSMutableData *out = [NSMutableData dataWithData:[[NSString stringWithFormat:@"%d %lu %lu %d %d\n",
+        wid, (unsigned long)w, (unsigned long)h, compressed ? encoding : 0, sequence] dataUsingEncoding:NSASCIIStringEncoding]];
+    [out appendData:compressed ? packed : pixels];
+    if (profile) fprintf(stderr, "PECAPTURE id=%d seq=%d unchanged=0 setupMS=%.3f captureMS=%.3f compareMS=%.3f cacheMS=%.3f compressMS=%.3f packetMS=%.3f totalMS=%.3f bytes=%lu\n",
+        wid, sequence, (allocated-began)*1000, (captured-allocated)*1000,
+        (compared-captured)*1000, (cached-compared)*1000, (packedAt-cached)*1000,
+        (CFAbsoluteTimeGetCurrent()-packedAt)*1000, (CFAbsoluteTimeGetCurrent()-began)*1000,
+        (unsigned long)[out length]);
+    return out;
+}
+
+/* Persistent image transport, independent of input/menu traffic. Reopening
+ * guestfwd for every frame launches a new host bridge process each time. */
+- (void)captureWorker:(NSArray *)job
+{
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+    if (![captureLock tryLock]) { [pool drain]; return; }
+    NSString *request = [job objectAtIndex:0], *session = [job objectAtIndex:1];
+    if (![workerFrameSession isEqualToString:session]) {
+        [captureHistory removeAllObjects];
+        if (captureContext) CGContextRelease(captureContext);
+        captureContext = NULL;
+        captureScratchReusable = NO;
+        [captureScratch release]; captureScratch = nil;
+        if (frameSock >= 0) close(frameSock);
+        frameSock = -1;
+        [workerFrameSession release]; workerFrameSession = [session copy];
+    }
+    NSData *payload = [self captureWindow:request];
+    BOOL profile = getenv("POWEREMU_CAPTURE_PROFILE") != NULL;
+    CFAbsoluteTime deliveryBegan = profile ? CFAbsoluteTimeGetCurrent() : 0;
+    BOOL delivered = NO;
+    NSMutableData *packet = [NSMutableData data];
+    if (frameSock < 0) {
+        frameSock = socket(AF_INET, SOCK_STREAM, 0);
+        int one = 1;
+        struct timeval timeout = {2, 0};
+        setsockopt(frameSock, SOL_SOCKET, SO_NOSIGPIPE, &one, sizeof one);
+        setsockopt(frameSock, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof timeout);
+        setsockopt(frameSock, IPPROTO_TCP, TCP_NODELAY, &one, sizeof one);
+        struct sockaddr_in address;
+        memset(&address, 0, sizeof address);
+        address.sin_len = sizeof address; address.sin_family = AF_INET;
+        address.sin_port = htons(AgentPort()); address.sin_addr.s_addr = inet_addr(AgentHost());
+        if (frameSock >= 0 && connect(frameSock, (struct sockaddr *)&address, sizeof address) != 0) {
+            close(frameSock); frameSock = -1;
+        }
+        NSData *hello = [session dataUsingEncoding:NSUTF8StringEncoding];
+        [packet appendData:[[NSString stringWithFormat:@"FRAMEHELLO %u\n", (unsigned)[hello length]] dataUsingEncoding:NSASCIIStringEncoding]];
+        [packet appendData:hello];
+    }
+    if (frameSock >= 0) {
+        [packet appendData:[[NSString stringWithFormat:@"WINDOWFRAME %u\n", (unsigned)[payload length]] dataUsingEncoding:NSASCIIStringEncoding]];
+        [packet appendData:payload];
+        const char *bytes = [packet bytes]; size_t left = [packet length];
+        while (left) {
+            ssize_t n = write(frameSock, bytes, left);
+            if (n < 0 && errno == EINTR) continue;
+            if (n <= 0) { close(frameSock); frameSock = -1; break; }
+            bytes += n; left -= n;
+        }
+        delivered = left == 0;
+    }
+    if (profile) fprintf(stderr, "PEDELIVERY request=%s socketWriteMS=%.3f bytes=%lu delivered=%d\n",
+        [request UTF8String], (CFAbsoluteTimeGetCurrent()-deliveryBegan)*1000,
+        (unsigned long)[packet length], (int)delivered);
+    [captureLock unlock];
+    [pool drain];
+}
+
 - (void)retryLater
 {
     [self performSelector:@selector(connect) withObject:nil afterDelay:5.0];
@@ -476,6 +769,7 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
 
 - (void)connect
 {
+    if (sock >= 0) return;
     int s = socket(AF_INET, SOCK_STREAM, 0);
     if (s < 0) { [self retryLater]; return; }
     struct sockaddr_in a;
@@ -492,6 +786,10 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
     int one = 1;
     setsockopt(s, IPPROTO_TCP, TCP_NODELAY, &one, sizeof one);
     setsockopt(s, SOL_SOCKET, SO_NOSIGPIPE, &one, sizeof one);
+    // A dead host bridge must not block the guest's main run loop forever
+    // while it sends a menu/window report. Reconnect on a stalled write.
+    struct timeval controlWriteTimeout = {2, 0};
+    setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &controlWriteTimeout, sizeof controlWriteTimeout);
     sock = s;
     [inbox setLength:0];
     handle = [[NSFileHandle alloc] initWithFileDescriptor:s closeOnDealloc:NO];
@@ -508,7 +806,15 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
 
 - (void)disconnected
 {
+    sheetEpoch++;
     if (sock < 0) return;
+    if(pointerButtons) {
+        Point location;GetGlobalMouse(&location);
+        CGPostKeyboardEvent(0,53,true);CGPostKeyboardEvent(0,53,false);
+        CGPostMouseEvent(CGPointMake(location.h,location.v),true,3,false,false,false);
+        pointerButtons=0;
+    }
+    fileDragWindow=0;[fileDragSourcePath release];fileDragSourcePath=nil;[fileDragPaths release];fileDragPaths=nil;
     [[NSNotificationCenter defaultCenter] removeObserver:self
         name:NSFileHandleReadCompletionNotification object:handle];
     [handle release];
@@ -520,6 +826,7 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
 
 - (void)received:(NSNotification *)n
 {
+    if ([n object] != handle) return;  // a completion from a retired connection
     NSData *d = [[n userInfo] objectForKey:NSFileHandleNotificationDataItem];
     if ([d length] == 0) { [self disconnected]; return; }
     [inbox appendData:d];
@@ -549,7 +856,10 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
 - (void)handle:(NSString *)verb payload:(NSData *)payload
 {
     NSString *text = [[[NSString alloc] initWithData:payload encoding:NSUTF8StringEncoding] autorelease];
-    if ([verb isEqualToString:@"CLIP"]) {
+    if ([verb isEqualToString:@"HELLO"]) {
+        NSArray *f = [text componentsSeparatedByString:@" "];
+        if ([f count] >= 3) { [controlFrameSession release]; controlFrameSession = [[f objectAtIndex:2] copy]; }
+    } else if ([verb isEqualToString:@"CLIP"]) {
         if (!text) return;
         NSPasteboard *pb = [NSPasteboard generalPasteboard];
         [pb declareTypes:[NSArray arrayWithObject:NSStringPboardType] owner:nil];
@@ -569,6 +879,38 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
         [self changed:text];
     } else if ([verb isEqualToString:@"HARMONY"]) {
         [self harmony:[text isEqualToString:@"1"]];
+    } else if ([verb isEqualToString:@"CAPTUREMODE"]) {
+        completeCaptureMode = [text isEqualToString:@"1"];
+    } else if ([verb isEqualToString:@"PREPAREHARMONY"]) {
+        NSArray *f = [text componentsSeparatedByString:@" "];
+        if ([f count] == 3) {
+            CGDirectDisplayID display = CGMainDisplayID();
+            if (CGDisplayIsCaptured(display)) {
+                [self send:@"FULLSCREEN" data:[@"captured" dataUsingEncoding:NSUTF8StringEncoding]];
+                return;
+            }
+            [self setResolution:[NSString stringWithFormat:@"%@ %@", [f objectAtIndex:1], [f objectAtIndex:2]]];
+            int w = (int)CGDisplayPixelsWide(display), h = (int)CGDisplayPixelsHigh(display);
+            BOOL ok = w == [[f objectAtIndex:1] intValue] && h == [[f objectAtIndex:2] intValue];
+            [self send:@"HARMONYREADY" text:[NSString stringWithFormat:@"%@ %d %d %d", [f objectAtIndex:0], w, h, ok]];
+        }
+    } else if ([verb isEqualToString:@"FOCUSWINDOW"]) {
+        NSArray *f = [text componentsSeparatedByString:@" "];
+        if ([f count] == 2) {
+            focusRequestSequence = [[f objectAtIndex:1] intValue];
+            [self raiseWindow:[f objectAtIndex:0]];
+            [self confirmFocus:[NSArray arrayWithObjects:[f objectAtIndex:0], [f objectAtIndex:1], @"0", nil]];
+        }
+    } else if ([verb isEqualToString:@"POINTER"]) {
+        int x, y, buttons;
+        if (sscanf([text UTF8String], "%d %d %d", &x, &y, &buttons) == 3) {
+            CGPoint point = CGPointMake(x, y);
+            CGError result = CGPostMouseEvent(point, true, 3, (buttons & 1) != 0, (buttons & 2) != 0, (buttons & 4) != 0);
+            if (buttons != pointerButtons) {
+                [self send:@"LOG" text:[NSString stringWithFormat:@"POINTER %d %d buttons=%d result=%d", x, y, buttons, result]];
+                pointerButtons = buttons;
+            }
+        }
     } else if ([verb isEqualToString:@"RESOLUTION"]) {
         [self setResolution:text];
     } else if ([verb isEqualToString:@"RAISE"]) {
@@ -581,6 +923,8 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
         raiseBringsAppForward = NO;
     } else if ([verb isEqualToString:@"MOVEWINDOW"]) {
         [self moveWindow:text];
+    } else if ([verb isEqualToString:@"MINIMIZE"]) {
+        [self minimizeWindow:text];
     } else if ([verb isEqualToString:@"UNMINIMIZE"]) {
         NSArray *f = [text componentsSeparatedByString:@" "];
         if ([f count] >= 2) {
@@ -603,8 +947,11 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
                 if (GetProcessForPID(pid, &psn) == noErr) SetFrontProcess(&psn);
             }
         }
-    } else if ([verb isEqualToString:@"DROPFILES"]) {
-        [self dropFiles:text];
+    } else if ([verb isEqualToString:@"FILEDRAGARM"]) {
+        [self armFileDrag:text];
+    } else if ([verb isEqualToString:@"FILETRANSFER"]) {
+        id request=[NSPropertyListSerialization propertyListFromData:payload mutabilityOption:NSPropertyListImmutable format:NULL errorDescription:NULL];
+        if([request isKindOfClass:[NSDictionary class]])[self fileTransfer:request];
     } else if ([verb isEqualToString:@"QUITAPP"]) {
         /* Somebody quit the application's tile in this Mac's Dock. */
         pid_t qp = (pid_t)[text intValue];
@@ -622,10 +969,14 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
                 AEDisposeDesc(&target);
             }
         }
+    } else if ([verb isEqualToString:@"WINDOWFRAME"]) {
+        if (!captureLock) captureLock = [[NSLock alloc] init];
+        if (controlFrameSession) [NSThread detachNewThreadSelector:@selector(captureWorker:) toTarget:self withObject:[NSArray arrayWithObjects:text, controlFrameSession, nil]];
     } else if ([verb isEqualToString:@"APPICON"]) {
         [self sendAppIcon:text];
     } else if ([verb isEqualToString:@"MENUS"]) {
-        menuBarPid = 0;                      /* force the next tick to re-read */
+        menuBarPid = 0;
+        [self reportFocused];
     } else if ([verb isEqualToString:@"MENUITEMS"]) {
         [self reportMenuItems:text];
     } else if ([verb isEqualToString:@"MENUPICK"]) {
@@ -682,10 +1033,29 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
 
 - (void)harmony:(BOOL)on
 {
+    sheetEpoch++;
+    // Host reconnects reconcile both states. Repeating the current state must
+    // not restart Finder or overwrite the preferences remembered on entry.
+    if (!on && !windowTimer) return;
+    // Restarting Finder/Dock during an exclusive game can steal focus.
+    // Show the full guest immediately on the host, but restore guest desktop
+    // preferences only after the application releases its display.
+    if (!on && CGDisplayIsCaptured(CGMainDisplayID())) {
+        deferredHarmonyExit = YES;
+        return;
+    }
+    deferredHarmonyExit = NO;
+    if (on && windowTimer) {
+        menuBarPid = 0;
+        [self reportWindows:nil];
+        return;
+    }
+    if (on) PERefreshAccessibilityState();
+    memset(&fullscreenState, 0, sizeof(fullscreenState));
     NSString *killall = @"/usr/bin/killall";
 
     /*
-     * Remember what this Mac looked like before, once, so turning Harmony
+     * Remember what this Mac looked like before each session, so turning Harmony
      * off puts back what the reader had rather than what we assume they had.
      */
     if (!harmonyRemembered) {
@@ -730,10 +1100,21 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
     }
     [self run:killall with:[NSArray arrayWithObject:@"Dock"]];
 
-    [self set:@"com.apple.finder" key:@"CreateDesktop"
-          yes:on ? NO : finderDrewDesktop
-         keep:on || finderHadDesktopKey];
-    [self run:killall with:[NSArray arrayWithObject:@"Finder"]];
+    /* Finder may restore older windows when restarted. Do not try to close
+     * them by comparing titles: titles change, duplicate names are common,
+     * and a delayed pass can close windows opened by the user meanwhile.
+     * Harmony transitions must never issue Finder window-close commands. */
+    /* Complete backing-store capture excludes desktop windows already. Keep
+     * Finder alive so current folders, window identities and unsaved UI state
+     * survive. Legacy screen masking still needs CreateDesktop. Latch this
+     * choice: the host sends CAPTUREMODE 0 before HARMONY 0 on exit. */
+    if (on) harmonyChangedFinder = !completeCaptureMode;
+    if (harmonyChangedFinder) {
+        [self set:@"com.apple.finder" key:@"CreateDesktop"
+              yes:on ? NO : finderDrewDesktop
+             keep:on || finderHadDesktopKey];
+        [self run:killall with:[NSArray arrayWithObject:@"Finder"]];
+    }
 
     [self send:@"LOG" data:[(on ? @"harmony on" : @"harmony off")
                             dataUsingEncoding:NSUTF8StringEncoding]];
@@ -763,14 +1144,57 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
                 selector:@selector(reportWindows:) userInfo:nil repeats:YES] retain];
         }
         [self reportWindows:nil];
+        [self setMinimiseEffect:@"scale"];
     } else {
+        [self setMinimiseEffect:nil];
         [windowTimer invalidate];
         [windowTimer release];
         windowTimer = nil;
+        harmonyChangedFinder = NO;
+        harmonyRemembered = NO;
         menuBarPid = 0;
+        [self send:@"DRAGWINDOWS" text:@""];
+        [self send:@"SHEETS" text:@""];
         [self send:@"WINDOWS" text:@""];        /* clear the mask */
         [self send:@"MENUS" text:@""];          /* give this Mac its menus back */
     }
+}
+
+/*
+ * Genie or scale, while Harmony is on.
+ *
+ * The other Mac shows this one's windows by copying them out of the screen
+ * everything is drawn into, so this Mac's minimise animation is drawn over the
+ * top of whatever it passes -- and it is drawn by the window server itself,
+ * not as a window, so nothing PowerEmu can ask about windows will admit it is
+ * there.  The genie sweeps most of the screen for most of a second.  Scale is
+ * smaller and much shorter, so there is far less of it to go wrong, and it is
+ * what was asked for anyway.  Whatever was set before comes back when Harmony
+ * does.
+ */
+- (void)setMinimiseEffect:(NSString *)effect
+{
+    NSUserDefaults *d = [NSUserDefaults standardUserDefaults];
+    NSDictionary *dock = [d persistentDomainForName:@"com.apple.dock"];
+    NSMutableDictionary *m = dock ? [[dock mutableCopy] autorelease]
+                                  : [NSMutableDictionary dictionary];
+    NSString *now = [m objectForKey:@"mineffect"];
+    if (effect) {
+        if ([now isEqualToString:effect]) return;       /* already there */
+        if (!savedMinEffect) savedMinEffect = [(now ? now : @"") retain];
+        [m setObject:effect forKey:@"mineffect"];
+    } else {
+        if (!savedMinEffect) return;                    /* never changed it */
+        if ([savedMinEffect length]) [m setObject:savedMinEffect forKey:@"mineffect"];
+        else [m removeObjectForKey:@"mineffect"];
+        [savedMinEffect release];
+        savedMinEffect = nil;
+    }
+    [d setPersistentDomain:m forName:@"com.apple.dock"];
+    [d synchronize];
+    /* The Dock only reads this when it starts.  It is hidden in Harmony and
+     * comes back by itself, so this is cheaper than it looks. */
+    system("/usr/bin/killall Dock >/dev/null 2>&1");
 }
 
 /*
@@ -788,62 +1212,229 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
  * Mac's menu bar still carrying the application the user had just left.
  */
 /*
- * What covers what, asked of the window server a point at a time.
+ * What covers what, worked out by asking the window server which of two
+ * windows it draws where they overlap.
  *
- * For each window, every other window it overlaps is tested once, at the
- * middle of the overlap: if the server says some other window is drawn there,
- * that patch of this window cannot be read out of the shared frame.  Which
- * other window it is does not matter, so no ordering has to be worked out --
- * and the window list's order, which is grouped by connection and wrong across
- * applications, is not needed at all.
+ * Asking once, at the middle of the overlap, is not enough, and that was the
+ * bug: when some third window happened to own that one point, the server
+ * answered neither of the two being compared, and the pair was abandoned --
+ * so a window really sitting over another went unrecorded, and PowerEmu read
+ * the covered one out of the shared frame with its neighbour's pixels baked
+ * in.  Each surface ended up carrying pieces of the others.
+ *
+ * So each pair is now sampled until the server names one of the two, which
+ * settles which is on top -- and since the stack is a single order, that one
+ * answer holds across the whole overlap.  A pair the server never settles
+ * (every sample owned by something PowerEmu was not told about, such as a
+ * screensaver) is taken as covering both ways: the windows keep their last
+ * good copy rather than absorb something unknown.
  */
-- (void)reportOcclusion:(CGSWindowID *)ids rects:(CGRect *)rects count:(int)n
+#define PE_OCCL_MAX 96
+/*
+ * How many passes in a row an unlisted window has been seen over this one.
+ * Kept by window id, because the index into a pass's arrays is not the same
+ * thing from one pass to the next.
+ */
+static int pe_unknown_set(CGSWindowID wid, int seen)
 {
+    static CGSWindowID ids[PE_OCCL_MAX];
+    static int runs[PE_OCCL_MAX];
+    static int used;
+    int i, free_slot = -1;
+
+    for (i = 0; i < used; i++) {
+        if (ids[i] == wid) {
+            runs[i] = seen ? runs[i] + 1 : 0;
+            return runs[i];
+        }
+        if (runs[i] == 0 && free_slot < 0) free_slot = i;
+    }
+    if (used < PE_OCCL_MAX) free_slot = used++;
+    if (free_slot < 0) return seen;         /* full: fail safe, count it once */
+    ids[free_slot] = wid;
+    runs[free_slot] = seen ? 1 : 0;
+    return runs[free_slot];
+}
+- (void)reportOcclusion:(CGSWindowID *)ids rects:(CGRect *)rects count:(int)n report:(int)report
+{
+    __strong NSString **occlSigOut = NULL;
+    static const float fx[] = { .5, .25, .75, .25, .75, .5, .5, .08, .92 };
+    static const float fy[] = { .5, .25, .25, .75, .75, .08, .92, .5, .5 };
+    static unsigned char over[PE_OCCL_MAX][PE_OCCL_MAX];
+    static unsigned char unknown[PE_OCCL_MAX];
     CGSConnectionID cid = _CGSDefaultConnection();
     NSMutableString *out = [NSMutableString string];
-    int i, j;
+    int i, j, probes = 0;
+    CFAbsoluteTime occlBegan = CFAbsoluteTimeGetCurrent();
+    int occlProbes = 0;
+    (void)occlProbes;
     if (!PEFindWindow()) return;                /* nothing to say without it */
-    for (i = 0; i < n; i++) {
+    if (n > PE_OCCL_MAX) n = PE_OCCL_MAX;
+    /*
+     * Nothing has moved, so nothing can be covering anything new.
+     *
+     * Working this out means asking the window server about a point at a time,
+     * each one a round trip, and this Mac is being emulated: measured at seven
+     * windows it was seventeen milliseconds a pass, twenty-four times a
+     * second -- some forty per cent of the processor, spent almost entirely on
+     * re-deriving an answer identical to the last one.  The virtual Mac cannot
+     * spare that.  It is also the reason the picture froze for seconds at a
+     * time: the other Mac only gets a frame when the emulator can be
+     * interrupted to hand one over, and a guest with no processor left to give
+     * hands over nothing.
+     *
+     * Which window is drawn where depends on where the windows are and how
+     * they are stacked, and both of those are in the list already: same list,
+     * same rectangles, same front window, same answer.  So it is worked out
+     * afresh only when one of them changes, and the previous answer is re-sent
+     * otherwise -- sent, not skipped, because the other side treats each
+     * answer as the moment its pixels belong to.
+     */
+    {
+        static NSString *lastSig, *lastOut;
+        NSMutableString *sig = [NSMutableString stringWithFormat:@"%d/%d;", n, report];
+        int k;
+        for (k = 0; k < n; k++) {
+            [sig appendFormat:@"%d,%d,%d,%d,%d;", (int)ids[k],
+                 (int)rects[k].origin.x, (int)rects[k].origin.y,
+                 (int)rects[k].size.width, (int)rects[k].size.height];
+        }
+        /*
+         * And which application is in front.  The list's own order carries
+         * most of a stacking change already -- it is grouped by connection,
+         * and a raise reorders the group -- but a window coming forward within
+         * one application need not move anything in it, and reusing the last
+         * answer through that is exactly how a window ends up holding a piece
+         * of its neighbour.  Two calls, against dozens of round trips saved.
+         */
+        {
+            ProcessSerialNumber front;
+            if (GetFrontProcess(&front) == noErr) {
+                [sig appendFormat:@"f%u.%u", (unsigned)front.highLongOfPSN,
+                     (unsigned)front.lowLongOfPSN];
+            }
+        }
+        if (lastSig && lastOut && [sig isEqualToString:lastSig]) {
+            [self send:@"OCCLUDE" text:lastOut];
+            return;
+        }
+        [lastSig release];
+        lastSig = [sig copy];
+        occlSigOut = &lastOut;
+    }
+    if (report > n) report = n;
+    memset(over, 0, sizeof over);
+    memset(unknown, 0, sizeof unknown);
+    /*
+     * Only the windows PowerEmu draws need an answer, but anything at all can
+     * be the thing covering them, so the pairs run against the whole list --
+     * the Dock and the menu bar included.  A pair with both indices below
+     * `report` is still tested once: when the lower of the two is the outer.
+     */
+    for (i = 0; i < report; i++) {
+        for (j = i + 1; j < n; j++) {
+            CGRect hit = CGRectIntersection(rects[i], rects[j]);
+            int s, settled = 0;
+            if (CGRectIsEmpty(hit) || hit.size.width < 2 || hit.size.height < 2) continue;
+            for (s = 0; s < (int)(sizeof fx / sizeof fx[0]) && !settled; s++) {
+                CGPoint p = CGPointMake(hit.origin.x + hit.size.width * fx[s],
+                                        hit.origin.y + hit.size.height * fy[s]);
+                CGSWindowID at;
+                if (probes >= 600) break;       /* a busy screen stays cheap */
+                at = PEWindowAtPoint(cid, p);
+                probes++;
+                if (at == ids[i])      { over[i][j] = 1; settled = 1; }
+                else if (at == ids[j]) { over[j][i] = 1; settled = 1; }
+            }
+            if (!settled) { over[i][j] = 1; over[j][i] = 1; }
+        }
+    }
+    /*
+     * Something nobody told us about.
+     *
+     * The pair test can only speak about windows it was given, so a window
+     * with nothing tracked over it reads as clear even when it is buried --
+     * which is what the screensaver did: it covers the screen, it is in
+     * nobody's list, and every window cheerfully absorbed black and kept it.
+     * So a window with nothing known over it is also asked about directly, at
+     * a few points of its own, and an answer naming something that is not in
+     * the list at all means it cannot be read.
+     *
+     * Twice, though, before it counts.  The window list is gathered a moment
+     * before these points are sampled, so anything that appears in between --
+     * a menu coming down, a window being dragged, a sheet opening -- is
+     * momentarily "not in the list", and taking that at face value threw away
+     * whole windows for a frame at a time.  While dragging, where something is
+     * changing constantly, that was most of them: the desktop showed through,
+     * and it took until everything went quiet to recover.  A screensaver is
+     * still there on the next pass; a window that was mid-flight is not.
+     */
+    for (i = 0; i < report; i++) {
+        int s2, any = 0, hit = 0;
+        for (j = 0; j < n; j++) if (over[j][i]) { any = 1; break; }
+        if (any) {
+            pe_unknown_set(ids[i], 0);
+            continue;               /* already covered; no need to ask */
+        }
+        for (s2 = 0; s2 < 3 && !hit; s2++) {
+            CGPoint p = CGPointMake(rects[i].origin.x + rects[i].size.width * fx[s2],
+                                    rects[i].origin.y + rects[i].size.height * fy[s2]);
+            CGSWindowID at;
+            int k, known = 0;
+            if (probes >= 900) break;
+            at = PEWindowAtPoint(cid, p);
+            probes++;
+            if (at == 0 || at == ids[i]) continue;   /* clear, or cannot be told */
+            for (k = 0; k < n; k++) if (ids[k] == at) { known = 1; break; }
+            if (!known) hit = 1;
+        }
+        unknown[i] = pe_unknown_set(ids[i], hit) >= 2;
+    }
+    for (i = 0; i < report; i++) {
         NSMutableString *covers = [NSMutableString string];
+        if (unknown[i]) {
+            [out appendFormat:@"%d\t%d,%d,%d,%d\n", (int)ids[i],
+                 (int)rects[i].origin.x, (int)rects[i].origin.y,
+                 (int)rects[i].size.width, (int)rects[i].size.height];
+            continue;
+        }
         for (j = 0; j < n; j++) {
             CGRect hit;
-            CGPoint mid;
-            if (i == j) continue;
+            if (!over[j][i]) continue;
             hit = CGRectIntersection(rects[i], rects[j]);
-            if (CGRectIsEmpty(hit) || hit.size.width < 2 || hit.size.height < 2) continue;
-            mid = CGPointMake(hit.origin.x + hit.size.width / 2,
-                              hit.origin.y + hit.size.height / 2);
-            {
-                CGSWindowID at = PEWindowAtPoint(cid, mid);
-                int k;
-                /*
-                 * Ours, or the server would not say: either way this is not a
-                 * reason to stop reading the window.
-                 */
-                if (at == 0 || at == ids[i]) continue;
-                /*
-                 * Something else is drawn at that point -- but not necessarily
-                 * the window whose overlap was being tested.  Record the
-                 * overlap with whatever is *actually* on top there, which is
-                 * usually far smaller: reporting the whole of i-against-j
-                 * whenever some third window won the point declared most of a
-                 * window covered, and a window declared covered is a window
-                 * that never gets copied.
-                 */
-                for (k = 0; k < n; k++) {
-                    if (ids[k] != at) continue;
-                    hit = CGRectIntersection(rects[i], rects[k]);
-                    break;
-                }
-                if (CGRectIsEmpty(hit) || hit.size.width < 2 || hit.size.height < 2) continue;
-            }
+            if (CGRectIsEmpty(hit)) continue;
             [covers appendFormat:@"%s%d,%d,%d,%d", [covers length] ? "|" : "",
                  (int)hit.origin.x, (int)hit.origin.y,
                  (int)hit.size.width, (int)hit.size.height];
         }
         if ([covers length]) [out appendFormat:@"%d\t%@\n", (int)ids[i], covers];
     }
+    if (occlSigOut) {
+        [*occlSigOut release];
+        *occlSigOut = [out copy];
+    }
     [self send:@"OCCLUDE" text:out];
+    /*
+     * What this pass cost.
+     *
+     * Every one of those points is a round trip to the window server, on a
+     * machine that is being emulated, and the whole of Harmony's timing rests
+     * on these reports arriving at the rate they claim to.  Twice a second,
+     * say how many were asked and how long it took, so a report that has
+     * quietly stopped keeping up shows as a number rather than as a guess
+     * about why dragging looks wrong.
+     */
+    {
+        static CFAbsoluteTime lastSaid;
+        CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
+        occlProbes = probes;
+        if (now - lastSaid > 2.0) {
+            lastSaid = now;
+            [self send:@"LOG" text:[NSString stringWithFormat:
+                @"OCCL windows=%d occluders=%d probes=%d took=%.1fms",
+                report, n - report, probes, (now - occlBegan) * 1000.0]];
+        }
+    }
     if (!hitTestProbed) {
         hitTestProbed = 1;
         [self send:@"LOG" text:[NSString stringWithFormat:@"HITTEST available=1 windows=%d\n%@",
@@ -896,54 +1487,12 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
     [self send:@"APPICON" data:out];
 }
 
-/*
- * Files dragged from the host onto one of the guest's windows.
- *
- * PowerEmu has already copied them into the folder it shares for the purpose,
- * which is mounted here like any other share; all that is left is to copy them
- * out of the mount to wherever they were dropped.  The first line says where;
- * the rest are the file names.
- */
-- (void)dropFiles:(NSString *)spec
-{
-    NSArray *lines = [spec componentsSeparatedByString:@"\n"];
-    NSString *dest;
-    NSFileManager *fm = [NSFileManager defaultManager];
-    NSString *mount = @"/Volumes/PowerEmu Drop";
-    unsigned i;
-    BOOL any = NO;
-
-    if ([lines count] < 2) return;
-    dest = [[lines objectAtIndex:0] stringByExpandingTildeInPath];
-    if (![dest length]) dest = [@"~/Desktop" stringByExpandingTildeInPath];
-    if (![fm fileExistsAtPath:mount]) {
-        [self send:@"LOG" text:@"DROPFILES: the drop folder is not mounted"];
-        return;
-    }
-    for (i = 1; i < [lines count]; i++) {
-        NSString *name = [lines objectAtIndex:i];
-        NSString *from, *to;
-        if (![name length]) continue;
-        from = [mount stringByAppendingPathComponent:name];
-        to = [dest stringByAppendingPathComponent:name];
-        [fm removeFileAtPath:to handler:nil];
-        if ([fm copyPath:from toPath:to handler:nil]) {
-            any = YES;
-        } else {
-            [self send:@"LOG" text:[NSString stringWithFormat:@"DROPFILES: %@ did not copy", name]];
-        }
-    }
-    if (any) {
-        /* Let the Finder notice, so the icon appears without a refresh. */
-        [[NSWorkspace sharedWorkspace] noteFileSystemChanged:dest];
-    }
-    [self send:@"LOG" text:[NSString stringWithFormat:@"DROPFILES: %@ -> %@",
-                            any ? @"copied" : @"nothing", dest]];
-}
+#include "PEFileTransfer.inc"
 
 - (void)reportFocused
 {
     CGSConnectionID cid = _CGSDefaultConnection();
+
 /*
  * Which window is actually on top.
  *
@@ -958,7 +1507,7 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
  * a drawer can sit above the window holding the keyboard focus, and reading
  * the focused window then would copy the palette's pixels into it.
  */
-    ProcessSerialNumber front;
+    ProcessSerialNumber front = {0, 0};
     CGSConnectionID theirs = 0;
     CGSWindowID focused = 0;
     if (GetFrontProcess(&front) == noErr
@@ -970,7 +1519,7 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
                 int lvl = 0;
                 CGRect wr;
                 if (CGSGetWindowLevel(cid, mine[k], &lvl) != kCGErrorSuccess) continue;
-                if (lvl < 0 || lvl == 20 || lvl == 24) continue;
+                if (lvl < 0 || (lvl >= 20 && lvl <= 25) || lvl == CGWindowLevelForKey(kCGDraggingWindowLevelKey)) continue;
                 if (CGSGetScreenRectForWindow(cid, mine[k], &wr) != kCGErrorSuccess) continue;
                 if (wr.size.width < 1 || wr.size.height < 1) continue;
                 focused = mine[k];
@@ -986,15 +1535,28 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
      */
     {
         pid_t fpid = 0;
-        if (GetProcessPID(&front, &fpid) == noErr && fpid > 0 && fpid != menuBarPid) {
-            menuBarPid = fpid;
-            [self reportMenuBarFor:fpid];
+        if (GetProcessPID(&front, &fpid) == noErr && fpid > 0 &&
+            (fpid != menuBarPid || CFAbsoluteTimeGetCurrent() - menuBarReportedAt >= 2.0)) {
+            if ([self reportMenuBarFor:fpid]) {
+                menuBarPid = fpid;
+                menuBarReportedAt = CFAbsoluteTimeGetCurrent();
+            }
         }
     }
 }
 
 - (void)reportWindows:(NSTimer *)t
 {
+    if (deferredHarmonyExit) {
+        if (!CGDisplayIsCaptured(CGMainDisplayID())) [self harmony:NO];
+        return;
+    }
+    // Exclusive full-screen games can bypass normal window backing stores.
+    // Test display ownership, not window size or our own hidden menu bar.
+    if (PEFullscreenUpdate(&fullscreenState, CGDisplayIsCaptured(CGMainDisplayID()),
+                           [NSDate timeIntervalSinceReferenceDate])) {
+        [self send:@"FULLSCREEN" data:[@"captured" dataUsingEncoding:NSUTF8StringEncoding]];
+    }
     CGSConnectionID cid = _CGSDefaultConnection();
     CGSWindowID list[512];
     CGRect above[512];
@@ -1003,22 +1565,58 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
         return;
     }
     NSMutableString *s = [NSMutableString string];
+    NSMutableString *dragWindows = [NSMutableString string];
+    /*
+     * Two lists, not one.  A window PowerEmu should draw is not the same thing
+     * as something that can be drawn over it: the Dock and the menu bar get no
+     * proxy on the other Mac, but they cover whatever slides under them, and
+     * leaving them out of the occlusion test entirely meant a window beneath
+     * the Dock was read as clear and took a copy of the Dock with it.  So the
+     * windows to report come first, then the occluders, in one array.
+     */
     CGSWindowID keptIds[256];
     CGRect keptRects[256];
-    int kept = 0;
+    CGSWindowID occIds[256];
+    CGRect occRects[256];
+    int kept = 0, nocc = 0;
     int i;
     for (i = 0; i < count; i++) {
         int level = 0;
         if (CGSGetWindowLevel(cid, list[i], &level) != kCGErrorSuccess) {
             continue;
         }
+        if (level == CGWindowLevelForKey(kCGDraggingWindowLevelKey))
+            [dragWindows appendFormat:@"%d;",(int)list[i]];
         /*
          * Keep ordinary windows and the layers above them (floating palettes,
-         * modal sheets, pop-up menus).  Leave out the desktop (below zero),
-         * the Dock (level 20) and the menu bar (level 24).
+         * modal sheets, pop-up menus).  Leave out the desktop, and the whole
+         * of the Dock and menu bar family.
+         *
+         * That family is a range, not two numbers, and assuming it was two is
+         * a bug that has been sitting here the whole time: the Dock's own
+         * window is level 20, but each *icon* in it is a separate window at
+         * level 21.  Eighteen 64x64 windows along the bottom edge, reported as
+         * ordinary windows, given a proxy each on the other Mac, raised and
+         * hit-tested like real windows -- which is what "RAISE: no AX window
+         * at (1272,1019,64,64)" in the log had been saying all along.  Counted
+         * against the guest, three real windows were arriving as twenty-one.
+         *
+         *   20  the Dock            24  the menu bar
+         *   21  its icons           25  the menu bar's extras
          */
-        if (level < 0 || level == 20 || level == 24) {
-            continue;
+        if (level < 0) {
+            continue;                           /* the desktop covers nothing */
+        }
+        if (level >= 20 && level <= 25) {
+            CGRect dr;
+            if (nocc < 256 &&
+                CGSGetScreenRectForWindow(cid, list[i], &dr) == kCGErrorSuccess &&
+                dr.size.width >= 1 && dr.size.height >= 1) {
+                occIds[nocc] = list[i];
+                occRects[nocc] = dr;
+                nocc++;
+            }
+            continue;                           /* covers, but is never drawn */
         }
         CGRect r;
         if (CGSGetScreenRectForWindow(cid, list[i], &r) != kCGErrorSuccess) {
@@ -1047,8 +1645,22 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
              (int)r.origin.x, (int)r.origin.y, (int)r.size.width, (int)r.size.height,
              (int)vis.origin.x, (int)vis.origin.y, (int)vis.size.width, (int)vis.size.height];
     }
+    /* Classify before geometry: the first proxy/frame must already be visual-only. */
+    [self send:@"DRAGWINDOWS" text:dragWindows];
     [self send:@"WINDOWS" text:s];
-    [self reportOcclusion:keptIds rects:keptRects count:kept];
+    if(!sheetReportBusy && (++sheetReportTick >= 6 || count != lastWindowCount)) {
+        sheetReportTick=0; sheetReportBusy=YES;
+        [NSThread detachNewThreadSelector:@selector(sheetWorker:) toTarget:self
+            withObject:[NSNumber numberWithUnsignedInt:sheetEpoch]];
+    }
+    if (!completeCaptureMode) {
+        int k;
+        for (k = 0; k < nocc && kept + k < 256; k++) {
+            keptIds[kept + k] = occIds[k];
+            keptRects[kept + k] = occRects[k];
+        }
+        [self reportOcclusion:keptIds rects:keptRects count:kept + k report:kept];
+    }
     [self reportFocused];
     /*
      * A window that has gone may have been minimised, and PowerEmu has only a
@@ -1081,7 +1693,14 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
             if (GetProcessPID(&psn, &pid) != noErr) continue;
             if (CopyProcessName(&psn, &nameRef) != noErr || !nameRef) continue;
             if (![(NSString *)nameRef isEqualToString:@"PowerEmu Agent"]) {
-                [names appendFormat:@"%d\t%@\n", (int)pid, (NSString *)nameRef];
+                CGSConnectionID owner = 0;
+                CGSWindowID ids[256]; int count = 0, j;
+                NSMutableString *windows = [NSMutableString string];
+                if (CGSGetConnectionIDForPSN(cid, &psn, &owner) == kCGErrorSuccess &&
+                    CGSGetOnScreenWindowList(cid, owner, 256, ids, &count) == kCGErrorSuccess) {
+                    for (j = 0; j < count; j++) [windows appendFormat:@"%s%d", j ? "," : "", ids[j]];
+                }
+                [names appendFormat:@"%d\t%@\t%@\n", (int)pid, (NSString *)nameRef, windows];
             }
             CFRelease(nameRef);
         }
@@ -1144,7 +1763,7 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
  * calls into the other application than this can afford at the rate the front
  * application changes -- PowerEmu asks for a menu's contents separately.
  */
-- (void)reportMenuBarFor:(pid_t)pid
+- (BOOL)reportMenuBarFor:(pid_t)pid
 {
     AXUIElementRef bar;
     CFArrayRef kids;
@@ -1154,7 +1773,7 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
     ProcessSerialNumber psn;
     CFIndex i, n;
 
-    if (!AXAPIEnabled() || pid <= 0) return;
+    if (!AXAPIEnabled() || pid <= 0) return NO;
     if (GetProcessForPID(pid, &psn) == noErr
         && CopyProcessName(&psn, &nameRef) == noErr && nameRef) {
         name = [[(NSString *)nameRef copy] autorelease];
@@ -1175,7 +1794,9 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
     }
     if (kids) CFRelease(kids);
     if (bar) CFRelease(bar);
+    if (n <= 1) return NO;
     [self send:@"MENUS" text:out];
+    return YES;
 }
 
 /* "<pid> <path>" -- everything in that menu, so PowerEmu can build it here. */
@@ -1217,8 +1838,40 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
     if (pid > 0 && GetProcessForPID(pid, &psn) == noErr) SetFrontProcess(&psn);
     item = PECopyMenuElement(pid, [f objectAtIndex:1]);
     if (item) {
-        AXUIElementPerformAction(item, kAXPressAction);
+        AXError result = AXUIElementPerformAction(item, kAXPressAction);
         CFRelease(item);
+        if (result == kAXErrorSuccess && [f count] >= 3)
+            [self performSelector:@selector(reportMenuFocus:) withObject:[f objectAtIndex:2] afterDelay:0.15];
+    }
+}
+
+- (void)reportMenuFocus:(NSString *)token
+{
+    // Resolve the keyboard-focused AX window rather than a floating palette.
+    ProcessSerialNumber front; pid_t pid=0; CGSConnectionID theirs=0;
+    int cid=_CGSDefaultConnection();
+    if (GetFrontProcess(&front)!=noErr || GetProcessPID(&front,&pid)!=noErr ||
+        CGSGetConnectionIDForPSN(cid,&front,&theirs)!=0) return;
+    AXUIElementRef app=AXUIElementCreateApplication(pid); CFTypeRef window=NULL,pos=NULL,size=NULL;
+    CGRect target=CGRectZero;
+    if (AXUIElementCopyAttributeValue(app,kAXFocusedWindowAttribute,&window)==kAXErrorSuccess && window &&
+        AXUIElementCopyAttributeValue((AXUIElementRef)window,kAXPositionAttribute,&pos)==kAXErrorSuccess &&
+        AXUIElementCopyAttributeValue((AXUIElementRef)window,kAXSizeAttribute,&size)==kAXErrorSuccess &&
+        pos && size && CFGetTypeID(pos)==AXValueGetTypeID() && CFGetTypeID(size)==AXValueGetTypeID()) {
+        AXValueGetValue((AXValueRef)pos,kAXValueCGPointType,&target.origin);
+        AXValueGetValue((AXValueRef)size,kAXValueCGSizeType,&target.size);
+    }
+    if(pos)CFRelease(pos);if(size)CFRelease(size);if(window)CFRelease(window);CFRelease(app);
+    if(CGRectIsEmpty(target))return;
+    CGSWindowID ids[128];int count=0,i;
+    if(CGSGetOnScreenWindowList(cid,theirs,128,ids,&count)!=0)return;
+    for(i=0;i<count;i++) {
+        CGRect r;
+        if(CGSGetScreenRectForWindow(cid,ids[i],&r)==0 &&
+            fabs(r.origin.x-target.origin.x)<2 && fabs(r.origin.y-target.origin.y)<2 &&
+            fabs(r.size.width-target.size.width)<2 && fabs(r.size.height-target.size.height)<2) {
+            [self send:@"MENUFOCUS" text:[NSString stringWithFormat:@"%@ %d",token,ids[i]]];return;
+        }
     }
 }
 
@@ -1331,6 +1984,61 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
 
 
 
+/* SetFrontProcess can complete asynchronously. Confirm the actual keyboard
+ * focused AX window before the host releases the queued content gesture. */
+/* AX can wait on another application. Keep it off the input/report loop and
+ * allow only one query at a time; an old transition cannot republish sheets. */
+- (void)sheetWorker:(NSNumber *)epoch
+{
+    NSAutoreleasePool *pool=[[NSAutoreleasePool alloc]init];
+    NSString *report=PESheetReport();
+    [self performSelectorOnMainThread:@selector(sheetResult:)
+        withObject:[NSArray arrayWithObjects:epoch,report,nil] waitUntilDone:NO];
+    [pool release];
+}
+- (void)sheetResult:(NSArray *)result
+{
+    sheetReportBusy=NO;
+    if(windowTimer && sock>=0 && [[result objectAtIndex:0] unsignedIntValue]==sheetEpoch)
+        [self send:@"SHEETS" text:[result objectAtIndex:1]];
+}
+
+- (void)confirmFocus:(NSArray *)request
+{
+    int wid = [[request objectAtIndex:0] intValue];
+    int sequence = [[request objectAtIndex:1] intValue];
+    int attempt = [[request objectAtIndex:2] intValue];
+    if (sequence != focusRequestSequence) return;
+    CGRect rect;
+    BOOL ok = NO;
+    pid_t pid = 0, frontPID = 0;
+    ProcessSerialNumber front;
+    if (CGSGetScreenRectForWindow(_CGSDefaultConnection(), wid, &rect) == 0) {
+        AXUIElementRef target = PEFindAXWindow(rect, &pid);
+        if (target && GetFrontProcess(&front) == noErr && GetProcessPID(&front, &frontPID) == noErr && pid == frontPID) {
+            AXUIElementRef app = AXUIElementCreateApplication(pid);
+            CFTypeRef focused = NULL;
+            if (AXUIElementCopyAttributeValue(app, kAXFocusedWindowAttribute, &focused) == kAXErrorSuccess && focused) {
+                ok = CFEqual(target, focused) || PESheetBelongsToFocus(target, (AXUIElementRef)focused);
+                CFArrayRef blocking=PECopySheets(target);
+                if(blocking && CFArrayGetCount(blocking)>0)ok=NO;
+                if(blocking)CFRelease(blocking);
+                CFRelease(focused);
+            }
+            CFRelease(app);
+        }
+        if (target) CFRelease(target);
+    }
+    if (!ok && attempt < 30) {
+        [self performSelector:@selector(confirmFocus:) withObject:[NSArray arrayWithObjects:
+            [request objectAtIndex:0], [request objectAtIndex:1], [NSString stringWithFormat:@"%d", attempt + 1], nil]
+            afterDelay:0.02];
+        return;
+    }
+    [self send:@"FOCUSREADY" text:[NSString stringWithFormat:@"%d %d %d", wid, sequence, ok]];
+    if (ok) { menuBarPid = 0; [self reportFocused]; }
+}
+
 /*
  * Move a window (by id) so the guest's window follows the proxy the user is
  * dragging on this Mac.  "id x y", top-left in screen points.
@@ -1340,12 +2048,13 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
     /* "id grabX grabY endX endY" -- only the id and the end matter now that the
      * window can simply be put where it belongs. */
     NSArray *f = [args componentsSeparatedByString:@" "];
-    if ([f count] < 5) {
+    if ([f count] != 3 && [f count] != 5) {
         return;
     }
     int wid = [[f objectAtIndex:0] intValue];
     CGPoint grab = CGPointMake([[f objectAtIndex:1] floatValue], [[f objectAtIndex:2] floatValue]);
-    CGPoint end  = CGPointMake([[f objectAtIndex:3] floatValue], [[f objectAtIndex:4] floatValue]);
+    CGPoint end = grab;
+    if ([f count] == 5) end = CGPointMake([[f objectAtIndex:3] floatValue], [[f objectAtIndex:4] floatValue]);
     CGSConnectionID cid = _CGSDefaultConnection();
     CGRect r;
     pid_t pid = 0;
@@ -1356,7 +2065,7 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
     }
     /* Where the window's top-left should end up: it moves by as much as the
      * grab point did. */
-    CGPoint target = CGPointMake(r.origin.x + (end.x - grab.x), r.origin.y + (end.y - grab.y));
+    CGPoint target = [f count] == 3 ? end : CGPointMake(r.origin.x + (end.x - grab.x), r.origin.y + (end.y - grab.y));
     w = PEFindAXWindow(r, &pid);
     if (w) {
         AXValueRef v = AXValueCreate(kAXValueCGPointType, &target);
@@ -1373,6 +2082,39 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
 
 
 
+
+/*
+ * Put a window in the Dock, asked for from the other Mac.
+ *
+ * The other side can only miniaturise its own proxy; the real window stays
+ * where it is unless somebody tells it otherwise, and then the next report
+ * says the window is still on screen and the proxy is pulled straight back
+ * out of the Dock again.  That is the window "bouncing".  So the yellow
+ * button is passed through to the window it stands for.
+ */
+- (void)minimizeWindow:(NSString *)args
+{
+    int wid = [args intValue];
+    CGSConnectionID cid = _CGSDefaultConnection();
+    CGRect r;
+    pid_t pid = 0;
+    AXUIElementRef w;
+    if (CGSGetScreenRectForWindow(cid, wid, &r) != kCGErrorSuccess) {
+        [self send:@"LOG" text:[NSString stringWithFormat:@"MINIMIZE %d: no rect", wid]];
+        return;
+    }
+    w = PEFindAXWindow(r, &pid);
+    if (w) {
+        AXError e = AXUIElementSetAttributeValue(w, kAXMinimizedAttribute,
+                                                 kCFBooleanTrue);
+        CFRelease(w);
+        [self send:@"LOG" text:[NSString stringWithFormat:@"MINIMIZE %d ax=%d pid=%d",
+                                wid, (int)e, (int)pid]];
+        return;
+    }
+    [self send:@"LOG" text:[NSString stringWithFormat:
+        @"MINIMIZE %d: no window control -- turn on access for assistive devices", wid]];
+}
 
 /* Mount a shared folder the way Connect to Server does. */
 - (void)mount:(NSString *)spec
@@ -1455,6 +2197,7 @@ int main(int argc, const char *argv[])
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
     signal(SIGPIPE, SIG_IGN);
     [NSApplication sharedApplication];
+    PERefreshAccessibilityState();
     PEAgent *agent = [[PEAgent alloc] init];
     [agent connect];
     [NSTimer scheduledTimerWithTimeInterval:0.5 target:agent

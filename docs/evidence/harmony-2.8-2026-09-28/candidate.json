@@ -1,0 +1,21 @@
+{
+  "time_utc": "2026-09-28T12:36:20.986424+00:00",
+  "signature_verification": "passed",
+  "latest_guest_source_compiled": true,
+  "packaged_agent_matches_build": true,
+  "deployed_agent_matches_build": true,
+  "final_candidate_ui_verified": "Partial live matrix: final menu bar, minimize and Show Window restoration; prior stacking, drag, input and resolution checks retained. Animation target unmet.",
+  "blockers": [],
+  "remaining": [
+    "capture performance",
+    "full Dock Force Quit",
+    "bidirectional targeted drag/drop",
+    "multi-display and full guest/CPU matrix"
+  ],
+  "sha256": {
+    "build/Harmony Test/PowerEmu.app/Contents/MacOS/PowerEmu": "7c58100e2841e8ded90bd631edafca698d936676dc09dfe7cca4ce7bccf089dd",
+    "build/Harmony Test/PowerEmu.app/Contents/Helpers/PowerEmu VM.app/Contents/MacOS/qemu-system-ppc": "d65f03378a6b73ab6d3fad70b40742fe54f0d04e8f3abd51290dc749b2b3b6cb",
+    "guest/src/PEAgent.m": "fe5303f3f7dd35a39ab220d6bc34fea5d29f84f40c73e8e98d962b6f2ace62f6",
+    "guest/build/PowerEmu Agent.app/Contents/MacOS/PowerEmu Agent": "8a5f9bd64dfe26b843060d6e829fbbb555c8103a172d8038413292ff1698ba02"
+  }
+}

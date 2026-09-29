@@ -1,0 +1,2 @@
+PASS: 120 fixtures, edge tiles, bounds, unchanged and missing base
+SYNTHETIC noisy 1024x768, one changed pixel: fullMS=185.500 fullBytes=3146694 tileMS=5.000 tileBytes=4119 rawTileBytes=4108

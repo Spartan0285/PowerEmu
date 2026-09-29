@@ -46,15 +46,26 @@ final class HarmonyMenuBar: NSObject, NSMenuDelegate {
     private var savedMainMenu: NSMenu?
     private var installed: NSMenu?
     private(set) var active = false
+    private var guestWindowFocused = false
+    func setGuestWindowFocused(_ focused: Bool) {
+        guestWindowFocused = focused
+        if focused, !tops.isEmpty {
+            if let installed { NSApp.mainMenu = installed; active = true }
+            else { install() }
+        } else if !focused, let saved = savedMainMenu {
+            NSApp.mainMenu = saved; active = false
+        }
+    }
 
     // MARK: what the guest tells us
 
     /// The front guest application changed, or its menu bar did.
     func setMenuBar(pid: Int, app: String, tops: [(index: Int, title: String)]) {
-        guard pid != 0, !tops.isEmpty else { remove(); return }
+        guard pid != 0, !tops.isEmpty else { return }
         // Same application, same menus: leave what is built alone, or every
         // report would throw away menus already read.
-        if pid == self.pid, tops.map({ $0.title }) == self.tops.map({ $0.title }) { return }
+        if pid == self.pid, tops.map({ $0.title }) == self.tops.map({ $0.title }),
+           tops.map({ $0.index }) == self.tops.map({ $0.index }) { return }
         self.pid = pid
         self.appName = app
         self.tops = tops
@@ -72,6 +83,8 @@ final class HarmonyMenuBar: NSObject, NSMenuDelegate {
     // MARK: building
 
     private func install() {
+        installed = nil
+        guard guestWindowFocused else { return }
         guard let main = NSApp.mainMenu else { return }
         if savedMainMenu == nil { savedMainMenu = main }
         let bar = NSMenu()
@@ -222,7 +235,7 @@ final class HarmonyMenuBar: NSObject, NSMenuDelegate {
 
     func remove() {
         pid = 0; tops = []; menus.removeAll(); filled.removeAll(); requested.removeAll()
-        active = false
+        active = false; guestWindowFocused = false
         if let saved = savedMainMenu {
             NSApp.mainMenu = saved
             savedMainMenu = nil

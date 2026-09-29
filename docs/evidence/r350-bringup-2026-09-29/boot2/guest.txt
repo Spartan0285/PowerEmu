@@ -1,0 +1,56 @@
+2026-09-29 02:47:19.328 sw_vers[85:10b] _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+ProductName:	Mac OS X
+ProductVersion:	10.5.8
+BuildVersion:	9L31a
+   25    0 0x736000   0xb000     0xa000     com.apple.nke.applicationfirewall (1.6.77) <7 6 5 4 2>
+   61    0 0x423cb000 0x5d000    0x5c000    com.apple.ATIRadeon9700 (5.4.8) <51 50 17 12 4 2>
++-o ATIRadeon9700  <class ATIRadeon9700, registered, matched, active, busy 0, retain 7>
+  | {
+  |   "IOProbeScore" = 0
+  |   "ATIUseTearingWideBlit" = No
+  |   "CFBundleIdentifier" = "com.apple.ATIRadeon9700"
+  |   "IOPCIMatch" = "0x4E441002 0x41441002 0x4E481002 0x41481002 0x41501002 0x4E501002 0x41521002 0x4E541002 0x4A481002 0x4A491002 0x4A4A1002 0x4A4B1002 0x4A4C1002 0x4A4D1002 0x4A4E1002 0x5B601002 0x5B621002 0x3E501002 0x4E561002 0x5B641002 0x3E541002"
+  |   "IOMatchCategory" = "IOAccelerator"
+  |   "PerformanceStatistics" = {"gartFreeBytes"=134119424,"contextGLSwitchCount"=0,"freeContextBuffer2DWaitTime"=0,"surfaceReadLockIdleWaitTime"=0,"freeContextBufferGLWaitTime"=0,"texturePageInBytesPerSample"=0,"commandDVDBytesPerSample"=0,"dataGLBytesPerSample"=0,"bufferSwapCount"=0,"freeSurfaceSwapBufferWaitTime"=0,"hardwareSubmitWaitTime"=0,"swapCompleteDVDWaitTime"=0,"contextDVDCount"=0,"finishAll2DWaitTime"=0,"freeDataBufferGLWaitTime"=0,"freeCommandBuffer2DWaitTime"=0,"vramFreeBytes"=126877696,"freeContextBufferDVDWaitTime"=0,"textureCount"=0,"context2DCount"=1,"finish2DWaitTime"=0,"contextGLCount"=1,"submitStamp"=3,"context2DSwitchCount"=1,"gartMapOutBytesPerSample"=0,"commandBytesPerSample"=192,"surfacePageOutBytesPerSample"=0,"clientGLWaitTime"=0,"swapComplete2DWaitTime"=0,"finishDVDWaitTime"=0,"gartUsedBytes"=98304,"surfaceCopyOutWaitTime"=0,"swapCompleteGLWaitTime"=0,"commandGLBytesPerSample"=0,"surfaceSetShapeIdleWaitTime"=0,"finishGLWaitTime"=0,"hardwareWaitTime"=0,"freeCommandBufferGLWaitTime"=0,"textureWaitTime"=0,"swapBytesPerSample"=0,"freeCommandBufferDVDWaitTime"=0,"volatileSurfaceCount"=0,"contextDVDSwitchCount"=0,"dataBufferCount"=0,"freeSurfaceBackingWaitTime"=0,"gartMapInBytesPerSample"=98304,"texturePageInWaitTime"=0,"surfaceCount"=1,"surfaceCopyInWaitTime"=0,"surfacePageInBytesPerSample"=0,"texturePageOutBytesPerSample"=0,"texturePageOutWaitTime"=0,"command2DBytesPerSample"=184,"lastReadStamp"=0,"gartSizeBytes"=134217728,"removeFromGARTWaitTime"=0,"surfaceWriteLockIdleWaitTime"=0,"gartCacheBytes"=33554432}
+  |   "IOAccelRevision" = 2
+  |   "IOProviderClass" = "IOPCIDevice"
+  |   "IOGLBundleName" = "ATIRadeon9700GLDriver"
+  |   "IOSourceVersion" = "1.5.48.6"
+  |   "IOCFPlugInTypes" = {"ACCF0000-0000-0000-0000-000a2789904e"="ATIRadeon9700GA.plugin"}
+  |   "ATIEnableWideBlitSupport" = Yes
+  |   "IODVDBundleName" = "ATIRadeon9700VADriver"
+  |   "AccelCaps" = 3
+  |   "IOClass" = "ATIRadeon9700"
+  |   "SurfaceList" = ({"pid"=55,"width"=1024,"height"=768,"surfaceType"="gl"})
+  | }
+  | 
+  +-o ATIR3002DContext  <class ATIR3002DContext, !registered, !matched, active, busy 0, retain 6>
+  |   {
+  |   }
+  |   
+  +-o ATIR300Surface  <class ATIR300Surface, !registered, !matched, active, busy 0, retain 5>
+  |   {
+  |     "IOUserClientCrossEndianCompatible" = Yes
+  |   }
+  |   
+  +-o ATIR300GLContext  <class ATIR300GLContext, !registered, !matched, active, busy 0, retain 5>
+      {
+      }
+      
+
+2026-09-29 02:47:19.522 system_profiler[89:10b] _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+Graphics/Displays:
+
+    QEMU VGA:
+
+      Chipset Model: QEMU VGA
+      Type: Display
+      Bus: AGP
+      VRAM (Total): 128 MB
+      Vendor: ATI (0x1002)
+      Device ID: 0x4e48
+      Revision ID: 0x0001
+      Displays:
+        Display Connector:
+
+   55 ??         0:00.50 /System/Library/Frameworks/ApplicationServices.framework/Frameworks/CoreGraphics.framework/Resources/WindowServer -daemon

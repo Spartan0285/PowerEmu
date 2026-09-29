@@ -15,12 +15,19 @@ struct ContentView: View {
             List(selection: $selection) {
                 ForEach(library.machines) { vm in
                     MachineRow(vm: vm).tag(vm.url)
+                        .contextMenu {
+                            Button("Move Up") { library.moveMachine(vm, by: -1) }
+                                .disabled(library.machines.first?.url == vm.url)
+                            Button("Move Down") { library.moveMachine(vm, by: 1) }
+                                .disabled(library.machines.last?.url == vm.url)
+                        }
                 }
+                .onMove { library.moveMachines(from: $0, to: $1) }
             }
             // Rebuilt when machines come and go: a List that has a row
             // inserted and selected keeps a scroll offset that hides the
             // top row under the toolbar.
-            .id(library.machines.map(\.url))
+            .id(library.machines.map { $0.url.path }.sorted())
             .safeAreaInset(edge: .bottom) { ServiceHubButton() }
             .navigationSplitViewColumnWidth(min: 200, ideal: 230)
             .toolbar {
@@ -65,6 +72,10 @@ struct ContentView: View {
             if ProcessInfo.processInfo.environment["POWEREMU_TEST_NEW_SHEET"] != nil { showingNew = true }
         }
         .onAppear { if selection == nil { selection = library.machines.first?.url } }
+        .alert("Could Not Save Order", isPresented: Binding(
+            get: { library.loadError != nil }, set: { if !$0 { library.loadError = nil } })) {
+                Button("OK") { library.loadError = nil }
+            } message: { Text(library.loadError ?? "") }
         .background(NoTitlebarSeparator())
     }
 
@@ -181,11 +192,12 @@ struct MachineDetail: View {
     private var installing: Bool { install?.outcome == .running }
 
     var body: some View {
-        Form {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 12) {
             if let install {
                 InstallProgressSection(session: install)
             }
-            Section {
+            VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .center, spacing: 16) {
                     MachineIcon(model: vm.config.model, size: 56, running: locked)
                     VStack(alignment: .leading, spacing: 4) {
@@ -225,49 +237,65 @@ struct MachineDetail: View {
                 }
             }
 
-            Group {
+            }
+            .padding(20)
+            TabView {
+                generalTab
+                storageTab
+                displayTab
+                sharingTab
+                devicesTab
+                advancedTab
+            }
+            .padding([.horizontal, .bottom], 12)
+        }
+        .toolbar {
+            ToolbarItemGroup(placement: .primaryAction) { controls }
+        }
+        .confirmationDialog("Start “\(vm.config.name)” from the beginning?",
+                            isPresented: $confirmDiscardSleep) {
+            Button("Start Fresh", role: .destructive) { vm.discardSleep() }
+        } message: {
+            Text("What the virtual Mac was doing when it went to sleep is thrown away, as if it had been switched off. Anything unsaved in it is lost.")
+        }
+        .confirmationDialog("Force “\(vm.config.name)” to power off?", isPresented: $confirmForce) {
+            Button("Force Power Off", role: .destructive) { vm.forcePowerOff() }
+        } message: {
+            Text("This is like pulling the plug: unsaved work is lost and Mac OS X may need to repair its disk. Use Shut Down when you can.")
+        }
+        .confirmationDialog("Move “\(vm.config.name)” to the Trash?", isPresented: $confirmTrash) {
+            Button("Move to Trash", role: .destructive) {
+                do { try library.moveToTrash(vm) } catch { self.error = error.localizedDescription }
+            }
+        } message: {
+            Text("Its disks and settings go to the Trash. The original disks you imported are not affected.")
+        }
+    }
+
+    private var generalTab: some View {
+        Form {
             Section("General") {
                 TextField("Name", text: binding(\.name))
                 TextField("System", text: binding(\.osName))
+                Picker("CPUs", selection: binding(\.cpuCount)) {
+                    Text("1 CPU").tag(1)
+                    if SMPCapabilities.load(helper: VMRunner.helperURL) != nil || vm.config.cpuCount == 2 {
+                        Text("2 CPUs (experimental)").tag(2)
+                    }
+                }
+                .disabled(vm.asleep)
+                if vm.asleep {
+                    Text("Wake and shut down this virtual Mac before changing its CPUs.")
+                        .font(.caption).foregroundStyle(.secondary)
+                } else if SMPCapabilities.load(helper: VMRunner.helperURL) != nil {
+                    Text("Two CPUs can speed up apps that do parallel work. Choose one CPU if an app has problems.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
                 Picker("Memory", selection: binding(\.memoryMB)) {
                     ForEach([512, 768, 1024, 1536, 2048], id: \.self) {
                         Text($0 >= 1024 ? "\(Double($0) / 1024, specifier: "%g") GB" : "\($0) MB").tag($0)
                     }
                 }
-            }
-
-            DisksSection(vm: vm, error: $error)
-            }
-            .disabled(locked)
-
-            DriveSection(vm: vm)
-
-            ToolsSection(vm: vm)
-
-            GamepadSection(vm: vm)
-
-            NetworkShareSection(vm: vm)
-
-            SharedFoldersSection(vm: vm)
-
-            Group {
-
-            Section {
-                Toggle("Start in fullscreen", isOn: binding(\.startFullscreen))
-                Toggle("Offer resolutions shaped like this Mac’s screen", isOn: binding(\.extraDisplayModes))
-                Toggle("Hardware cursor", isOn: binding(\.hardwareCursor))
-                Picker("Video memory", selection: binding(\.vramMB)) {
-                    ForEach(VMConfig.vramChoices, id: \.self) { Text("\($0) MB").tag($0) }
-                }
-                LabeledContent("Graphics acceleration") {
-                    Text("On — Quartz Extreme and OpenGL")
-                        .foregroundStyle(.secondary)
-                }
-            } header: {
-                Text("Display")
-            } footer: {
-                Text("Mac OS X drives the emulated Radeon with its own ATI driver, so Quartz Extreme and OpenGL are available; more video memory lets games and the desktop keep more textures on the card. No ROM files are needed.\n\nWhile starting from an install disc the card is held at 64 MB, because the Mac OS X installer will not start with more. Your choice applies once Mac OS X is installed.\n\nPick the resolution inside Mac OS X, in System Preferences → Displays. 1440 × 932 fills this Mac’s screen; 1440 × 904 and 16:10 modes sit below the notch in fullscreen. Fullscreen: Control-Option-F; Control-Option-G releases the mouse.")
-                    .font(.caption).foregroundStyle(.secondary)
             }
 
             Section("Startup") {
@@ -293,24 +321,72 @@ struct MachineDetail: View {
                 Toggle("Verbose startup (show messages instead of the Apple logo)", isOn: binding(\.verboseBoot))
                 Toggle("Safe Boot (skip third-party extensions)", isOn: binding(\.safeBoot))
                 Toggle("Single-user mode (a root prompt instead of the desktop)", isOn: binding(\.singleUser))
-                Toggle("Single-user mode", isOn: binding(\.singleUser))
             }
 
-            Section("Sound & Network") {
-                Picker("Sound", selection: binding(\.audio)) {
-                    Text("On").tag("coreaudio")
-                    Text("Off").tag("none")
+                }.formStyle(.grouped).disabled(locked)
+                    .tabItem { Text("General") }
+    }
+
+    private var storageTab: some View {
+        Form {
+                    DisksSection(vm: vm, error: $error).disabled(locked)
+                    DriveSection(vm: vm)
+                }.formStyle(.grouped).tabItem { Text("Storage") }
+    }
+
+    private var displayTab: some View {
+        Form {
+            Section {
+                Toggle("Start in fullscreen", isOn: binding(\.startFullscreen))
+                Toggle("Offer resolutions shaped like this Mac’s screen", isOn: binding(\.extraDisplayModes))
+                Toggle("Hardware cursor", isOn: binding(\.hardwareCursor))
+                Picker("Video memory", selection: binding(\.vramMB)) {
+                    ForEach(VMConfig.vramChoices, id: \.self) { Text("\($0) MB").tag($0) }
                 }
+                LabeledContent("Graphics acceleration") {
+                    Text("On — Quartz Extreme and OpenGL")
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Text("Display")
+            } footer: {
+                Text("Mac OS X drives the emulated Radeon with its own ATI driver, so Quartz Extreme and OpenGL are available; more video memory lets games and the desktop keep more textures on the card. No ROM files are needed.\n\nWhile starting from an install disc the card is held at 64 MB, because the Mac OS X installer will not start with more. Your choice applies once Mac OS X is installed.\n\nPick the resolution inside Mac OS X, in System Preferences → Displays. 1440 × 932 fills this Mac’s screen; 1440 × 904 and 16:10 modes sit below the notch in fullscreen. Fullscreen: Control-Option-F; Control-Option-G releases the mouse.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
+                }.formStyle(.grouped).disabled(locked).tabItem { Text("Display") }
+    }
+
+    private var sharingTab: some View {
+        Form {
+            Section("Connectivity") {
                 Toggle("Network", isOn: binding(\.network))
                 Toggle("Reach the guest’s Remote Login (ssh) at localhost:\(String(vm.sshPortInUse ?? vm.config.sshPort ?? 2222))", isOn: Binding(
                     get: { vm.config.sshPort != nil },
                     set: { vm.config.sshPort = $0 ? 2222 : nil; try? vm.save() }))
                     .disabled(!vm.config.network)
-            }
+            }.disabled(locked)
 
-            }
-            .disabled(locked)
+                    NetworkShareSection(vm: vm)
+                    SharedFoldersSection(vm: vm)
+                }.formStyle(.grouped).tabItem { Text("Sharing") }
+    }
 
+    private var devicesTab: some View {
+        Form {
+                    Section("Sound") {
+                Picker("Sound", selection: binding(\.audio)) {
+                    Text("On").tag("coreaudio")
+                    Text("Off").tag("none")
+                }
+                    }.disabled(locked)
+                    ToolsSection(vm: vm)
+                    GamepadSection(vm: vm)
+                }.formStyle(.grouped).tabItem { Text("Devices") }
+    }
+
+    private var advancedTab: some View {
+        Form {
             Section("Developer") {
                 Group {
                 Toggle("QEMU monitor at localhost:\(String(vm.monitorPortInUse ?? vm.config.monitorPort ?? 4444))", isOn: Binding(
@@ -329,29 +405,7 @@ struct MachineDetail: View {
                     Button("Move to Trash…", role: .destructive) { confirmTrash = true }.disabled(locked)
                 }
             }
-        }
-        .formStyle(.grouped)
-        .toolbar {
-            ToolbarItemGroup(placement: .primaryAction) { controls }
-        }
-        .confirmationDialog("Start “\(vm.config.name)” from the beginning?",
-                            isPresented: $confirmDiscardSleep) {
-            Button("Start Fresh", role: .destructive) { vm.discardSleep() }
-        } message: {
-            Text("What the virtual Mac was doing when it went to sleep is thrown away, as if it had been switched off. Anything unsaved in it is lost.")
-        }
-        .confirmationDialog("Force “\(vm.config.name)” to power off?", isPresented: $confirmForce) {
-            Button("Force Power Off", role: .destructive) { vm.forcePowerOff() }
-        } message: {
-            Text("This is like pulling the plug: unsaved work is lost and Mac OS X may need to repair its disk. Use Shut Down when you can.")
-        }
-        .confirmationDialog("Move “\(vm.config.name)” to the Trash?", isPresented: $confirmTrash) {
-            Button("Move to Trash", role: .destructive) {
-                do { try library.moveToTrash(vm) } catch { self.error = error.localizedDescription }
-            }
-        } message: {
-            Text("Its disks and settings go to the Trash. The original disks you imported are not affected.")
-        }
+                }.formStyle(.grouped).tabItem { Text("Advanced") }
     }
 
     @ViewBuilder private var controls: some View {

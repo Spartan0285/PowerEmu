@@ -1,0 +1,57 @@
+{
+  "app_sha256": "0fa51fb756786f3338227bae620b2ebe1d4aba8c86d234b89f9cd5ccfed9c15d",
+  "cases": [
+    {
+      "cpu_count": 1,
+      "marker_restored": true,
+      "readback": "hw.ncpu: 1\ncombined-memory-1790567749483459000\n",
+      "vcpus": [
+        {
+          "thread-id": 2913,
+          "qom-path": "/machine/unattached/device[0]",
+          "cpu-index": 0,
+          "target": "ppc64"
+        }
+      ],
+      "disk_check": {
+        "image-end-offset": 11375476736,
+        "total-clusters": 327680,
+        "check-errors": 0,
+        "allocated-clusters": 166582,
+        "filename": "/Users/adam/Developer/PowerEmu/build/integration-tests/leopard-retry-1/Support/Virtual Machines/Leopard.poweremu/Disks/Macintosh HD.qcow2",
+        "format": "qcow2",
+        "fragmented-clusters": 1296
+      },
+      "status": "passed"
+    },
+    {
+      "cpu_count": 2,
+      "marker_restored": true,
+      "readback": "hw.ncpu: 2\ncombined-memory-1790567880295016000\n",
+      "vcpus": [
+        {
+          "thread-id": 2928,
+          "qom-path": "/machine/unattached/device[0]",
+          "cpu-index": 0,
+          "target": "ppc64"
+        },
+        {
+          "thread-id": 2928,
+          "qom-path": "/machine/unattached/device[1]",
+          "cpu-index": 1,
+          "target": "ppc64"
+        }
+      ],
+      "disk_check": {
+        "image-end-offset": 11383734272,
+        "total-clusters": 327680,
+        "check-errors": 0,
+        "allocated-clusters": 166581,
+        "filename": "/Users/adam/Developer/PowerEmu/build/integration-tests/leopard-retry-2/Support/Virtual Machines/Leopard.poweremu/Disks/Macintosh HD.qcow2",
+        "format": "qcow2",
+        "fragmented-clusters": 1256
+      },
+      "status": "passed"
+    }
+  ]
+}

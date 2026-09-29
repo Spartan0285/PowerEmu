@@ -1,0 +1,3 @@
+phase=visible-changing changed=29 missed_changes=0 hinted_samples=30 callbacks=31 samples=30
+phase=covered-changing changed=29 missed_changes=29 hinted_samples=0 callbacks=0 samples=30
+phase=visible-idle changed=0 missed_changes=0 hinted_samples=0 callbacks=1 samples=30

@@ -1,0 +1,40 @@
+PECMD raise 145
+PECMD move id=145 -> (220,180)
+PEMOVE id=145 4,26 -> 220,180
+PEAGENT RAISE 145 ax=0 pid=982
+PEAGENT MOVEWINDOW 145 -> (220,180) ax=0
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder,Finder,Finder tiles=3
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder,Finder,Finder tiles=3
+PEDOCK keep: pesheetfixture[icon=1,run=1] System Preferences[icon=1,run=1] Finder[icon=1,run=1]
+PEWIN count=7 harmony=true
+PEWIN id=145 guest=(220,180,750,436) host=(220,576,750,436) vis=(220,180,750,436) covers=0 liveparts=1 visible=100% focus=1 fresh=5 clean=0
+PEWIN id=121 guest=(202,410,437,10) host=(202,772,437,10) vis=(0,0,0,0) covers=0 liveparts=1 visible=100% focus=0 fresh=5 clean=0
+PEWIN id=102 guest=(208,410,424,140) host=(208,642,424,140) vis=(0,0,0,0) covers=0 liveparts=1 visible=100% focus=0 fresh=5 clean=0
+PEWIN id=100 guest=(100,388,640,462) host=(100,342,640,462) vis=(0,0,0,0) covers=0 liveparts=1 visible=100% focus=0 fresh=5 clean=0
+PEWIN id=146 guest=(24,46,750,436) host=(24,710,750,436) vis=(0,0,0,0) covers=0 liveparts=1 visible=100% focus=0 fresh=5 clean=0
+PEWIN id=144 guest=(465,128,896,436) host=(465,628,896,436) vis=(0,0,0,0) covers=0 liveparts=1 visible=100% focus=0 fresh=5 clean=0
+PEWIN id=58 guest=(506,469,668,597) host=(506,126,668,597) vis=(0,0,0,0) covers=0 liveparts=1 visible=100% focus=0 fresh=5 clean=0
+PESNAP wrote complete capture to /tmp/pe-snap-145.png
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder,Finder,Finder tiles=3
+PEDECODE meanMS=0.271 worker=serial
+PEWINDOWFRAME count=60060 meanRoundTripMS=68.7 bytes=20
+PEFRAMEBATCH full=6 fullMeanMS=77.9 unchanged=24 unchangedMeanMS=38.0 bytes=166981
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder,Finder,Finder tiles=3
+PEDOCK keep: pesheetfixture[icon=1,run=1] System Preferences[icon=1,run=1] Finder[icon=1,run=1]
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder,Finder,Finder tiles=3
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder,Finder,Finder tiles=3
+PESNAP wrote complete capture to /tmp/pe-snap-145.png
+PEWIN count=7 harmony=true
+PEWIN id=145 guest=(220,180,750,436) host=(220,576,750,436) vis=(220,180,750,436) covers=0 liveparts=1 visible=100% focus=1 fresh=5 clean=0
+PEWIN id=121 guest=(202,410,437,10) host=(202,772,437,10) vis=(0,0,0,0) covers=0 liveparts=1 visible=100% focus=0 fresh=5 clean=0
+PEWIN id=102 guest=(208,410,424,140) host=(208,642,424,140) vis=(0,0,0,0) covers=0 liveparts=1 visible=100% focus=0 fresh=5 clean=0
+PEWIN id=100 guest=(100,388,640,462) host=(100,342,640,462) vis=(0,0,0,0) covers=0 liveparts=1 visible=100% focus=0 fresh=5 clean=0
+PEWIN id=146 guest=(24,46,750,436) host=(24,710,750,436) vis=(0,0,0,0) covers=0 liveparts=1 visible=100% focus=0 fresh=5 clean=0
+PEWIN id=144 guest=(465,128,896,436) host=(465,628,896,436) vis=(0,0,0,0) covers=0 liveparts=1 visible=100% focus=0 fresh=5 clean=0
+PEWIN id=58 guest=(506,469,668,597) host=(506,126,668,597) vis=(0,0,0,0) covers=0 liveparts=1 visible=100% focus=0 fresh=5 clean=0
+PEDOCK keep: pesheetfixture[icon=1,run=1] System Preferences[icon=1,run=1] Finder[icon=1,run=1]
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder,Finder,Finder tiles=3
+PEDECODE meanMS=0.271 worker=serial
+PEWINDOWFRAME count=60090 meanRoundTripMS=68.6 bytes=20
+PEFRAMEBATCH full=2 fullMeanMS=57.6 unchanged=28 unchangedMeanMS=45.9 bytes=252604
+PEDOCK apps=System Preferences,pesheetfixture,pesheetfixture,pesheetfixture,Finder,Finder,Finder tiles=3

@@ -1,0 +1,11 @@
+ 1605  ??  S      0:01.00 /System/Library/CoreServices/Finder.app/Contents/MacO
+PASS preserved PE-keep-A (1 windows)
+PASS preserved PE-keep-B (2 windows)
+PASS cycle 1: same Finder window IDs; desktop excluded
+PASS preserved PE-keep-A (1 windows)
+PASS preserved PE-keep-B (2 windows)
+PASS cycle 2: same Finder window IDs; desktop excluded
+PASS preserved PE-keep-A (1 windows)
+PASS preserved PE-keep-B (2 windows)
+PASS cycle 3: same Finder window IDs; desktop excluded
+ 1605  ??  S      0:01.43 /System/Library/CoreServices/Finder.app/Contents/MacO

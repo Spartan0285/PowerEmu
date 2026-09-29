@@ -1,0 +1,10 @@
+{
+  "hw/display/ppc_mac_gpu.c": "727bdd91e7815548c5408de8c152418f3128e2e90a009d3efdbd966d1cb5a7dd",
+  "include/hw/display/ppc_mac_gpu.h": "d9ddfc3a8da61caa0e563df186ff29f3b48b79623843b0dda715c1344efc3648",
+  "hw/display/meson.build": "12ea38df93eb2f3a8e5ba0771a9e1dbe0b9b71c23a40d1a2d642a8f04f5e70e4",
+  "hw/display/ppc_mac_gpu_r300_fp.h": "82b5d2e3fee128722a040d2344abbf9c0b3a52dbde7edbf3c99cf2f121076784",
+  "hw/display/ppc_mac_gpu_r300_fp.c": "2488b410f1154547e31ecd8f8caa165b7ddbfc68d900add6134780269e9f3122",
+  "tests/poweremu/r300-metal-test.m": "6401f30871bdb97436ed4e4b2c19704043b8814c0581cd409144a7ddb9594942",
+  "tests/poweremu/run-r300-metal-test.sh": "05ec64251e5344cfec79082b2b6a4be22e11ff9236d5550d89e2b4277e1b9dc6",
+  "tests/poweremu/README-r300.md": "2af7bbb46b2a289b747ecb0484707015988c1735f4dbba2a630b0aec7eb8c3aa"
+}

@@ -26,6 +26,15 @@ final class GuestAgent: ObservableObject {
     var onMinimized: (([(pid: Int, index: Int, title: String)]) -> Void)?
     /// One of the guest's applications' icons, as a PNG.
     var onAppIcon: ((Int, Data) -> Void)?
+    var onWindowFrame: ((Data) -> Void)?
+    var onFocusReady: ((Int, Int, Bool) -> Void)?
+    var onFileTransfer: (([String: Any]) -> Void)?
+    var onDisconnect: (() -> Void)?
+    var onSheets: (([Int: Int]) -> Void)?
+    var onDragWindows: ((Set<Int>) -> Void)?
+    var onMenuFocus: ((String, Int) -> Void)?
+    var onGuestFullscreen: (() -> Void)?
+    var onHarmonyReady: ((String, CGSize, Bool) -> Void)?
     /// Per window, the rectangles of it that something else is drawn over.
     var onOcclusion: (([Int: [CGRect]]) -> Void)?
     /// The guest window that has the focus: the one nothing is drawn over.
@@ -37,6 +46,10 @@ final class GuestAgent: ObservableObject {
     private var listenFD: Int32 = -1
     private var acceptSource: DispatchSourceRead?
     private var conn: Connection?
+    private var frameConnection: Connection?
+    private var frameSession = UUID().uuidString
+    private var incoming: [Int32: Connection] = [:]
+    private var connectionEpochs: [Int32: UUID] = [:]
     private var clipTimer: Timer?
     private var lastChangeCount = NSPasteboard.general.changeCount
     private var lastClip: String?
@@ -70,6 +83,11 @@ final class GuestAgent: ObservableObject {
     }
 
     func stop() {
+        info = nil
+        onDisconnect?()
+        for connection in incoming.values { connection.close() }
+        incoming.removeAll(); connectionEpochs.removeAll()
+        frameConnection?.close(); frameConnection = nil
         conn?.close()
         conn = nil
         info = nil
@@ -84,22 +102,53 @@ final class GuestAgent: ObservableObject {
     private func acceptOne() {
         let fd = accept(listenFD, nil, nil)
         guard fd >= 0 else { return }
-        // A new agent connection replaces the old one (the guest restarted
-        // the agent, or logged in again).
-        conn?.close()
-        info = nil
-        conn = Connection(fd: fd,
-                          onMessage: { [weak self] verb, payload in
-                              MainActor.assumeIsolated { self?.handle(verb, payload) }
-                          },
-                          onClose: { [weak self, fd] in
-                              MainActor.assumeIsolated {
-                                  guard let self, self.conn?.fd == fd else { return }
-                                  self.conn = nil
-                                  self.info = nil
-                              }
-                          })
-        send("HELLO", "PowerEmu 1")
+        // A frame uses a separate short-lived connection to the same guestfwd
+        // endpoint. Classify the first message before replacing the control link.
+        guard incoming.count < 16 else { close(fd); return }
+        let epoch = UUID()
+        connectionEpochs[fd] = epoch
+        incoming[fd] = Connection(fd: fd,
+            onMessage: { [weak self] verb, payload in
+                MainActor.assumeIsolated {
+                    guard self?.connectionEpochs[fd] == epoch else { return }
+                    self?.receive(fd: fd, verb: verb, payload: payload)
+                }
+            }, onClose: { [weak self] in
+                MainActor.assumeIsolated {
+                    guard let self, self.connectionEpochs[fd] == epoch else { return }
+                    self.connectionEpochs.removeValue(forKey: fd)
+                    self.incoming.removeValue(forKey: fd)
+                    if self.conn?.fd == fd { self.conn = nil; self.info = nil; self.onDisconnect?(); self.frameConnection?.close(); self.frameConnection = nil }
+                    if self.frameConnection?.fd == fd { self.frameConnection = nil }
+                }
+            })
+        let accepted = incoming[fd]
+        DispatchQueue.main.asyncAfter(deadline: .now() + 15) { [weak self, weak accepted] in
+            guard let self, let accepted, self.incoming[fd] === accepted else { return }
+            self.incoming.removeValue(forKey: fd)?.close()
+        }
+    }
+
+    private func receive(fd: Int32, verb: String, payload: Data) {
+        if conn?.fd == fd { handle(verb, payload); return }
+        if frameConnection?.fd == fd {
+            if verb == "WINDOWFRAME" { onWindowFrame?(payload) }
+            return
+        }
+        guard let candidate = incoming.removeValue(forKey: fd) else { return }
+        if verb == "FRAMEHELLO", connected, String(decoding: payload, as: UTF8.self) == frameSession {
+            frameConnection?.close()
+            frameConnection = candidate
+        } else if verb == "HELLO" {
+            if conn != nil { info = nil; onDisconnect?() }
+            frameConnection?.close(); frameConnection = nil
+            conn?.close()
+            conn = candidate
+            info = nil
+            frameSession = UUID().uuidString
+            send("HELLO", "PowerEmu 1 " + frameSession)
+            handle(verb, payload)
+        } else { connectionEpochs.removeValue(forKey: fd); candidate.close() }
     }
 
     // MARK: messages
@@ -111,8 +160,28 @@ final class GuestAgent: ObservableObject {
     }
 
     private func handle(_ verb: String, _ payload: Data) {
+        if verb == "WINDOWFRAME" { onWindowFrame?(payload); return }
         let text = String(decoding: payload, as: UTF8.self)
         switch verb {
+        case "DRAGWINDOWS":
+            onDragWindows?(Set(text.split(separator: ";").compactMap { Int($0) }.filter { $0 > 0 }))
+        case "SHEETS":
+            var parents: [Int: Int] = [:]
+            for row in text.split(separator: ";") {
+                let ids = row.split(separator: ",").compactMap { Int($0) }
+                if ids.count == 2, ids[0] > 0, ids[1] > 0, ids[0] != ids[1] { parents[ids[0]] = ids[1] }
+            }
+            onSheets?(parents)
+        case "FILERESULT":
+            if let fields = (try? PropertyListSerialization.propertyList(from: payload, options: [], format: nil)) as? [String: Any] { onFileTransfer?(fields) }
+        case "FOCUSREADY":
+            let f = text.split(separator: " ").compactMap { Int($0) }
+            if f.count == 3 { onFocusReady?(f[0], f[1], f[2] == 1) }
+        case "HARMONYREADY":
+            let f = text.split(separator: " ").map(String.init)
+            if f.count == 4, let w = Int(f[1]), let h = Int(f[2]) {
+                onHarmonyReady?(f[0], CGSize(width: w, height: h), f[3] == "1")
+            }
         case "HELLO":
             let f = text.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
             info = (f.first ?? "?", f.count > 1 ? f[1] : "?", f.count > 2 ? f[2] : "?")
@@ -128,6 +197,8 @@ final class GuestAgent: ObservableObject {
         case "LOG":
             NSLog("PowerEmu Agent: %@", text)
             harmonyDebug("PEAGENT " + text)
+        case "FULLSCREEN":
+            if text == "captured" { onGuestFullscreen?() }
         case "WINDOWS":
             var windows: [(id: Int, rect: CGRect, visible: CGRect)] = []
             for part in text.split(separator: ";") {
@@ -144,7 +215,8 @@ final class GuestAgent: ObservableObject {
             for line in text.split(separator: "\n") {
                 let f = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
                 if f.count >= 2, let pid = Int(f[0]) {
-                    apps.append((id: 0, pid: pid, app: f[1]))
+                    let ids = f.count > 2 ? f[2].split(separator: ",").compactMap { Int($0) } : []
+                    for id in ids.isEmpty ? [0] : ids { apps.append((id: id, pid: pid, app: f[1])) }
                 }
             }
             onWindowApps?(apps)
@@ -175,6 +247,9 @@ final class GuestAgent: ObservableObject {
                 }
             }
             onOcclusion?(out)
+        case "MENUFOCUS":
+            let fields = text.split(separator: " ")
+            if fields.count == 2, let id = Int(fields[1]), id > 0 { onMenuFocus?(String(fields[0]), id) }
         case "FOCUSED":
             onFocused?(Int(text.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0)
         case "MENUS":
@@ -245,7 +320,9 @@ private final class Connection: @unchecked Sendable {
         var one: Int32 = 1
         setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int32>.size))
         source = DispatchSource.makeReadSource(fileDescriptor: fd, queue: DispatchQueue(label: "poweremu.agent"))
-        source.setEventHandler { [unowned self] in
+        source.setCancelHandler { Darwin.close(fd) }
+        source.setEventHandler { [weak self] in
+            guard let self else { return }
             var buf = [UInt8](repeating: 0, count: 65536)
             let n = read(fd, &buf, buf.count)
             if n <= 0 {
@@ -266,7 +343,9 @@ private final class Connection: @unchecked Sendable {
         var out: [(String, Data)] = []
         while let nl = inbox.firstIndex(of: 0x0a) {
             let head = String(decoding: inbox[inbox.startIndex..<nl], as: UTF8.self).split(separator: " ")
-            let size = head.count > 1 ? Int(head[1]) ?? 0 : 0
+            guard head.count == 2, let size = Int(head[1]), (0...70_000_000).contains(size) else {
+                close(); inbox.removeAll(); return []
+            }
             let start = inbox.index(after: nl)
             guard inbox.distance(from: start, to: inbox.endIndex) >= size else { break }
             let end = inbox.index(start, offsetBy: size)
@@ -298,6 +377,5 @@ private final class Connection: @unchecked Sendable {
         guard !closed else { return }
         closed = true
         source.cancel()
-        Darwin.close(fd)
     }
 }

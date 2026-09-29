@@ -1,0 +1,24 @@
+{
+  "128": {
+    "ssh": true,
+    "finder": true,
+    "elapsed": 21,
+    "status": {
+      "return": {
+        "status": "running",
+        "running": true
+      }
+    }
+  },
+  "256": {
+    "ssh": true,
+    "finder": true,
+    "elapsed": 24,
+    "status": {
+      "return": {
+        "status": "running",
+        "running": true
+      }
+    }
+  }
+}

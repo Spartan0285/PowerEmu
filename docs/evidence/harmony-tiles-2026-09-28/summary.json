@@ -1,0 +1,46 @@
+{
+  "source": "actual PEAgent methods in isolated Tiger 10.4.11, synthetic detailed window; capture + encoding, not end-to-end transport",
+  "sparse_samples": 10,
+  "candidate_median_ms": 36.6815,
+  "full_median_ms": 128.552,
+  "candidate_median_bytes": 6817.5,
+  "full_median_bytes": 1064515.0,
+  "host_decode_median_ms": {
+    "tiles": 0.113,
+    "full": 2.123
+  },
+  "dense_and_other_fallbacks": [
+    {
+      "run": 10.0,
+      "encoding": 1.0,
+      "candidateMS": 136.593,
+      "candidateBytes": 1064665.0,
+      "fullMS": 130.094,
+      "fullBytes": 1064665.0
+    },
+    {
+      "run": 11.0,
+      "encoding": 1.0,
+      "candidateMS": 126.819,
+      "candidateBytes": 1028585.0,
+      "fullMS": 125.27,
+      "fullBytes": 1028585.0
+    },
+    {
+      "run": 12.0,
+      "encoding": 1.0,
+      "candidateMS": 132.701,
+      "candidateBytes": 1028541.0,
+      "fullMS": 125.518,
+      "fullBytes": 1028541.0
+    },
+    {
+      "run": 13.0,
+      "encoding": 1.0,
+      "candidateMS": 133.473,
+      "candidateBytes": 1028585.0,
+      "fullMS": 126.149,
+      "fullBytes": 1028585.0
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+OPEN
+PEPROXY source=complete captureCount=4198 pending=0 100:frame=(100,342,640,462),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0 102:frame=(208,642,424,140),vis=1,a=1.00,contents=1,lvl=0,sheetParent=100,attachedTo=100 106:frame=(202,772,437,10),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0 58:frame=(506,126,668,597),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0
+PEHOSTSTACK guest:102(native:8324) > guest:100(native:8322) > guest:106(native:8323) > guest:58(native:8315) > host:Finder(native:6242) > host:Finder(native:4109)
+CANCEL
+PEPROXY source=complete captureCount=4230 pending=0 100:frame=(100,342,640,462),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0 58:frame=(506,126,668,597),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0
+PEHOSTSTACK guest:100(native:8322) > guest:58(native:8315) > host:Finder(native:6242) > host:Finder(native:4109)
+OPEN
+PEPROXY source=complete captureCount=4272 pending=0 100:frame=(100,342,640,462),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0 102:frame=(208,642,424,140),vis=1,a=1.00,contents=1,lvl=0,sheetParent=100,attachedTo=100 114:frame=(202,772,437,10),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0 58:frame=(506,126,668,597),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0
+PEHOSTSTACK guest:102(native:8326) > guest:100(native:8322) > guest:114(native:8325) > guest:58(native:8315) > host:Finder(native:6242) > host:Finder(native:4109)
+CANCEL
+PEPROXY source=complete captureCount=4302 pending=0 100:frame=(100,342,640,462),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0 58:frame=(506,126,668,597),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0
+PEHOSTSTACK guest:100(native:8322) > guest:58(native:8315) > host:Finder(native:6242) > host:Finder(native:4109)
+OPEN
+PEPROXY source=complete captureCount=4343 pending=0 100:frame=(100,342,640,462),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0 102:frame=(208,642,424,140),vis=1,a=1.00,contents=1,lvl=0,sheetParent=100,attachedTo=100 121:frame=(202,772,437,10),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0 58:frame=(506,126,668,597),vis=1,a=1.00,contents=1,lvl=0,sheetParent=0,attachedTo=0
+PEHOSTSTACK guest:102(native:8328) > guest:100(native:8322) > guest:121(native:8327) > guest:58(native:8315) > host:Finder(native:6242) > host:Finder(native:4109)

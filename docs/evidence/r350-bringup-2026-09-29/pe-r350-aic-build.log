@@ -1,0 +1,54 @@
+ninja: Entering directory `build-smp'
+[1/6] Generating qemu-version.h with a custom command (wrapped by meson to capture output)
+[2/3] Compiling C object libcommon.a.p/hw_display_ppc_mac_gpu.c.o
+../hw/display/ppc_mac_gpu.c:6532:20: warning: unused variable 'unique_targets' [-Wunused-variable]
+ 6532 |         static int unique_targets = 0;
+      |                    ^~~~~~~~~~~~~~
+../hw/display/ppc_mac_gpu.c:8621:42: warning: format specifies type 'unsigned int' but the argument has type 'uint64_t' (aka 'unsigned long long') [-Wformat]
+ 8618 |                 qemu_log("[QE_GATE_READ] reg=0x%04x value=0x%08x "
+      |                                                             ~~~~
+      |                                                             %08llx
+ 8619 |                          "context=idle_poll sequence_id=%d "
+ 8620 |                          "note=RBBM_STATUS_always_idle\n",
+ 8621 |                          (uint32_t)addr, val, rbbm_read_count);
+      |                                          ^~~
+../hw/display/ppc_mac_gpu.c:9000:38: warning: format specifies type 'unsigned int' but the argument has type 'uint64_t' (aka 'unsigned long long') [-Wformat]
+ 8999 |                 fprintf(stderr, "ppc-mac-gpu fence: guest reads reg%d = %u\n",
+      |                                                                         ~~
+      |                                                                         %llu
+ 9000 |                         scratch_idx, val);
+      |                                      ^~~
+../hw/display/ppc_mac_gpu.c:9018:42: warning: format specifies type 'unsigned int' but the argument has type 'uint64_t' (aka 'unsigned long long') [-Wformat]
+ 9015 |                 qemu_log("[QE_GATE_READ] reg=0x%04x value=0x%08x "
+      |                                                             ~~~~
+      |                                                             %08llx
+ 9016 |                          "context=scratch_poll sequence_id=%d "
+ 9017 |                          "note=SCRATCH_REG%d_fence_check\n",
+ 9018 |                          (uint32_t)addr, val, scratch_read_count,
+      |                                          ^~~
+../hw/display/ppc_mac_gpu.c:9382:22: warning: unused variable 'a' [-Wunused-variable]
+ 9382 |             uint32_t a = s->regs.tcl_vec_addr & 0x7ff;
+      |                      ^
+../hw/display/ppc_mac_gpu.c:11193:22: warning: initializing 'InterfaceInfo *' (aka 'struct InterfaceInfo *') with an expression of type 'const InterfaceInfo[2]' (aka 'const struct InterfaceInfo[2]') discards qualifiers [-Wincompatible-pointer-types-discards-qualifiers]
+ 11193 |     .interfaces    = (const InterfaceInfo[]) {
+       |                      ^~~~~~~~~~~~~~~~~~~~~~~~~
+ 11194 |         { INTERFACE_CONVENTIONAL_PCI_DEVICE },
+       |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 11195 |         { },
+       |         ~~~~
+ 11196 |     },
+       |     ~
+../hw/display/ppc_mac_gpu.c:2473:13: warning: unused function 'ppc_mac_gpu_scratch_writeback' [-Wunused-function]
+ 2473 | static void ppc_mac_gpu_scratch_writeback(PPCMacGPUState *s, int reg_idx)
+      |             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+../hw/display/ppc_mac_gpu.c:3301:13: warning: unused function 'mc_unregister_tiled_surface' [-Wunused-function]
+ 3301 | static void mc_unregister_tiled_surface(PPCMacGPUState *s, uint32_t base)
+      |             ^~~~~~~~~~~~~~~~~~~~~~~~~~~
+../hw/display/ppc_mac_gpu.c:10293:30: warning: unused variable 'ppc_mac_gpu_rom_ops' [-Wunused-const-variable]
+ 10293 | static const MemoryRegionOps ppc_mac_gpu_rom_ops = {
+       |                              ^~~~~~~~~~~~~~~~~~~
+../hw/display/ppc_mac_gpu.c:10375:30: warning: unused variable 'ppc_mac_gpu_vram_bswap_ops' [-Wunused-const-variable]
+ 10375 | static const MemoryRegionOps ppc_mac_gpu_vram_bswap_ops = {
+       |                              ^~~~~~~~~~~~~~~~~~~~~~~~~~
+10 warnings generated.
+[3/3] Linking target qemu-system-ppc64-unsigned

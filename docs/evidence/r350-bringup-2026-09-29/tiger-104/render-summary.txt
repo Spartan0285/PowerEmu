@@ -1,0 +1,44 @@
+R350_LINEAR rendered count=1 draw=1 reason=ok
+R350_LINEAR rendered count=2 draw=2 reason=ok
+R350_LINEAR rendered count=3 draw=3 reason=ok
+R350_LINEAR rendered count=4 draw=4 reason=ok
+R350_LINEAR rendered count=5 draw=5 reason=ok
+R350_LINEAR rendered count=6 draw=6 reason=ok
+R350_LINEAR rendered count=7 draw=7 reason=ok
+R350_LINEAR rendered count=8 draw=8 reason=ok
+R350_LINEAR rendered count=9 draw=9 reason=ok
+R350_LINEAR rendered count=10 draw=10 reason=ok
+R350_LINEAR rendered count=11 draw=11 reason=ok
+R350_LINEAR rendered count=12 draw=12 reason=ok
+R350_LINEAR rendered count=13 draw=13 reason=ok
+R350_LINEAR rendered count=14 draw=14 reason=ok
+R350_LINEAR rendered count=15 draw=15 reason=ok
+R350_LINEAR rendered count=16 draw=16 reason=ok
+R350_LINEAR rendered count=17 draw=17 reason=ok
+R350_LINEAR rendered count=18 draw=18 reason=ok
+R350_LINEAR rendered count=19 draw=19 reason=ok
+R350_LINEAR rendered count=20 draw=20 reason=ok
+R350_LINEAR rendered count=21 draw=21 reason=ok
+R350_LINEAR rendered count=22 draw=22 reason=ok
+R350_LINEAR rendered count=23 draw=23 reason=ok
+R350_LINEAR rendered count=24 draw=24 reason=ok
+R350_LINEAR rendered count=25 draw=25 reason=ok
+R350_LINEAR rendered count=26 draw=26 reason=ok
+R350_LINEAR rendered count=27 draw=27 reason=ok
+R350_LINEAR rendered count=28 draw=28 reason=ok
+R350_LINEAR rendered count=29 draw=29 reason=ok
+R350_LINEAR rendered count=30 draw=30 reason=ok
+R350_LINEAR rendered count=31 draw=31 reason=ok
+R350_LINEAR rendered count=32 draw=32 reason=ok
+R350_LINEAR rendered count=64 draw=64 reason=ok
+R350_LINEAR rendered count=128 draw=128 reason=ok
+R350_LINEAR rendered count=256 draw=256 reason=ok
+R350_FAILURE draw=258 reason=interpolator routing
+R350_LINEAR rejected count=1 draw=258 reason=interpolator routing
+R350_LINEAR rejected count=2 draw=293 reason=interpolator routing
+R350_LINEAR rejected count=3 draw=340 reason=interpolator routing
+R350_LINEAR rejected count=4 draw=344 reason=interpolator routing
+R350_LINEAR rejected count=5 draw=432 reason=interpolator routing
+R350_LINEAR rejected count=6 draw=437 reason=interpolator routing
+R350_LINEAR rejected count=7 draw=470 reason=interpolator routing
+GPU MODE: 1680x1050 bpp=32 stride=6912 offset=0x0 pitch_reg=0xd2 crtc_gen=0x3000600
