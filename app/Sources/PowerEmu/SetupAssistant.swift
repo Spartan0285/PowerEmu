@@ -195,9 +195,21 @@ struct NewMachineSheet: View {
     /// The pages this disc needs: no update page for a 10.4.11 disc, and
     /// only the disc and the machine for one PowerEmu can't drive.
     private var pages: [Page] {
-        guard automatic else { return [.disc, .machine] }
+        guard automatic else {
+            // Installing onto a disk of the reader's own still shows About
+            // This Mac. There is nothing to choose there -- PowerEmu cannot
+            // describe that system differently, because it never touches it
+            // -- but a disk bound for a real Power Mac is exactly when
+            // somebody needs telling so, rather than left to infer it from a
+            // page that quietly disappeared.
+            return diskTarget == .external ? [.disc, .machine, .about] : [.disc, .machine]
+        }
         return Page.allCases.filter { $0 != .update || updateApplies }
     }
+
+    /// The About This Mac page with nothing to choose on it: the system is
+    /// going onto the reader's own disk and PowerEmu leaves it alone.
+    private var aboutIsStockOnly: Bool { diskTarget == .external }
 
     private var isLast: Bool { page == pages.last }
 
@@ -304,7 +316,7 @@ struct NewMachineSheet: View {
     }
 
     @ViewBuilder private var illustration: some View {
-        if page == .about {
+        if page == .about && !aboutIsStockOnly {
             AboutMock(image: aboutStyle == .custom && aboutPicture ? chosenModel.image : nil,
                       version: shownVersion, processor: shownProcessor, memoryMB: memory)
         } else {
@@ -417,6 +429,8 @@ struct NewMachineSheet: View {
             return "PowerEmu installs Mac OS X for you from your own install disc. Choose the disc image of a Mac OS X 10.4 Tiger or 10.5 Leopard install DVD for PowerPC Macs, or drag it here. PowerEmu installs either of them by itself; a disc it doesn\u{2019}t recognise still works, with the virtual Mac starting the installer for you to answer."
         case .machine:
             return "Name your virtual Mac, choose the Mac it looks like, and give it a hard disk. Mac OS X sees the size you pick here, while the disk takes up space on your Mac only as it fills \u{2014} so pick a roomy one. It can be made larger later, but not smaller."
+        case .about where aboutIsStockOnly:
+            return "Mac OS X is going onto a disk of your own, so PowerEmu leaves it alone. This page is here to say so \u{2014} the system on that disk will describe itself exactly as Apple made it, whichever Mac you picked for the icon."
         case .about:
             return "Choose how your virtual Mac describes itself in About This Mac and System Profiler, or leave Mac OS X stock. This is for looks only: it runs the same emulated Power Mac G4 at the same speed whatever you pick, and “Dual” doesn’t add a second processor."
         case .options:
@@ -434,6 +448,8 @@ struct NewMachineSheet: View {
             return "Any Mac OS X 10.4 install DVD for PowerPC Macs works, as an .iso, .dmg, .cdr or .toast image. PowerEmu never changes your image: it works on a copy that is deleted afterwards."
         case .machine:
             return "40 GB is plenty for Tiger and years of software. Memory and graphics are set to what works best; change them later in the virtual Mac’s settings if you like."
+        case .about where aboutIsStockOnly:
+            return "The Mac you picked on the last page is only PowerEmu\u{2019}s own icon for this virtual Mac; it is never written onto the disk. You can put this disk into a real Power Mac, or restore it onto one, and find nothing of PowerEmu\u{2019}s on it."
         case .about:
             return "The speeds are the ones Apple sold for the Mac you chose. PowerEmu changes only what Mac OS X displays: the processor line and picture in About This Mac, and the Machine Name in System Profiler. Your originals are kept. Stock changes nothing at all and adds nothing to Mac OS X \u{2014} the choice for a disk that is going into a real Power Mac."
         case .options:
@@ -689,7 +705,24 @@ struct NewMachineSheet: View {
         }
     }
 
-    private var aboutControls: some View {
+    @ViewBuilder private var aboutControls: some View {
+        if aboutIsStockOnly { stockOnlyControls } else { aboutChoiceControls }
+    }
+
+    /// Installing onto the reader's own disk: a statement, not a choice.
+    private var stockOnlyControls: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Mac OS X is left exactly as Apple made it.", systemImage: "apple.logo")
+                .font(.callout).foregroundStyle(.white.opacity(0.9))
+                .fixedSize(horizontal: false, vertical: true)
+            Text("PowerEmu installs no startup item and changes no file inside the system. About This Mac and System Profiler will say what they say on any Power Mac.")
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            Text("Describing it as another Mac is offered only for a new virtual disk, where PowerEmu installs from its own copy of the disc. Onto a disk of your own you do the installing, and nothing of PowerEmu\u{2019}s goes onto it.")
+                .font(.caption).foregroundStyle(.white.opacity(0.45)).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var aboutChoiceControls: some View {
         VStack(alignment: .leading, spacing: 12) {
             Picker("", selection: $aboutStyle) {
                 ForEach(AboutStyle.allCases, id: \.self) { Text($0.rawValue).tag($0) }
