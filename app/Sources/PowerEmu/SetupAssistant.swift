@@ -82,6 +82,15 @@ struct NewMachineSheet: View {
     @State private var cpuID: String?
     /// About This Mac shows the chosen Mac (true) or Tiger's Apple logo.
     @State private var aboutPicture = true
+    /// Whether to describe the virtual Mac as the reader chose, or leave Mac
+    /// OS X saying exactly what Apple made it say.
+    ///
+    /// Stock is for a disk that is going to end up in a real Power Mac, or be
+    /// restored onto one: a customised system carries a startup item that
+    /// rewrites Apple's own files at every boot, which is no way to leave
+    /// somebody else's Mac.
+    enum AboutStyle: String, CaseIterable { case stock = "Stock", custom = "Customized" }
+    @State private var aboutStyle: AboutStyle = .custom
     @State private var showAdvanced = false
     @State private var showHelp = false
     @State private var dropTargeted = false
@@ -196,10 +205,25 @@ struct NewMachineSheet: View {
     private var cpu: CPUConfig { chosenModel.cpus.first { $0.id == cpuID } ?? chosenModel.defaultCPU }
     private var shownVersion: String { update10411 && updateApplies ? "10.4.11" : version }
 
-    private var personalize: InstallPlan.Personalize {
-        InstallPlan.Personalize(processorText: cpu.dual ? cpu.aboutText : nil,
-                                modelName: chosenModel.profilerName,
-                                aboutImage: aboutPicture ? AboutBoxImage.tiff(for: chosenModel) : nil)
+    /// What About This Mac will really say about the processor.
+    ///
+    /// Customized, it is the line PEPersonalize writes. Stock, it is whatever
+    /// Mac OS X makes of the cpu node's clock-frequency, which is never
+    /// reported below 1.42 GHz -- so a slower Mac still says 1.42 GHz there.
+    private var shownProcessor: String {
+        guard aboutStyle == .custom else {
+            return CPUConfig(mhz: max(cpu.mhz, VMRunner.minReportedMHz)).aboutText
+        }
+        return cpu.aboutText
+    }
+
+    /// nil for a stock system: PowerEmu then installs no startup item and
+    /// changes no file inside Mac OS X.
+    private var personalize: InstallPlan.Personalize? {
+        guard aboutStyle == .custom else { return nil }
+        return InstallPlan.Personalize(processorText: cpu.dual ? cpu.aboutText : nil,
+                                       modelName: chosenModel.profilerName,
+                                       aboutImage: aboutPicture ? AboutBoxImage.tiff(for: chosenModel) : nil)
     }
 
     private var canContinue: Bool {
@@ -281,8 +305,8 @@ struct NewMachineSheet: View {
 
     @ViewBuilder private var illustration: some View {
         if page == .about {
-            AboutMock(image: aboutPicture ? chosenModel.image : nil, version: shownVersion,
-                      processor: cpu.aboutText, memoryMB: memory)
+            AboutMock(image: aboutStyle == .custom && aboutPicture ? chosenModel.image : nil,
+                      version: shownVersion, processor: shownProcessor, memoryMB: memory)
         } else {
             windowIllustration
         }
@@ -394,7 +418,7 @@ struct NewMachineSheet: View {
         case .machine:
             return "Name your virtual Mac, choose the Mac it looks like, and give it a hard disk. Mac OS X sees the size you pick here, while the disk takes up space on your Mac only as it fills \u{2014} so pick a roomy one. It can be made larger later, but not smaller."
         case .about:
-            return "Choose how your virtual Mac describes itself in About This Mac and System Profiler. This is for looks only: it runs the same emulated Power Mac G4 at the same speed whatever you pick, and “Dual” doesn’t add a second processor."
+            return "Choose how your virtual Mac describes itself in About This Mac and System Profiler, or leave Mac OS X stock. This is for looks only: it runs the same emulated Power Mac G4 at the same speed whatever you pick, and “Dual” doesn’t add a second processor."
         case .options:
             return "Mac OS X comes with extras most people never use. Leaving them out makes the install smaller and quicker, and you can add them later from the same disc."
         case .update:
@@ -411,7 +435,7 @@ struct NewMachineSheet: View {
         case .machine:
             return "40 GB is plenty for Tiger and years of software. Memory and graphics are set to what works best; change them later in the virtual Mac’s settings if you like."
         case .about:
-            return "The speeds are the ones Apple sold for the Mac you chose. PowerEmu changes only what Mac OS X displays: the processor line and picture in About This Mac, and the Machine Name in System Profiler. Your originals are kept."
+            return "The speeds are the ones Apple sold for the Mac you chose. PowerEmu changes only what Mac OS X displays: the processor line and picture in About This Mac, and the Machine Name in System Profiler. Your originals are kept. Stock changes nothing at all and adds nothing to Mac OS X \u{2014} the choice for a disk that is going into a real Power Mac."
         case .options:
             return "The language is the one Mac OS X uses for its menus and windows. Additional languages are other translations of the whole system; printer drivers are for real printers; additional fonts are mostly for other alphabets."
         case .update:
@@ -667,21 +691,35 @@ struct NewMachineSheet: View {
 
     private var aboutControls: some View {
         VStack(alignment: .leading, spacing: 12) {
-            LabeledContent("Processor") {
-                Picker("", selection: Binding(get: { cpu.id }, set: { cpuID = $0 })) {
-                    ForEach(chosenModel.cpus) { c in Text(c.label).tag(c.id) }
-                }
-                .labelsHidden().frame(width: 200)
+            Picker("", selection: $aboutStyle) {
+                ForEach(AboutStyle.allCases, id: \.self) { Text($0.rawValue).tag($0) }
             }
-            LabeledContent("Picture") {
-                Picker("", selection: $aboutPicture) {
-                    Text("This Mac").tag(true)
-                    Text("Apple logo").tag(false)
+            .pickerStyle(.segmented).labelsHidden()
+            switch aboutStyle {
+            case .stock:
+                Label("Mac OS X is left to describe itself \u{2014} the processor it is told it has, and Apple\u{2019}s own logo.",
+                      systemImage: "apple.logo")
+                    .font(.callout).foregroundStyle(.white.opacity(0.85))
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("Nothing of PowerEmu\u{2019}s is put inside Mac OS X and no file of Apple\u{2019}s is changed. Choose this for a disk you mean to restore onto a real Power Mac.")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            case .custom:
+                LabeledContent("Processor") {
+                    Picker("", selection: Binding(get: { cpu.id }, set: { cpuID = $0 })) {
+                        ForEach(chosenModel.cpus) { c in Text(c.label).tag(c.id) }
+                    }
+                    .labelsHidden().frame(width: 200)
                 }
-                .pickerStyle(.segmented).labelsHidden().frame(width: 200)
+                LabeledContent("Picture") {
+                    Picker("", selection: $aboutPicture) {
+                        Text("This Mac").tag(true)
+                        Text("Apple logo").tag(false)
+                    }
+                    .pickerStyle(.segmented).labelsHidden().frame(width: 200)
+                }
+                Label("Cosmetic only: no effect on speed", systemImage: "info.circle")
+                    .font(.caption).foregroundStyle(.secondary)
             }
-            Label("Cosmetic only: no effect on speed", systemImage: "info.circle")
-                .font(.caption).foregroundStyle(.secondary)
         }
     }
 
@@ -767,7 +805,11 @@ struct NewMachineSheet: View {
         VStack(alignment: .leading, spacing: 7) {
             summaryRow("opticaldisc", "Mac OS X \(version)" + (update10411 && updateApplies ? ", updated to 10.4.11" : ""))
             summaryRow("internaldrive", "“\(name)”, \(MacModel.named(model)?.name ?? "Power Mac G4"), \(diskGB) GB hard disk")
-            summaryRow("cpu", cpu.label + " PowerPC G4 (shown only)")
+            if aboutStyle == .custom {
+                summaryRow("cpu", cpu.label + " PowerPC G4 (shown only)")
+            } else {
+                summaryRow("cpu", "About This Mac and System Profiler left stock")
+            }
             summaryRow("globe", languageName + (additionalLanguages ? " and other languages" : ""))
             let extras = [printerDrivers ? "printer drivers" : nil, additionalFonts ? "additional fonts" : nil].compactMap { $0 }
             summaryRow("shippingbox", extras.isEmpty ? "No printer drivers or extra fonts" : "With " + extras.joined(separator: " and "))
