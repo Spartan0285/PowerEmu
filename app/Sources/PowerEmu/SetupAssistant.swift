@@ -415,7 +415,7 @@ struct NewMachineSheet: View {
     private var title: String {
         switch page {
         case .disc: return "Install Mac OS X"
-        case .machine: return "Your Virtual Mac"
+        case .machine: return "Your Mac"
         case .about: return "About This Mac"
         case .options: return "Choose What to Install"
         case .update: return "Update to Mac OS X 10.4.11"
@@ -427,6 +427,8 @@ struct NewMachineSheet: View {
         switch page {
         case .disc:
             return "PowerEmu installs Mac OS X for you from your own install disc. Choose the disc image of a Mac OS X 10.4 Tiger or 10.5 Leopard install DVD for PowerPC Macs, or drag it here. PowerEmu installs either of them by itself; a disc it doesn\u{2019}t recognise still works, with the virtual Mac starting the installer for you to answer."
+        case .machine where diskTarget == .external:
+            return "Name this Mac and choose the disk to install onto. The disk is erased and Mac OS X installed onto it \u{2014} you do the installing, and the virtual Mac is here only to boot the installer for you."
         case .machine:
             return "Name your virtual Mac, choose the Mac it looks like, and give it a hard disk. Mac OS X sees the size you pick here, while the disk takes up space on your Mac only as it fills \u{2014} so pick a roomy one. It can be made larger later, but not smaller."
         case .about where aboutIsStockOnly:
@@ -446,6 +448,8 @@ struct NewMachineSheet: View {
         switch page {
         case .disc:
             return "Any Mac OS X 10.4 install DVD for PowerPC Macs works, as an .iso, .dmg, .cdr or .toast image. PowerEmu never changes your image: it works on a copy that is deleted afterwards."
+        case .machine where diskTarget == .external:
+            return "The disk is erased, so copy anything on it somewhere else first. Nothing about the virtual Mac \u{2014} its icon, its memory, the Mac it is named after \u{2014} is written to the disk; it is a machine to run the installer in, and no more."
         case .machine:
             return "40 GB is plenty for Tiger and years of software. Memory and graphics are set to what works best; change them later in the virtual Mac’s settings if you like."
         case .about where aboutIsStockOnly:
@@ -660,6 +664,7 @@ struct NewMachineSheet: View {
                     Text("Hard disk")
                 }
             }
+            if diskTarget != .external {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Looks like").font(.callout).foregroundStyle(.secondary)
                 LazyVGrid(columns: Array(repeating: GridItem(.fixed(52), spacing: 6), count: 6), spacing: 6) {
@@ -701,6 +706,7 @@ struct NewMachineSheet: View {
                     }
                 }
                 .padding(.top, 6)
+            }
             }
         }
     }
