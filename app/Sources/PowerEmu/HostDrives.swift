@@ -7,6 +7,8 @@ struct HostDrive: Identifiable, Hashable {
     let bsdName: String          // "disk4"
     let name: String             // "MATSHITA DVD-R  (Warcraft III)"
     let kind: Kind
+    /// Bytes of the whole medium, as DiskArbitration reports it; 0 when unknown.
+    var sizeBytes: Int64 = 0
     var id: String { bsdName }
 
     enum Kind { case optical, floppy, image, hardDisk }
@@ -167,7 +169,7 @@ final class HostDriveMonitor: ObservableObject {
         }
         var label = model.isEmpty ? name : model
         if let volume, !volume.isEmpty { label += " (\(volume))" }
-        let d = HostDrive(bsdName: name, name: label, kind: kind)
+        let d = HostDrive(bsdName: name, name: label, kind: kind, sizeBytes: size)
         if !drives.contains(d) { drives.append(d) }
     }
 }

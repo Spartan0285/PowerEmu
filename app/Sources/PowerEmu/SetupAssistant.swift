@@ -121,6 +121,10 @@ struct NewMachineSheet: View {
     }
 
     private var externalDrives: [HostDrive] { driveMonitor.drives.filter { $0.kind == .hardDisk } }
+    private var chosenExternal: HostDrive? { externalDrives.first { $0.bsdName == externalBSD } }
+    /// The machine page for a disk of the reader's own: a picture of that
+    /// disk rather than of a Mac, and no paragraph.
+    private var showsDiskPie: Bool { page == .machine && diskTarget == .external }
     /// The update only applies to Tiger discs older than 10.4.11.
     private var updateApplies: Bool {
         guard let v = info?.version else { return false }
@@ -268,11 +272,13 @@ struct NewMachineSheet: View {
                         ScrollViewReader { scroller in
                         ScrollView(.vertical) {
                             VStack(alignment: .leading, spacing: 14) {
-                                Text(explanation)
-                                    .font(.system(size: 14))
-                                    .foregroundStyle(.white.opacity(0.9))
-                                    .lineSpacing(3)
-                                    .fixedSize(horizontal: false, vertical: true)
+                                if !explanation.isEmpty {
+                                    Text(explanation)
+                                        .font(.system(size: 14))
+                                        .foregroundStyle(.white.opacity(0.9))
+                                        .lineSpacing(3)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
                                 controls
                                 Color.clear.frame(height: 1).id("page-end")
                             }
@@ -316,7 +322,10 @@ struct NewMachineSheet: View {
     }
 
     @ViewBuilder private var illustration: some View {
-        if page == .about && !aboutIsStockOnly {
+        if showsDiskPie {
+            DiskPie(totalBytes: chosenExternal?.sizeBytes ?? 0, usedGB: takenGB,
+                    label: chosenExternal?.name)
+        } else if page == .about && !aboutIsStockOnly {
             AboutMock(image: aboutStyle == .custom && aboutPicture ? chosenModel.image : nil,
                       version: shownVersion, processor: shownProcessor, memoryMB: memory)
         } else {
@@ -427,8 +436,9 @@ struct NewMachineSheet: View {
         switch page {
         case .disc:
             return "PowerEmu installs Mac OS X for you from your own install disc. Choose the disc image of a Mac OS X 10.4 Tiger or 10.5 Leopard install DVD for PowerPC Macs, or drag it here. PowerEmu installs either of them by itself; a disc it doesn\u{2019}t recognise still works, with the virtual Mac starting the installer for you to answer."
-        case .machine where diskTarget == .external:
-            return "Name this Mac and choose the disk to install onto. The disk is erased and Mac OS X installed onto it \u{2014} you do the installing, and the virtual Mac is here only to boot the installer for you."
+        // Nothing: the pie says the size, and the warning beside the disk
+        // says what happens to it.
+        case .machine where diskTarget == .external: return ""
         case .machine:
             return "Name your virtual Mac, choose the Mac it looks like, and give it a hard disk. Mac OS X sees the size you pick here, while the disk takes up space on your Mac only as it fills \u{2014} so pick a roomy one. It can be made larger later, but not smaller."
         case .about where aboutIsStockOnly:
@@ -999,5 +1009,83 @@ struct AboutMock: View {
             Text(label).bold().foregroundStyle(Color(white: 0.2)).gridColumnAlignment(.trailing)
             Text(value).foregroundStyle(Color(white: 0.2))
         }
+    }
+}
+
+/// What is on the disk the reader picked, against what Mac OS X will take
+/// of it: the whole disk as a ring, with the install as a slice of it.
+///
+/// It stands where the picture of a Mac stands on the other pages, and it
+/// is drawn rather than illustrated because the numbers are the point --
+/// a 64 GB card with 1.8 GB going onto it should look like a 64 GB card
+/// with 1.8 GB going onto it.
+struct DiskPie: View {
+    /// The whole medium; 0 before a disk is chosen.
+    let totalBytes: Int64
+    /// What Mac OS X will take, in GB.
+    let usedGB: Double
+    /// The drive's name, shown under the ring.
+    var label: String?
+
+    private var totalGB: Double { Double(totalBytes) / 1_073_741_824 }
+    /// The install as a fraction of the disk, never so small it disappears
+    /// and never more than the whole (a disk too small to hold it reads as
+    /// full, which is the truth the reader needs).
+    private var fraction: Double {
+        guard totalGB > 0 else { return 0 }
+        return min(max(usedGB / totalGB, 0.012), 1)
+    }
+    private func gb(_ v: Double) -> String {
+        v >= 100 ? String(format: "%.0f GB", v) : String(format: "%.1f GB", v)
+    }
+
+    var body: some View {
+        VStack(spacing: 14) {
+            ZStack {
+                Circle().stroke(Color.white.opacity(0.14), lineWidth: 26)
+                if totalBytes > 0 {
+                    Circle()
+                        .trim(from: 0, to: fraction)
+                        .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 26, lineCap: .butt))
+                        .rotationEffect(.degrees(-90))
+                        .animation(.easeInOut(duration: 0.25), value: fraction)
+                }
+                VStack(spacing: 2) {
+                    if totalBytes > 0 {
+                        Text(gb(totalGB)).font(.system(size: 26, weight: .light))
+                            .foregroundStyle(.white)
+                        Text("disk").font(.caption).foregroundStyle(.white.opacity(0.55))
+                    } else {
+                        Image(systemName: "externaldrive")
+                            .font(.system(size: 30, weight: .thin))
+                            .foregroundStyle(.white.opacity(0.35))
+                        Text("No disk chosen").font(.caption).foregroundStyle(.white.opacity(0.45))
+                    }
+                }
+            }
+            .frame(width: 176, height: 176)
+            if totalBytes > 0 {
+                VStack(spacing: 5) {
+                    key(Color.accentColor, "Mac OS X", gb(usedGB))
+                    key(Color.white.opacity(0.18), "Free afterwards", gb(max(totalGB - usedGB, 0)))
+                }
+                .font(.caption)
+                if let label, !label.isEmpty {
+                    Text(label).font(.caption).foregroundStyle(.white.opacity(0.5))
+                        .lineLimit(1).truncationMode(.tail)
+                }
+            }
+        }
+        .frame(width: 300, height: 300)
+    }
+
+    private func key(_ colour: Color, _ name: String, _ value: String) -> some View {
+        HStack(spacing: 7) {
+            RoundedRectangle(cornerRadius: 2).fill(colour).frame(width: 9, height: 9)
+            Text(name).foregroundStyle(.white.opacity(0.75))
+            Spacer(minLength: 12)
+            Text(value).foregroundStyle(.white).monospacedDigit()
+        }
+        .frame(width: 190)
     }
 }
