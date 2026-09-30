@@ -188,7 +188,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Before anything else, and before any machine starts: using
         // something is not the same as having been told what it does.
         MainActor.assumeIsolated { TermsWindowController.presentIfNeeded() }
-        MainActor.assumeIsolated { ServicesHub.shared.start() }
+        // Developer testing: POWEREMU_TEST_NO_SERVICES starts the app with no
+        // listeners at all.  The mail, Web Accelerator and PowerMusic sockets
+        // live at fixed paths in the temporary directory -- a path Foundation
+        // takes from the user record, so no environment variable moves it --
+        // and each listener unlinks its path before binding.  A second copy of
+        // PowerEmu started for testing therefore takes those sockets away from
+        // the copy already running, and the first copy's guests lose their
+        // services with nothing to say so.  This is how to look at the
+        // windows without touching them.
+        if ProcessInfo.processInfo.environment["POWEREMU_TEST_NO_SERVICES"] == nil {
+            MainActor.assumeIsolated { ServicesHub.shared.start() }
+        }
         /*
          * Look for a newer PowerEmu, quietly: at most once a day, never for
          * a version the reader has skipped, and only ever offering.  A
