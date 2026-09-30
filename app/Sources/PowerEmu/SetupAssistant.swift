@@ -122,6 +122,29 @@ struct NewMachineSheet: View {
 
     private var externalDrives: [HostDrive] { driveMonitor.drives.filter { $0.kind == .hardDisk } }
     private var chosenExternal: HostDrive? { externalDrives.first { $0.bsdName == externalBSD } }
+
+    /// What a hand install will really take, as a range.
+    ///
+    /// `takenGB` is the size of the install PowerEmu *makes*, and it is only
+    /// that small because PowerEmu patches the installer to deselect printer
+    /// drivers, other languages, fonts and X11 -- three gigabytes of the
+    /// four and a half. Onto a disk of the reader's own it patches nothing:
+    /// they click through the installer and choose for themselves.
+    ///
+    /// So the floor is everything deselected, and the ceiling is what the
+    /// installer selects for them. The disc records that in each choice's
+    /// start_selected, and on Tiger every choice but X11 begins selected;
+    /// Leopard starts X11 selected too.
+    private var handInstallGB: (min: Double, max: Double) {
+        let leopard = info?.version.hasPrefix("10.5") == true
+        let lo = installedKB(options(languages: false, printers: false, fonts: false, x11: false))
+        let hi = installedKB(options(languages: true, printers: true, fonts: true, x11: leopard))
+        guard lo > 0, hi > 0 else {
+            // No package list to read: what these systems usually take.
+            return leopard ? (9.0, 14.0) : (1.8, 4.8)
+        }
+        return (Double(lo) / 1_048_576.0, Double(hi) / 1_048_576.0)
+    }
     /// The machine page for a disk of the reader's own: a picture of that
     /// disk rather than of a Mac, and no paragraph.
     private var showsDiskPie: Bool { page == .machine && diskTarget == .external }
@@ -323,7 +346,8 @@ struct NewMachineSheet: View {
 
     @ViewBuilder private var illustration: some View {
         if showsDiskPie {
-            DiskPie(totalBytes: chosenExternal?.sizeBytes ?? 0, usedGB: takenGB,
+            DiskPie(totalBytes: chosenExternal?.sizeBytes ?? 0,
+                    minGB: handInstallGB.min, maxGB: handInstallGB.max,
                     label: chosenExternal?.name)
         } else if page == .about && !aboutIsStockOnly {
             AboutMock(image: aboutStyle == .custom && aboutPicture ? chosenModel.image : nil,
@@ -1022,33 +1046,48 @@ struct AboutMock: View {
 struct DiskPie: View {
     /// The whole medium; 0 before a disk is chosen.
     let totalBytes: Int64
-    /// What Mac OS X will take, in GB.
-    let usedGB: Double
+    /// What Mac OS X will take: least if every option is deselected, most if
+    /// the installer's own selections are accepted.
+    let minGB: Double
+    let maxGB: Double
     /// The drive's name, shown under the ring.
     var label: String?
 
     private var totalGB: Double { Double(totalBytes) / 1_073_741_824 }
-    /// The install as a fraction of the disk, never so small it disappears
-    /// and never more than the whole (a disk too small to hold it reads as
-    /// full, which is the truth the reader needs).
-    private var fraction: Double {
+    private func frac(_ gb: Double) -> Double {
         guard totalGB > 0 else { return 0 }
-        return min(max(usedGB / totalGB, 0.012), 1)
+        return min(max(gb / totalGB, 0.012), 1)
     }
     private func gb(_ v: Double) -> String {
         v >= 100 ? String(format: "%.0f GB", v) : String(format: "%.1f GB", v)
     }
+    /// "1.8 – 4.8 GB", or one figure when the range has collapsed.
+    private var usedText: String {
+        maxGB - minGB < 0.1 ? gb(minGB)
+            : String(format: "%.1f \u{2013} ", minGB) + gb(maxGB)
+    }
+    private var freeText: String {
+        let lo = max(totalGB - maxGB, 0), hi = max(totalGB - minGB, 0)
+        return hi - lo < 0.1 ? gb(lo) : String(format: "%.0f \u{2013} ", lo) + gb(hi)
+    }
+    private var tooSmall: Bool { totalBytes > 0 && totalGB < maxGB + 1 }
 
     var body: some View {
         VStack(spacing: 14) {
             ZStack {
                 Circle().stroke(Color.white.opacity(0.14), lineWidth: 26)
                 if totalBytes > 0 {
+                    // The whole span the reader might land in, then the part
+                    // they cannot avoid: the band between is what the
+                    // installer's own choices would add.
                     Circle()
-                        .trim(from: 0, to: fraction)
+                        .trim(from: 0, to: frac(maxGB))
+                        .stroke(Color.accentColor.opacity(0.42), style: StrokeStyle(lineWidth: 26, lineCap: .butt))
+                        .rotationEffect(.degrees(-90))
+                    Circle()
+                        .trim(from: 0, to: frac(minGB))
                         .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 26, lineCap: .butt))
                         .rotationEffect(.degrees(-90))
-                        .animation(.easeInOut(duration: 0.25), value: fraction)
                 }
                 VStack(spacing: 2) {
                     if totalBytes > 0 {
@@ -1066,17 +1105,26 @@ struct DiskPie: View {
             .frame(width: 176, height: 176)
             if totalBytes > 0 {
                 VStack(spacing: 5) {
-                    key(Color.accentColor, "Mac OS X", gb(usedGB))
-                    key(Color.white.opacity(0.18), "Free afterwards", gb(max(totalGB - usedGB, 0)))
+                    key(Color.accentColor, "Mac OS X", usedText)
+                    key(Color.white.opacity(0.18), "Free afterwards", freeText)
                 }
                 .font(.caption)
+                // You choose in the installer, so say what moves the figure.
+                Text(tooSmall
+                     ? "This disk may be too small for everything the installer selects."
+                     : "The lower figure leaves out printer drivers, other languages and extra fonts; the installer selects them unless you say otherwise.")
+                    .font(.caption2)
+                    .foregroundStyle(tooSmall ? Color.orange : .white.opacity(0.45))
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(width: 230)
                 if let label, !label.isEmpty {
-                    Text(label).font(.caption).foregroundStyle(.white.opacity(0.5))
-                        .lineLimit(1).truncationMode(.tail)
+                    Text(label).font(.caption2).foregroundStyle(.white.opacity(0.4))
+                        .lineLimit(1).truncationMode(.tail).frame(width: 230)
                 }
             }
         }
-        .frame(width: 300, height: 300)
+        .frame(width: 300, height: 340)
     }
 
     private func key(_ colour: Color, _ name: String, _ value: String) -> some View {
@@ -1086,6 +1134,6 @@ struct DiskPie: View {
             Spacer(minLength: 12)
             Text(value).foregroundStyle(.white).monospacedDigit()
         }
-        .frame(width: 190)
+        .frame(width: 210)
     }
 }
