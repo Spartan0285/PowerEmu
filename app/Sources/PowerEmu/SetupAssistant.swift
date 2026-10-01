@@ -68,6 +68,13 @@ struct NewMachineSheet: View {
         case have = "Disc image", drive = "Physical Media", link = "Download"
     }
     @State private var info: InstallPlan.DiscInfo?
+    /*
+     * A Mac OS 8/9 disc instead.  Set when the disc turned out not to be a
+     * Mac OS X one but is a startable classic volume (ClassicDisc).  It is
+     * never offered, only recognised: nothing in the wizard mentions classic
+     * Mac OS until a disc that is one has actually been chosen.
+     */
+    @State private var classicInfo: ClassicDisc.Info?
     @State private var inspecting = false
     @State private var discProblem: String?
     /// "" = the same as this Mac.
@@ -116,6 +123,8 @@ struct NewMachineSheet: View {
         // the unattended installer formats a virtual disk with qemu-img, which
         // a real device does not have.
         guard diskTarget != .external else { return false }
+        // Classic Mac OS has no unattended installer to drive.
+        guard classicInfo == nil else { return false }
         guard info?.automatable == true, let v = info?.version else { return false }
         return v.hasPrefix("10.4") || v.hasPrefix("10.5")
     }
@@ -192,6 +201,8 @@ struct NewMachineSheet: View {
     /// What Mac OS X will take, in GB.  Exact when PowerEmu can read the
     /// package list; otherwise what the system usually takes.
     private var takenGB: Double {
+        // A full Mac OS 9 install, every option on, is about 1 GB.
+        if classicInfo != nil { return 1.0 }
         let kb = installedKB(options())
         if kb > 0 { return Double(kb) / 1_048_576.0 }
         return info?.version.hasPrefix("10.5") == true ? 9.0 : 4.0
@@ -201,17 +212,18 @@ struct NewMachineSheet: View {
     /// it checks the target before it starts and refuses with "not enough
     /// room on the target volume" if the margin is thin -- forty minutes
     /// after the reader walked away.  Better to say so on this page.
-    private var headroomGB: Double { 3 }
+    private var headroomGB: Double { classicInfo != nil ? 1 : 3 }
     private var diskTooSmall: Bool { Double(diskGB) < takenGB + headroomGB }
 
     /// "Mac OS X takes 6.1 GB, leaving about 34 GB free."
     private var spaceAfterInstall: String {
         let free = Double(diskGB) - takenGB
+        let system = classicInfo?.osName ?? "Mac OS X"
         if diskTooSmall {
-            return String(format: "Mac OS X needs about %.1f GB here, and room to work in \u{2014} choose a larger disk.", takenGB)
+            return String(format: "%@ needs about %.1f GB here, and room to work in \u{2014} choose a larger disk.", system, takenGB)
         }
-        let about = installedKB(options()) > 0 ? "" : "about "
-        return String(format: "Mac OS X takes %@%.1f GB, leaving about %.0f GB free.", about, takenGB, free)
+        let about = classicInfo == nil && installedKB(options()) > 0 ? "" : "about "
+        return String(format: "%@ takes %@%.1f GB, leaving about %.0f GB free.", system, about, takenGB, free)
     }
 
     private var estimateSeconds: Double? {
@@ -222,6 +234,10 @@ struct NewMachineSheet: View {
     /// The pages this disc needs: no update page for a 10.4.11 disc, and
     /// only the disc and the machine for one PowerEmu can't drive.
     private var pages: [Page] {
+        // A classic Mac OS install is done by hand from the disc, and none of
+        // the Mac OS X pages apply: no package choices, no 10.4.11 update,
+        // and no About This Mac for PowerEmu to rewrite.
+        if classicInfo != nil { return [.disc, .machine] }
         guard automatic else {
             // Installing onto a disk of the reader's own still shows About
             // This Mac. There is nothing to choose there -- PowerEmu cannot
@@ -267,7 +283,7 @@ struct NewMachineSheet: View {
 
     private var canContinue: Bool {
         switch page {
-        case .disc: return disc != nil && !inspecting && info != nil
+        case .disc: return disc != nil && !inspecting && (info != nil || classicInfo != nil)
         case .machine:
             let named = !name.trimmingCharacters(in: .whitespaces).isEmpty
             return named && (diskTarget == .external ? externalBSD != nil : !diskTooSmall)
@@ -447,6 +463,9 @@ struct NewMachineSheet: View {
 
     private var title: String {
         switch page {
+        // The classic titles appear only once a classic disc has been
+        // recognised; until then the wizard reads exactly as it did.
+        case .disc where classicInfo != nil: return "Install \(classicInfo?.osName ?? "Mac OS")"
         case .disc: return "Install Mac OS X"
         case .machine: return "Your Mac"
         case .about: return "About This Mac"
@@ -463,6 +482,8 @@ struct NewMachineSheet: View {
         // Nothing: the pie says the size, and the warning beside the disk
         // says what happens to it.
         case .machine where diskTarget == .external: return ""
+        case .machine where classicInfo != nil:
+            return "Name your virtual Mac, choose the Mac it looks like, and give it a hard disk. The virtual Mac starts from the install disc. Erase the disk first with Drive Setup, in the Utilities folder on the disc \u{2014} this Mac can no longer lay out a disk that Mac OS 9 will mount, so Drive Setup does it, in a few seconds, exactly as on a real Power Mac."
         case .machine:
             return "Name your virtual Mac, choose the Mac it looks like, and give it a hard disk. Mac OS X sees the size you pick here, while the disk takes up space on your Mac only as it fills \u{2014} so pick a roomy one. It can be made larger later, but not smaller."
         case .about where aboutIsStockOnly:
@@ -674,7 +695,12 @@ struct NewMachineSheet: View {
                     }
                     if diskTarget == .virtual {
                         Picker("", selection: $diskGB) {
-                            ForEach([10, 20, 40, 80, 120], id: \.self) { Text("\($0) GB").tag($0) }
+                            // Mac OS 9 is a small system and its disks were
+                            // small; 120 GB is past what it was ever asked to
+                            // address, so the classic list stops earlier.
+                            ForEach(classicInfo != nil ? [2, 4, 8, 20, 40] : [10, 20, 40, 80, 120], id: \.self) {
+                                Text("\($0) GB").tag($0)
+                            }
                         }
                         .labelsHidden().frame(width: 200)
                         // What the reader is really choosing: how much room is
@@ -728,7 +754,12 @@ struct NewMachineSheet: View {
                 VStack(alignment: .leading, spacing: 8) {
                     LabeledContent("Memory") {
                         Picker("", selection: $memory) {
-                            ForEach([512, 1024, 1536, 2048], id: \.self) { Text($0 >= 1024 ? "\($0 / 1024) GB" : "\($0) MB").tag($0) }
+                            // 1.5 GB and 2 GB do not start a classic guest at
+                            // all -- Open Firmware fails before the Mac OS ROM
+                            // runs -- so they are not offered for one.
+                            ForEach(classicInfo != nil ? VMConfig.classicMemoryChoices : [512, 1024, 1536, 2048], id: \.self) {
+                                Text($0 >= 1024 ? "\($0 / 1024) GB" : "\($0) MB").tag($0)
+                            }
                         }
                         .labelsHidden().frame(width: 200)
                     }
@@ -917,12 +948,30 @@ struct NewMachineSheet: View {
         }
         disc = u
         info = nil
+        classicInfo = nil
         discProblem = nil
         inspecting = true
         Task.detached {
             let result = Result { try InstallPlan.inspect(u) }
+            /*
+             * A Mac OS 8/9 disc never gets as far as a version: this Mac
+             * cannot mount HFS standard, so InstallPlan's inspect finds no
+             * volume to read and throws.  Before reporting that as a bad
+             * disc, read the image directly and see whether it is a startable
+             * classic volume.
+             */
+            let classic: ClassicDisc.Info? = (try? result.get()) == nil ? ClassicDisc.inspect(u) : nil
             await MainActor.run {
                 inspecting = false
+                if let classic {
+                    classicInfo = classic
+                    discProblem = nil
+                    if name == "Tiger" || name.isEmpty { name = classic.suggestedName }
+                    // Defaults that actually boot; see VMConfig.classic.
+                    memory = VMConfig.classicDefaultMemoryMB
+                    diskGB = 8
+                    return
+                }
                 switch result {
                 case .success(let i) where !i.version.hasPrefix("10.4") && !i.version.hasPrefix("10.5"):
                     discProblem = "This is a Mac OS X \(i.version) disc. PowerEmu installs Mac OS X 10.4 Tiger and 10.5 Leopard; other versions aren’t supported yet."
@@ -955,7 +1004,19 @@ struct NewMachineSheet: View {
         error = nil
         do {
             let vm: VirtualMachine
-            if diskTarget == .external, let bsd = externalBSD,
+            if let classic = classicInfo {
+                /*
+                 * Classic Mac OS: a formatted empty disk and the install disc
+                 * in the drive, booting from the disc.  The disk is laid out
+                 * here rather than left blank so the reader does not have to
+                 * find Drive Setup on the CD and erase it by hand before the
+                 * installer will offer a destination.
+                 */
+                vm = try library.newMachine(name: name, osName: classic.osName,
+                                            memoryMB: min(memory, VMConfig.classicMaxMemoryMB),
+                                            vramMB: vram, diskGB: diskGB,
+                                            installDisc: disc, classic: true)
+            } else if diskTarget == .external, let bsd = externalBSD,
                let ext = externalDrives.first(where: { $0.bsdName == bsd }) {
                 // Install onto a physical external disk, by hand.
                 vm = try library.newMachineOnExternal(name: name, osName: Self.osName(for: info?.version),

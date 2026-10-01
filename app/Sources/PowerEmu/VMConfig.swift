@@ -47,6 +47,42 @@ struct VMConfig: Codable, Equatable {
     var cpuCount: Int = 1
     var memoryMB: Int = 2048
 
+    /*
+     * A classic Mac OS guest -- Mac OS 8 or 9 -- rather than Mac OS X.
+     *
+     * Set when the machine was made from a classic install disc, and false
+     * in every package written before, so existing machines decode as the
+     * Mac OS X guests they are.  It changes three things, each of them
+     * measured against a Mac OS 9.2.2 install disc on mac99:
+     *
+     *  - Memory is capped.  512 MB and 1 GB start; 1.5 GB and 2 GB do not,
+     *    failing in Open Firmware with "No valid state has been set by load
+     *    or init-program" before the Mac OS ROM ever runs.  PowerEmu's own
+     *    default of 2 GB would therefore never boot.
+     *  - The Open Firmware boot-command is not sent.  It rewrites the PCI
+     *    node's ranges for Mac OS X's sake, and with it in place the Mac OS
+     *    ROM's CHRP boot script finds the blessed file and then fails the
+     *    same way.  Without it, the same disc boots to the Finder.
+     *  - Disks are laid out unjournaled.  Mac OS 9 has no journalling, so
+     *    the JHFS+ that Mac OS X wants is no use to it.
+     *
+     * via=pmu, the NDRV loader, output-device=ttya, the Radeon and its
+     * 128 MB were all tried and all boot, so they are left alone.
+     */
+    var classic = false
+
+    /// The most memory a classic guest will start with.  1 GB boots, 1.5 GB
+    /// does not; see the note on `classic`.
+    static let classicMaxMemoryMB = 1024
+    static let classicDefaultMemoryMB = 512
+    /// Memory choices offered for a classic guest.
+    static let classicMemoryChoices = [256, 512, 768, 1024]
+
+    /// What this machine will actually be started with.
+    var effectiveMemoryMB: Int {
+        classic ? min(memoryMB, Self.classicMaxMemoryMB) : memoryMB
+    }
+
     var disks: [DiskConfig] = []
     var startupDisk: UUID?
 

@@ -136,7 +136,40 @@ final class VMLibrary: ObservableObject {
     /// (Journaled) volume.  An unpartitioned disk is not just untidy: Mac OS X
     /// installs onto it happily and then cannot bless it, so the install fails
     /// on its last step.  Formatting costs about a second.
-    func createBlankDisk(named name: String, gigabytes: Int, in vm: VirtualMachine) throws {
+    /// How a new disk is laid out before the guest ever sees it.
+    enum DiskLayout {
+        /// An Apple partition map and a journaled HFS+ volume, the way Disk
+        /// Utility does it on the guest.  Mac OS X will only bless a disk
+        /// laid out this way.
+        case macOSX
+        /*
+         * Nothing at all: the guest formats it.
+         *
+         * This is what a classic Mac OS guest gets, and not for want of
+         * trying.  Mac OS 9 mounts an HFS+ volume only when it sits inside an
+         * HFS wrapper -- Drive Setup writes one, with drEmbedSigWord 'H+' in
+         * the wrapper's master directory block and the real volume embedded
+         * inside it.  Measured against Mac OS 9.2.2: a disk this Mac laid out
+         * as APM + HFS+ is seen by the guest (Drive Setup lists the ATA drive)
+         * and reported as <not mounted>, because the volume is bare HFS+ with
+         * no wrapper.
+         *
+         * No tool on this Mac can write one any more.  diskutil offers only
+         * HFS+ and its journaled and case-sensitive variants, `newfs_hfs` lost
+         * its wrapper option, and `hdiutil create -fs HFS` answers "HFS has
+         * been deprecated; using HFS+ instead" and writes a bare volume.
+         *
+         * So the disk is left blank rather than laid out in a way the guest
+         * would silently refuse, which reads as a broken disk rather than an
+         * empty one.  The machine starts from the install disc, where Drive
+         * Setup is in the Utilities folder; it initialises the drive in a few
+         * seconds, exactly as it would on a real Power Mac.
+         */
+        case guestFormats
+    }
+
+    func createBlankDisk(named name: String, gigabytes: Int, layout: DiskLayout = .macOSX,
+                         in vm: VirtualMachine) throws {
         guard let helper = VMRunner.helperURL else { throw PackageError.missing("The emulator (PowerEmu VM.app)") }
         let tool = helper.appendingPathComponent("Contents/MacOS/qemu-img")
         var file = name + ".qcow2"
@@ -163,11 +196,13 @@ final class VMLibrary: ObservableObject {
          * is what had to happen before.
          */
         let img = vm.disksURL.appendingPathComponent(file)
-        do {
-            try InstallPlan.formatDisk(img, gigabytes: gigabytes, named: name, qemuImg: tool)
-        } catch {
-            NSLog("PowerEmu: %@ could not be formatted, leaving it blank: %@",
-                  file, error.localizedDescription)
+        if layout == .macOSX {
+            do {
+                try InstallPlan.formatDisk(img, gigabytes: gigabytes, named: name, qemuImg: tool)
+            } catch {
+                NSLog("PowerEmu: %@ could not be formatted, leaving it blank: %@",
+                      file, error.localizedDescription)
+            }
         }
 
         vm.config.disks.append(DiskConfig(file: file, label: name))
@@ -178,7 +213,8 @@ final class VMLibrary: ObservableObject {
     /// A new virtual Mac to install from a disc: a blank disk, the install
     /// disc in the drive, starting from the disc.  The ATI ROMs are copied
     /// from an existing machine.
-    func newMachine(name: String, osName: String, memoryMB: Int, vramMB: Int = 128, diskGB: Int, installDisc: URL?) throws -> VirtualMachine {
+    func newMachine(name: String, osName: String, memoryMB: Int, vramMB: Int = 128, diskGB: Int,
+                    installDisc: URL?, classic: Bool = false) throws -> VirtualMachine {
         let pkg = folder.appendingPathComponent(name + ".poweremu", isDirectory: true)
         let fm = FileManager.default
         guard !fm.fileExists(atPath: pkg.path) else { throw PackageError.exists(name) }
@@ -189,6 +225,10 @@ final class VMLibrary: ObservableObject {
         config.osName = osName
         config.memoryMB = memoryMB
         config.vramMB = vramMB
+        config.classic = classic
+        // Seamless pointing needs the USB tablet, which Mac OS 9 cannot
+        // drive; a classic guest captures the mouse instead.  See VMRunner.
+        if classic { config.mouseMode = "captured" }
         do {
             if let installDisc {
                 config.discs = [installDisc.path]
@@ -197,7 +237,8 @@ final class VMLibrary: ObservableObject {
             }
             let vm = VirtualMachine(url: pkg, config: config)
             try vm.save()
-            try createBlankDisk(named: "Macintosh HD", gigabytes: diskGB, in: vm)
+            try createBlankDisk(named: "Macintosh HD", gigabytes: diskGB,
+                                layout: classic ? .guestFormats : .macOSX, in: vm)
             reload()
             return machines.first { $0.url == pkg } ?? vm
         } catch {

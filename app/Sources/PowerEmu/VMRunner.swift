@@ -166,10 +166,18 @@ final class VMRunner {
             "-machine", "mac99,via=pmu",
             "-g", "\(max(640, c.bootWidth))x\(max(480, c.bootHeight))x32",
             "-device", "loader,addr=0x4000000,file=\(fw.appendingPathComponent("ppc-ndrvloader").path)",
-            "-prom-env", bootCmd,
-            "-m", String(c.memoryMB),
+            "-m", String(c.effectiveMemoryMB),
             "-audio", c.audio,
         ]
+        /*
+         * The boot-command rewrites the PCI node for Mac OS X's sake.  A
+         * classic Mac OS guest must not get it: with it in place the Mac OS
+         * ROM's CHRP boot script finds the blessed file on the disc and then
+         * dies in Open Firmware with "No valid state has been set by load or
+         * init-program".  Without it, the same disc boots to the Finder.
+         * See the note on VMConfig.classic.
+         */
+        if !c.classic { a += ["-prom-env", bootCmd] }
         a += cpuArguments
         if c.extraDisplayModes {
             let gpuType = r350Experiment ? "ppc-mac-r350-probe" : "ppc-mac-gpu"
@@ -279,8 +287,17 @@ final class VMRunner {
 
         // Both pointing devices: the tablet takes absolute positions (seamless
         // mouse), the mouse relative movement (captured, for games).
-        a += ["-usb", "-device", "usb-mouse,bus=usb-bus.0", "-device", "usb-tablet,bus=usb-bus.0",
-              "-device", "usb-kbd,bus=usb-bus.0"]
+        /*
+         * Classic Mac OS gets the relative mouse only.  Mac OS 9's USB stack
+         * has no driver for an absolute tablet: with one attached, QEMU routes
+         * the pointer to it and the guest's cursor never moves at all, so
+         * seamless mouse mode would read as a dead pointer rather than a
+         * missing feature.  Measured on Mac OS 9.2.2 -- removing the tablet
+         * is what made clicks arrive.
+         */
+        a += ["-usb", "-device", "usb-mouse,bus=usb-bus.0"]
+        if !c.classic { a += ["-device", "usb-tablet,bus=usb-bus.0"] }
+        a += ["-device", "usb-kbd,bus=usb-bus.0"]
         // A game controller of this Mac, as a USB gamepad in the guest
         // (GamepadServer listens on the socket; the device dials in).
         if c.gamepad {

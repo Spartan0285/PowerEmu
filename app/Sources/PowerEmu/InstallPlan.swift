@@ -497,6 +497,9 @@ enum InstallPlan {
     /// no map at all -- or with one from `hdiutil create -layout SPUD` --
     /// takes the whole install and then fails on the last step with "could
     /// not make the computer start up from the volume".
+    ///
+    /// This lays out a disk for Mac OS X.  It is no use to a classic Mac OS
+    /// guest, and VMLibrary does not call it for one: see DiskLayout.
     static func formatDisk(_ disk: URL, gigabytes: Int, named volume: String = "Macintosh HD",
                            qemuImg: URL) throws {
         let fm = FileManager.default
