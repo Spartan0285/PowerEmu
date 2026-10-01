@@ -7,7 +7,7 @@ import CryptoKit
  * This Mac holds the music and does the playing: Apple's music can only be
  * decrypted by a modern browser signed in to an Apple Music subscription,
  * so a page on this Mac is the gramophone.  Everything else -- the queue,
- * what is playing, searching the catalogue, the artwork -- is served from
+ * what is playing, searching the catalog, the artwork -- is served from
  * here, to old Macs that could never speak to Apple themselves.
  *
  * This file is the half that talks to Apple and remembers what is playing.
@@ -154,7 +154,7 @@ final class AppleMusicAPI: @unchecked Sendable {
 
     private var base: String { "https://api.music.apple.com/v1" }
 
-    // MARK: the catalogue
+    // MARK: the catalog
 
     func searchSongs(_ q: String, limit: Int = 25) throws -> [[String: Any]] {
         let s = storefront
@@ -323,7 +323,7 @@ final class AppleMusicAPI: @unchecked Sendable {
                 "artworkUrl": (a["artwork"] as? [String: Any])?["url"] as Any? ?? NSNull()]
     }
 
-    /// A song in the reader's library plays by its catalogue identifier, not
+    /// A song in the reader's library plays by its catalog identifier, not
     /// by the library's own; the player would find nothing with the latter.
     private static func librarySong(_ s: [String: Any]) -> [String: Any] {
         let a = s["attributes"] as? [String: Any] ?? [:]

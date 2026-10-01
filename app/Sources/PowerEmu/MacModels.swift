@@ -192,7 +192,7 @@ enum AboutBoxImage {
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
         NSGraphicsContext.current?.imageInterpolation = .high
-        // The Mac, where the logo was: centred, about 84 points tall.
+        // The Mac, where the logo was: centered, about 84 points tall.
         let side: CGFloat = 86
         picture.draw(in: NSRect(x: (size.width - side) / 2, y: size.height - side - 2, width: side, height: side),
                      from: .zero, operation: .sourceOver, fraction: 1)

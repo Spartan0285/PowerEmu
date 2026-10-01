@@ -95,7 +95,7 @@ struct FeedbackView: View {
                     Toggle("Include a picture of PowerEmu's window", isOn: $includeShot)
                     Spacer()
                     // The live thumbnail is exactly what would be sent, at a
-                    // size where you can recognise what is in it.
+                    // size where you can recognize what is in it.
                     Image(nsImage: snapshot)
                         .resizable()
                         .aspectRatio(contentMode: .fit)

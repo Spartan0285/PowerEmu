@@ -41,7 +41,7 @@ final class GuestDock {
      * The list this is fed from is the guest's *windows*, not its running
      * applications: an application with nothing open does not appear in it.
      * Taking a tile down the moment its owner stops being mentioned therefore
-     * killed the helper whenever the last window was minimised or closed, and
+     * killed the helper whenever the last window was minimized or closed, and
      * the keeper below started it again a few seconds later -- a Dock icon
      * that quit and came back, over and over, for as long as Harmony was on.
      *

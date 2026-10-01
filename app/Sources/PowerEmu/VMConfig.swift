@@ -143,7 +143,7 @@ struct VMConfig: Codable, Equatable {
     var chimeSound = "g4"
     var chimeFile: String?
     /// The guest's last screen size: the next boot starts at it, so the
-    /// firmware and the grey Apple are already the right size.
+    /// firmware and the gray Apple are already the right size.
     /*
      * Startup resolutions worth offering, worked out from the screen this Mac
      * has.

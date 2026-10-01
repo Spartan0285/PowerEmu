@@ -95,7 +95,7 @@ final class HarmonyMenuBar: NSObject, NSMenuDelegate {
             let menu = NSMenu(title: t.title)
             menu.delegate = self
             menu.autoenablesItems = false
-            // Something has to be in it or the title is drawn greyed out and
+            // Something has to be in it or the title is drawn grayed out and
             // will not open at all.
             menu.addItem(placeholder())
             menus[path] = menu
@@ -219,7 +219,7 @@ final class HarmonyMenuBar: NSObject, NSMenuDelegate {
     @objc private func pick(_ sender: NSMenuItem) {
         guard let path = sender.representedObject as? String else { return }
         send?("MENUPICK", "\(pid) \(path)")
-        // What it did may have changed ticks or what is greyed out.
+        // What it did may have changed ticks or what is grayed out.
         if let top = path.split(separator: ".").first {
             let t = String(top)
             filled.remove(t)

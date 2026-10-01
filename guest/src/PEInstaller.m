@@ -29,7 +29,7 @@
 #define LAUNCHCTL "/usr/bin/perl -e '$< = $>; exec @ARGV' /bin/launchctl"
 
 /* Run a shell script as root after Mac OS X asks for an administrator's
- * name and password.  Returns NO if the user cancelled or it failed. */
+ * name and password.  Returns NO if the user canceled or it failed. */
 static BOOL RunAsAdmin(NSString *script, NSString *arg)
 {
     AuthorizationRef auth;

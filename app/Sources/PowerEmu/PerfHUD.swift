@@ -129,7 +129,7 @@ final class PerfHUD: CALayer {
 
         for row in rows {
             y -= Metric.title
-            draw(row.title, at: CGPoint(x: Metric.margin, y: y), font: font, colour: .white)
+            draw(row.title, at: CGPoint(x: Metric.margin, y: y), font: font, color: .white)
             let value = NSAttributedString(string: row.value,
                                            attributes: [.font: font, .foregroundColor: NSColor.white])
             value.draw(at: CGPoint(x: bounds.width - Metric.margin - value.size().width, y: y))
@@ -143,13 +143,13 @@ final class PerfHUD: CALayer {
         for line in lines {
             y -= Metric.line
             draw(line, at: CGPoint(x: Metric.margin, y: y), font: small,
-                 colour: line.contains("<<") ? .systemOrange : NSColor.white.withAlphaComponent(0.75))
+                 color: line.contains("<<") ? .systemOrange : NSColor.white.withAlphaComponent(0.75))
         }
         NSGraphicsContext.restoreGraphicsState()
     }
 
-    private func draw(_ s: String, at p: CGPoint, font: NSFont, colour: NSColor) {
-        NSAttributedString(string: s, attributes: [.font: font, .foregroundColor: colour]).draw(at: p)
+    private func draw(_ s: String, at p: CGPoint, font: NSFont, color: NSColor) {
+        NSAttributedString(string: s, attributes: [.font: font, .foregroundColor: color]).draw(at: p)
     }
 
     /// The history as a filled line, oldest at the left.

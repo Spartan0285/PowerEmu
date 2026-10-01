@@ -503,7 +503,7 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
  * The Dock keeps its own list in com.apple.dock: persistent-apps are the ones
  * somebody put there, in the order they put them.  Each entry carries a file
  * URL and the label the Dock draws.  Both are wanted -- the label because it
- * is what the reader recognises, the path because it is what opens the thing.
+ * is what the reader recognizes, the path because it is what opens the thing.
  *
  * Running applications that are not in the Dock are added after them, which is
  * what the Dock itself does: it shows what you keep and what you are using.
@@ -1259,7 +1259,7 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
  * Genie or scale, while Harmony is on.
  *
  * The other Mac shows this one's windows by copying them out of the screen
- * everything is drawn into, so this Mac's minimise animation is drawn over the
+ * everything is drawn into, so this Mac's minimize animation is drawn over the
  * top of whatever it passes -- and it is drawn by the window server itself,
  * not as a window, so nothing PowerEmu can ask about windows will admit it is
  * there.  The genie sweeps most of the screen for most of a second.  Scale is
@@ -1314,7 +1314,7 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
  * bug: when some third window happened to own that one point, the server
  * answered neither of the two being compared, and the pair was abandoned --
  * so a window really sitting over another went unrecorded, and PowerEmu read
- * the covered one out of the shared frame with its neighbour's pixels baked
+ * the covered one out of the shared frame with its neighbor's pixels baked
  * in.  Each surface ended up carrying pieces of the others.
  *
  * So each pair is now sampled until the server names one of the two, which
@@ -1400,7 +1400,7 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
          * and a raise reorders the group -- but a window coming forward within
          * one application need not move anything in it, and reusing the last
          * answer through that is exactly how a window ends up holding a piece
-         * of its neighbour.  Two calls, against dozens of round trips saved.
+         * of its neighbor.  Two calls, against dozens of round trips saved.
          */
         {
             ProcessSerialNumber front;
@@ -1758,7 +1758,7 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
     }
     [self reportFocused];
     /*
-     * A window that has gone may have been minimised, and PowerEmu has only a
+     * A window that has gone may have been minimized, and PowerEmu has only a
      * moment to find out: it has to put the window in this Mac's Dock before
      * it gives up on it.  So whenever the list gets shorter, what is in the
      * guest's Dock is looked at on this tick rather than on the next second.
@@ -2008,7 +2008,7 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
      *
      * CGSOrderWindow does not reorder a window this connection does not own,
      * and faking a click to raise it arrived right behind the reader's own
-     * click, which the guest read as a double-click and minimised the window.
+     * click, which the guest read as a double-click and minimized the window.
      * Accessibility raises it outright.  Matching the guest's stacking to the
      * host's matters for more than tidiness: the windows are all sampled out of
      * one screen, so a window that is behind another here shows that other
@@ -2033,7 +2033,7 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
     w = PEFindAXWindow(r, &pid);
     if (w) {
         /* A window that has just been put in the Dock must stay there: raising
-         * it would take it straight back out, which looked like minimising
+         * it would take it straight back out, which looked like minimizing
          * simply not working. */
         CFTypeRef minRef = NULL;
         if (AXUIElementCopyAttributeValue(w, kAXMinimizedAttribute, &minRef) == kAXErrorSuccess
@@ -2043,7 +2043,7 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
             CFRelease(minRef);
             if (isMin) {
                 CFRelease(w);
-                [self send:@"LOG" text:[NSString stringWithFormat:@"RAISE %d: minimised, left alone", wid]];
+                [self send:@"LOG" text:[NSString stringWithFormat:@"RAISE %d: minimized, left alone", wid]];
                 return;
             }
         }

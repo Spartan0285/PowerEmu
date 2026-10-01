@@ -543,7 +543,7 @@ final class VMDisplayView: NSView {
     /// desktop is simply not drawn.
     /// Quitting with Harmony still on used to leave the guest in Harmony's
     /// resolution, which it then remembered and booted into -- a mode its
-    /// firmware does not draw correctly, so the grey Apple came up sheared.
+    /// firmware does not draw correctly, so the gray Apple came up sheared.
     /// Put the guest's own resolution back before going.
     /// Take this machine's guest Dock tiles down.  Used on the way out of the
     /// app, where nothing else would: the helpers are children of PowerEmu and
@@ -560,7 +560,7 @@ final class VMDisplayView: NSView {
     }
 
     /// Turn Harmony on or off.  In a full-screen space there is nothing behind
-    /// the guest to harmonise with -- no desktop, no other apps -- so leave
+    /// the guest to harmonize with -- no desktop, no other apps -- so leave
     /// full screen first and turn it on once the space has gone.
     private var harmonyPreparation: (token: String, target: CGSize, acknowledged: Bool)?
     var isHarmonyDisplayTransition: Bool { harmony || harmonyPreparation != nil }
@@ -1228,7 +1228,7 @@ final class VMDisplayView: NSView {
 
     /*
      * The first moments belong to the firmware, which paints the screen its
-     * own colour before Mac OS X takes over.  A real Mac shows nothing at
+     * own color before Mac OS X takes over.  A real Mac shows nothing at
      * all until the Apple appears, so the window stays black for a beat
      * rather than flashing that up.
      */
@@ -1387,7 +1387,7 @@ final class VMDisplayView: NSView {
         if harmony && !maskedDesktop { cursor.isHidden = true; return }
         // In Harmony the pointer must ride the very transform the windows use
         // (scale + menu-bar offset, anchored at the screen's top-left) -- not
-        // the fitted/centred screenRect -- or it is drawn off the window it is
+        // the fitted/centered screenRect -- or it is drawn off the window it is
         // actually on, and a click looks like it lands somewhere else.
         if harmony && harmonyHasWindows {
             let s = harmonyManager.guestScale

@@ -10,7 +10,7 @@ import GameController
  * nothing about, and macOS already understands all of them.  PowerEmu
  * reads it here and sends the stick and button positions to the emulator,
  * which presents an ordinary USB gamepad to the guest -- the kind any Mac
- * of that age recognises with no driver at all.
+ * of that age recognizes with no driver at all.
  *
  * The emulator's gamepad connects to this socket and reads reports: a
  * fixed-size packet whenever anything moves, and one every so often
@@ -70,7 +70,7 @@ final class GamepadServer: ObservableObject {
     private func dropped() {
         guard GCController.controllers().isEmpty else { return }
         controllerName = nil
-        current = GamepadReport()          // sticks centred, nothing held
+        current = GamepadReport()          // sticks centered, nothing held
         send()
     }
 

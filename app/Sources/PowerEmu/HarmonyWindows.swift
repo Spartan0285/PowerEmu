@@ -285,7 +285,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
     var minimize: ((Int) -> Void)?
     /// Windows told to go into the guest's Dock, and not yet gone.
     private var minimizing: [Int: Date] = [:]
-    /// The guest's minimised windows, as last reported.
+    /// The guest's minimized windows, as last reported.
     var minimizedEntries: [(pid: Int, index: Int, title: String)] = []
     var raiseWindow: ((Int) -> Void)?
     /// Raise a window *and* its application, for the capture pass only.
@@ -394,7 +394,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
      * in it holds whatever is drawn on top -- and while the window above is
      * being dragged away, the one below keeps showing the dragged window's old
      * pixels until the guest repaints, which looks like the window is smeared
-     * across its neighbour.  A window can only be copied cleanly while nothing
+     * across its neighbor.  A window can only be copied cleanly while nothing
      * covers it; since the guest's stacking now follows this Mac's, the
      * front-most window is always clear and is refreshed every frame, while a
      * covered one keeps the last clean copy of itself.
@@ -419,7 +419,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
     }
     private var copies: [Int: WindowCopy] = [:]
     /// Which copies were taken with nothing covering the window -- the others
-    /// are blank or hold a neighbour's pixels and are waiting to be retaken.
+    /// are blank or hold a neighbor's pixels and are waiting to be retaken.
     private var cleanSnapshots: Set<Int> = []
     private var capDebugTick = 0
     /// Windows seen for the first time, and how many reports ago.  A window is
@@ -465,7 +465,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
      * supposed to authorise reading it.  In that gap a window that has just
      * been covered still counts as clear, so it is read -- and what is read
      * where it is covered is the window on top of it.  Measured with two flat
-     * colours: 38% of the window underneath was its neighbour, and because the
+     * colors: 38% of the window underneath was its neighbor, and because the
      * region stays covered afterwards it is never read again, so a mistake
      * lasting one report sits there for the rest of the session.
      *
@@ -508,7 +508,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
     private var geometryGeneration = 0
     /// Whether what is known about what covers what describes the screen as it
     /// is now.  Absorbing parts of a window on the strength of a stale answer
-    /// is how a window ends up keeping a piece of its neighbour.
+    /// is how a window ends up keeping a piece of its neighbor.
     private var occlusionIsCurrent: Bool { occlusionFor == geometryGeneration }
     /*
      * When each window may be read again, as a time rather than a number of
@@ -529,7 +529,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
      * Hold every window still for a moment.
      *
      * For the things the guest does to its whole screen at once, which no
-     * amount of asking about windows will reveal.  A minimise is the one that
+     * amount of asking about windows will reveal.  A minimize is the one that
      * matters: the genie is drawn by the window server itself and is not a
      * window at all, so asking what is drawn at a point inside it answers
      * "nothing in particular" -- which reads as clear, and every window the
@@ -587,7 +587,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
      *
      * This used to be called from the frame path, so the counters were "since
      * the last print" and the print only happened when a frame arrived -- and
-     * they were labelled per second regardless.  When frames dried up the
+     * they were labeled per second regardless.  When frames dried up the
      * interval stretched to seventeen seconds and every rate read seventeen
      * times too high: an occlusion rate of 24 a second was shown as 418, which
      * sent me hunting a memory-bandwidth problem that did not exist.  The one
@@ -650,8 +650,8 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
      *
      * "Still a lot of corruption" and "it looks fine to me" are the same
      * sentence with different eyes behind it, and neither can be acted on.
-     * With windows of a known flat colour in the guest, every pixel in a
-     * proxy's surface that is not that window's colour is a pixel that came
+     * With windows of a known flat color in the guest, every pixel in a
+     * proxy's surface that is not that window's color is a pixel that came
      * from somewhere else, and contamination stops being an impression and
      * becomes a count.  POWEREMU_HARMONY_DUMP=1; raw BGRA into /tmp, with the
      * guest rect in the name so the analysis knows what overlapped what.
@@ -692,7 +692,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
     /// Show each window's visible part live from the guest's screen, over its
     /// own stored copy.  Off by default while it is being worked on: with it
     /// off, every window shows only its own complete copy, which is the
-    /// behaviour that works.
+    /// behavior that works.
     /// Absorb only the freshly drawn, uncovered parts of every window, rather
     /// than copying the one in front whole.  See refreshLiveCopies.
     /*
@@ -932,7 +932,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
          * right design and makes every window live, but it depends on the
          * occlusion report being exactly right at the instant of the frame --
          * and when it is not, the window quietly keeps a piece of its
-         * neighbour for good.  Until that is trustworthy, one window is copied
+         * neighbor for good.  Until that is trustworthy, one window is copied
          * whole, which can only ever be right or old, never wrong.
          */
         /*
@@ -940,7 +940,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
          * screen.  The guest works that out and sends it with the window list;
          * the moment a window moves, the answer describes a screen that no
          * longer exists, and absorbing a part of a window on the strength of it
-         * is exactly how the window ends up keeping a piece of its neighbour --
+         * is exactly how the window ends up keeping a piece of its neighbor --
          * for good, because nothing afterwards knows to put it right.
          */
         dumpEveryFrameIfAsked()
@@ -958,13 +958,13 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
              * only a guess the guest sends us.
              *
              * Still whole windows only.  Reading part of a window is what
-             * leaves a piece of its neighbour behind, and that is what is
+             * leaves a piece of its neighbor behind, and that is what is
              * waiting on being able to trust the occlusion completely.
              */
             /*
              * And only while what is known about what covers what still
              * describes this screen.  Copying a window on a stale answer is
-             * how it ends up holding a piece of its neighbour -- which is what
+             * how it ends up holding a piece of its neighbor -- which is what
              * reading *every* clear window rather than only the focused one
              * made far more likely, because there are simply more of them
              * being read at any moment.
@@ -1037,7 +1037,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
              * get in: the guest's answer about what covers what arrives a
              * frame or so after the frame it describes, so a window can be
              * read as clear in the moment another is already drawn over it.
-             * Measured, that left a window 40% made of its neighbour, sitting
+             * Measured, that left a window 40% made of its neighbor, sitting
              * there unchanged while it was fully visible and uncovered,
              * because a flat window draws nothing and nothing was ever
              * re-read.  The whole-window path healed this by accident; this
@@ -1051,7 +1051,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
              * thing the brief forbids: an unchanged picture is not stale
              * because it is old, and copying the same pixels again is not
              * progress.  It was there to heal windows that had absorbed a
-             * neighbour during the gap between a frame and the answer
+             * neighbor during the gap between a frame and the answer
              * describing it -- and that gap is now closed at its source, by
              * reading from the frame the guest has already answered about.
              *
@@ -1250,7 +1250,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
              * proxy in its Dock at once while the guest's window carries on
              * exactly as it was, so the very next report said "still here" and
              * pulled the proxy straight back out.  That is the window bouncing
-             * out of the Dock.  The guest has now been asked to minimise the
+             * out of the Dock.  The guest has now been asked to minimize the
              * real window, so the proxy stays down until it does, or until it
              * is clear it never will.
              */
@@ -1368,7 +1368,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
              * screen, so everything remembered about where it was must go now.
              *
              * It used to be cleaned up only on the path that throws the proxy
-             * away -- which a minimised window never takes.  Its last rectangle
+             * away -- which a minimized window never takes.  Its last rectangle
              * then stayed in `lastRect` for the rest of the session, and the
              * "something moved here" list below re-added it on every report,
              * so every window overlapping where it used to be was held on
@@ -1380,7 +1380,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
             /*
              * A window that has gone from the guest's screen has either been
              * closed or put in the guest's Dock -- and the guest's Dock is
-             * hidden, so a minimised window would be gone for good.  Minimise
+             * hidden, so a minimized window would be gone for good.  Minimize
              * its proxy into this Mac's Dock instead: it keeps the picture it
              * had, and clicking it there brings the real window back.
              *
@@ -1391,10 +1391,10 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
              */
             if vanished[id] == nil {
                 vanished[id] = Date()
-                settleAll(0.8)          // it may have been a minimise: let it finish
+                settleAll(0.8)          // it may have been a minimize: let it finish
                 // Only a window that goes into the Dock *after* this one left
                 // the screen can be this one.  Matching against whatever was
-                // already minimised gave the first window the user closed
+                // already minimized gave the first window the user closed
                 // somebody else's Dock entry, and left it there for good.
                 if p.minimizedBaseline == nil {
                     p.minimizedBaseline = Set(minimizedEntries.map { "\($0.pid)/\($0.index)" })
@@ -1405,7 +1405,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
                 p.minimizedIndex = e.index
                 p.title = e.title.isEmpty ? "Virtual Mac window" : e.title
                 /*
-                 * No genie.  The guest has already played its own minimise
+                 * No genie.  The guest has already played its own minimize
                  * into a Dock that is hidden, so a second animation here is
                  * both wrong and late; the window should simply be in the
                  * Dock.  The Dock's effect is a setting of this Mac's that is
@@ -1463,7 +1463,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
          * makes missing far easier than it was.  A window abandoned that way
          * never gets a complete picture, so wherever anything is drawn over it
          * there is nothing to fall back on and the gap simply stays: a hole in
-         * the window where its neighbour overlaps, for as long as it is open.
+         * the window where its neighbor overlaps, for as long as it is open.
          * Measured from the overlay, one window at ninety-nine seconds without
          * a copy while every other figure was healthy.  So the slate is wiped
          * every half minute and they are tried again.
@@ -1610,8 +1610,8 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
          * rectangles out of the desktop again, which is a different thing and
          * a dangerous one: a patch that was this window last round may be
          * another window by now.  Uncover a window, let something slide over
-         * the part that just changed, and the next update copies the neighbour
-         * into it -- and calls it synchronising.  Old damage says a patch was
+         * the part that just changed, and the next update copies the neighbor
+         * into it -- and calls it synchronizing.  Old damage says a patch was
          * once ours; it never says it still is.
          *
          * So the surface is brought up to date from the picture it is meant to
@@ -1678,7 +1678,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
                  * parts of it are a window, so that in Harmony the desktop can
                  * be left out -- and it is carried along by this copy, which
                  * means a window whose tiles the card has misjudged is drawn
-                 * see-through.  Measured: a window entirely correct in colour,
+                 * see-through.  Measured: a window entirely correct in color,
                  * copied every frame, nought frames behind, and 81.5% of it
                  * invisible.  From the outside that is indistinguishable from
                  * a window that never updates, which is what it was reported
@@ -1919,7 +1919,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
         return "\(before) afterMiniaturize=\(afterA) afterPerform=\(afterB)"
     }
 
-    /// A minimised guest window that no proxy is standing in for yet.
+    /// A minimized guest window that no proxy is standing in for yet.
     private func unboundMinimized(for proxy: HarmonyProxy) -> (pid: Int, index: Int, title: String)? {
         let taken = Set(proxies.values.compactMap { p -> String? in
             guard let pid = p.minimizedPid else { return nil }
@@ -2237,7 +2237,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
         // The guest raises it through the Accessibility API.  It used to be
         // done by faking a click on a patch of the window nothing covered,
         // which landed next to the reader's own click and read as a
-        // double-click -- minimising the window instead of raising it.
+        // double-click -- minimizing the window instead of raising it.
         askGuestToRaise(id, hard: false)
         // A click on a proxy raises it on this Mac by itself, but a raise asked
         // for any other way (the Dock menu, a test) has to say so, now that
@@ -2340,7 +2340,7 @@ final class HarmonyProxy: NSWindow {
     private(set) var dragging = false
     /// The guest's menu bar strip, which owns clicks in the menu-bar band.
     var isMenuBar = false
-    /// Set while this proxy is standing in for a minimised guest window.
+    /// Set while this proxy is standing in for a minimized guest window.
     var minimizedPid: Int?
     var minimizedIndex = 0
     /// The window's own complete picture, taken while nothing covered it.
@@ -2361,7 +2361,7 @@ final class HarmonyProxy: NSWindow {
          * Titled rather than borderless, with the title bar made invisible and
          * the content filling the whole window.  It looks exactly the same, but
          * a borderless window cannot be put in the Dock -- miniaturize() simply
-         * does nothing -- and a guest window that has been minimised needs to
+         * does nothing -- and a guest window that has been minimized needs to
          * go somewhere the reader can get it back from, now that the guest's
          * own Dock is hidden.
          */
@@ -2610,7 +2610,7 @@ final class HarmonyProxyView: NSView, NSDraggingSource {
         let p = convert(e.locationInWindow, from: nil)
         if p.y >= bounds.height - 22 && !m.isSheetWindow(proxy.id) {
             /*
-             * The title bar carries the close, minimise and zoom buttons as
+             * The title bar carries the close, minimize and zoom buttons as
              * well as being the handle to drag by, and which one a press means
              * is not known until it is let go of: a press that never moves is a
              * click for the guest, a press that moves is a drag of the window.

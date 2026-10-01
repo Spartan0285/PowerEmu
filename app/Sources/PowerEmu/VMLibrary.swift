@@ -162,7 +162,7 @@ final class VMLibrary: ObservableObject {
          * So the disk is left blank rather than laid out in a way the guest
          * would silently refuse, which reads as a broken disk rather than an
          * empty one.  The machine starts from the install disc, where Drive
-         * Setup is in the Utilities folder; it initialises the drive in a few
+         * Setup is in the Utilities folder; it initializes the drive in a few
          * seconds, exactly as it would on a real Power Mac.
          */
         case guestFormats

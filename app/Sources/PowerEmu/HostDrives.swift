@@ -140,7 +140,7 @@ final class HostDriveMonitor: ObservableObject {
          * reports as "Content (IOContent): None" and "File System: None".
          * Offering one anyway ends with the raw device refusing to open at
          * all (ENXIO, "Device not configured"), which PowerEmu used to
-         * report as a refused authorisation: the reader is sent to look for
+         * report as a refused authorization: the reader is sent to look for
          * a permission problem that was never there.
          */
         let content = desc[kDADiskDescriptionMediaContentKey as String] as? String ?? ""

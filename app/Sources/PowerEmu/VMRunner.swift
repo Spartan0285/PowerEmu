@@ -191,7 +191,7 @@ final class VMRunner {
         }
         if !c.verboseBoot {
             // Open Firmware's messages go to the serial log, not the screen:
-            // it stays black until the loader draws the grey Apple.
+            // it stays black until the loader draws the gray Apple.
             a += ["-prom-env", "output-device=ttya"]
         }
         if headless {
@@ -244,7 +244,7 @@ final class VMRunner {
         // place of it: the guest keeps booting and displaying through the
         // R200, and the new device does nothing at all until a guest driver
         // opens it. Opt-in while that driver is being written, so a build
-        // that ships cannot be slowed down or destabilised by a device
+        // that ships cannot be slowed down or destabilized by a device
         // nothing in the guest is asking for yet.
         if ProcessInfo.processInfo.environment["POWEREMU_PARAVIRT_GPU"] == "1" {
             a += ["-device", "poweremu-gpu,id=pvgpu0"]
@@ -466,7 +466,7 @@ final class VMRunner {
     /// unmounted, opened read-write (asking for an administrator once, as the
     /// device node belongs to root), and handed down to QEMU as a fixed fd
     /// number with posix_spawn; when the machine stops the disk is given back
-    /// to the host.  Opening it can put up an authorisation panel, so it runs
+    /// to the host.  Opening it can put up an authorization panel, so it runs
     /// off the main thread and the machine starts (or reports failure) from
     /// the completion.
     private func launchWithExternalDisk(_ ext: ExternalDisk, qbin: String, args: [String],

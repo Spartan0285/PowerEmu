@@ -39,7 +39,7 @@ struct InstallProgressSection: View {
                         .font(.callout).foregroundStyle(.secondary)
                 }
                 if let f = session.failure {
-                    Text(f).foregroundStyle(session.outcome == .cancelled ? Color.secondary : Color.red)
+                    Text(f).foregroundStyle(session.outcome == .canceled ? Color.secondary : Color.red)
                         .fixedSize(horizontal: false, vertical: true)
                     if !session.guestLog.isEmpty, session.outcome == .failed {
                         DisclosureGroup("Details") {
@@ -78,7 +78,7 @@ struct InstallProgressSection: View {
         case .running: return session.title
         case .finished: return "Mac OS X is installed"
         case .failed: return "The installation didn’t finish"
-        case .cancelled: return "Installation stopped"
+        case .canceled: return "Installation stopped"
         }
     }
 

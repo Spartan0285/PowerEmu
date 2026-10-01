@@ -45,7 +45,7 @@ final class InstallSession: ObservableObject {
         let title: String
     }
 
-    enum Outcome: Equatable { case running, finished, failed, cancelled }
+    enum Outcome: Equatable { case running, finished, failed, canceled }
 
     let vm: VirtualMachine
     let options: InstallPlan.Options
@@ -182,8 +182,8 @@ final class InstallSession: ObservableObject {
 
     func cancel() {
         guard outcome == .running else { return }
-        log("cancelled")
-        outcome = .cancelled
+        log("canceled")
+        outcome = .canceled
         download?.cancel()
         runner?.terminate()
         runner = nil
@@ -415,7 +415,7 @@ final class InstallSession: ObservableObject {
         // PowerEmu): stop, and leave nothing behind.
         if !FileManager.default.fileExists(atPath: vm.url.path) {
             NSLog("PowerEmu install: machine removed, stopping")
-            outcome = .cancelled
+            outcome = .canceled
             download?.cancel()
             runner?.terminate()
             runner = nil

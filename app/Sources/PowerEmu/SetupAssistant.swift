@@ -71,7 +71,7 @@ struct NewMachineSheet: View {
     /*
      * A Mac OS 8/9 disc instead.  Set when the disc turned out not to be a
      * Mac OS X one but is a startable classic volume (ClassicDisc).  It is
-     * never offered, only recognised: nothing in the wizard mentions classic
+     * never offered, only recognized: nothing in the wizard mentions classic
      * Mac OS until a disc that is one has actually been chosen.
      */
     @State private var classicInfo: ClassicDisc.Info?
@@ -93,7 +93,7 @@ struct NewMachineSheet: View {
     /// OS X saying exactly what Apple made it say.
     ///
     /// Stock is for a disk that is going to end up in a real Power Mac, or be
-    /// restored onto one: a customised system carries a startup item that
+    /// restored onto one: a customized system carries a startup item that
     /// rewrites Apple's own files at every boot, which is no way to leave
     /// somebody else's Mac.
     enum AboutStyle: String, CaseIterable { case stock = "Stock", custom = "Customized" }
@@ -164,9 +164,9 @@ struct NewMachineSheet: View {
     }
     private var version: String { info.map { $0.version == "10.4" ? "10.4.0" : $0.version } ?? "10.4" }
 
-    /// The wizard wears the colour of the system being installed: Tiger's
+    /// The wizard wears the color of the system being installed: Tiger's
     /// blue, Leopard's purple.  Before a disc is chosen it is the Mac's own
-    /// accent colour, so the first screen looks like the rest of the app.
+    /// accent color, so the first screen looks like the rest of the app.
     private var theme: Color {
         guard let v = info?.version else { return .accentColor }
         return v.hasPrefix("10.5") ? Color(red: 0.45, green: 0.31, blue: 0.64) : .accentColor
@@ -406,7 +406,7 @@ struct NewMachineSheet: View {
     }
 
     /// A real picture for the page when there is one: the disc's own
-    /// installer icon once a Tiger disc is recognised, the chosen Mac.
+    /// installer icon once a Tiger disc is recognized, the chosen Mac.
     private var pageIcon: NSImage? {
         switch page {
         case .disc: return DiscIcons.installDiscImage(info?.version)
@@ -464,7 +464,7 @@ struct NewMachineSheet: View {
     private var title: String {
         switch page {
         // The classic titles appear only once a classic disc has been
-        // recognised; until then the wizard reads exactly as it did.
+        // recognized; until then the wizard reads exactly as it did.
         case .disc where classicInfo != nil: return "Install \(classicInfo?.osName ?? "Mac OS")"
         case .disc: return "Install Mac OS X"
         case .machine: return "Your Mac"
@@ -478,7 +478,7 @@ struct NewMachineSheet: View {
     private var explanation: String {
         switch page {
         case .disc:
-            return "PowerEmu installs Mac OS X for you from your own install disc. Choose the disc image of a Mac OS X 10.4 Tiger or 10.5 Leopard install DVD for PowerPC Macs, or drag it here. PowerEmu installs either of them by itself; a disc it doesn\u{2019}t recognise still works, with the virtual Mac starting the installer for you to answer."
+            return "PowerEmu installs Mac OS X for you from your own install disc. Choose the disc image of a Mac OS X 10.4 Tiger or 10.5 Leopard install DVD for PowerPC Macs, or drag it here. PowerEmu installs either of them by itself; a disc it doesn\u{2019}t recognize still works, with the virtual Mac starting the installer for you to answer."
         // Nothing: the pie says the size, and the warning beside the disk
         // says what happens to it.
         case .machine where diskTarget == .external: return ""
@@ -1188,9 +1188,9 @@ struct DiskPie: View {
         .frame(width: 300, height: 340)
     }
 
-    private func key(_ colour: Color, _ name: String, _ value: String) -> some View {
+    private func key(_ color: Color, _ name: String, _ value: String) -> some View {
         HStack(spacing: 7) {
-            RoundedRectangle(cornerRadius: 2).fill(colour).frame(width: 9, height: 9)
+            RoundedRectangle(cornerRadius: 2).fill(color).frame(width: 9, height: 9)
             Text(name).foregroundStyle(.white.opacity(0.75))
             Spacer(minLength: 12)
             Text(value).foregroundStyle(.white).monospacedDigit()

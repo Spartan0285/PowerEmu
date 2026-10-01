@@ -105,7 +105,7 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
             devicesButton,
             separator(),
             pauseItem(),
-            labelledButton("moon.fill", "Sleep", "Save the virtual Mac as it is and close it", #selector(sleepMachine)),
+            labeledButton("moon.fill", "Sleep", "Save the virtual Mac as it is and close it", #selector(sleepMachine)),
             menuButton("power", "Power", "Shut down, restart or force off", power),
             OverlayBar.space(),
         ]
@@ -116,13 +116,13 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
          * button is left out rather than offered and doing nothing.
          */
         if vm?.config.classic != true {
-            items.append(labelledButton("macwindow.on.rectangle", "Harmony",
+            items.append(labeledButton("macwindow.on.rectangle", "Harmony",
                            "In testing: show the virtual Mac's windows on this Mac's desktop, without its wallpaper (Control-Option-H)",
                            #selector(toggleHarmony)))
         }
         items += [
-            labelledButton("speedometer", "Stats", "Show what the virtual Mac and this Mac are doing (Control-Option-P)", #selector(togglePerf)),
-            labelledButton("arrow.up.left.and.arrow.down.right", "Full Screen", "Fill the screen (Control-Option-F)", #selector(fullScreen)),
+            labeledButton("speedometer", "Stats", "Show what the virtual Mac and this Mac are doing (Control-Option-P)", #selector(togglePerf)),
+            labeledButton("arrow.up.left.and.arrow.down.right", "Full Screen", "Fill the screen (Control-Option-F)", #selector(fullScreen)),
         ]
         bar.setContent(items)
         bar.alphaValue = 0
@@ -131,7 +131,7 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
 
     /// A button that says what it does: an ordinary toolbar item, rather
     /// than an icon the reader has to hover over to identify.
-    private func labelledButton(_ symbol: String, _ title: String, _ tip: String,
+    private func labeledButton(_ symbol: String, _ title: String, _ tip: String,
                                 _ action: Selector) -> NSButton {
         let b = NSButton(title: title, image: NSImage(systemSymbolName: symbol, accessibilityDescription: title)!,
                          target: self, action: action)
@@ -149,7 +149,7 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
     /// Pause, or Continue when the machine is already stopped where it
     /// stands: one button, saying which it will do.
     private func pauseItem() -> NSButton {
-        let b = labelledButton("pause.fill", "Pause",
+        let b = labeledButton("pause.fill", "Pause",
                                "Stop the virtual Mac where it stands", #selector(pauseOrResume))
         pauseButton = b
         return b

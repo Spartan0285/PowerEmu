@@ -46,7 +46,7 @@ final class DiscCopy: ObservableObject {
     func cancel() { stop.set() }
 
     /// Copy `drive` into PowerEmu's installers folder.  The name comes from
-    /// the disc itself, so a reader recognises it later.
+    /// the disc itself, so a reader recognizes it later.
     func start(_ drive: HostDrive) {
         problem = nil
         file = nil

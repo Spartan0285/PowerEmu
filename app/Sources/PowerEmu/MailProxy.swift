@@ -238,7 +238,7 @@ final class IMAPProxySession {
                     resp = c.readLine()
                 }
                 guard let r = resp, r != "*", let (u, p) = parsePlain(r) else {
-                    c.write("\(tag) BAD AUTHENTICATE cancelled\r\n"); continue
+                    c.write("\(tag) BAD AUTHENTICATE canceled\r\n"); continue
                 }
                 if signIn(tag, u, p) { return }
             default:
