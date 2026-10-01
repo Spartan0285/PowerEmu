@@ -542,6 +542,13 @@ final class VMDisplayView: NSView {
     /// resolution, which it then remembered and booted into -- a mode its
     /// firmware does not draw correctly, so the grey Apple came up sheared.
     /// Put the guest's own resolution back before going.
+    /// Take this machine's guest Dock tiles down.  Used on the way out of the
+    /// app, where nothing else would: the helpers are children of PowerEmu and
+    /// this Mac does not end them with it.
+    func stopGuestDock() {
+        guestDock.stop()
+    }
+
     func restoreGuestResolutionIfNeeded() {
         guard harmony, let s = preHarmonyGuestSize else { return }
         onHarmonyResolution?(Int(s.width), Int(s.height))
@@ -577,7 +584,7 @@ final class VMDisplayView: NSView {
             return
         }
         guard let host = window?.screen ?? NSScreen.main else { return }
-        let target = HarmonyDisplayMode.size(screen: host.frame, visible: host.visibleFrame)
+        let target = HarmonyDisplayMode.size(screen: host)
         preHarmonyGuestSize = guestSize
         let token = UUID().uuidString
         harmonyPreparation = (token, target, false)

@@ -290,6 +290,10 @@ final class VirtualMachine: ObservableObject, Identifiable {
             clock = nil
             display?.stop()
             display = nil
+            // The guest's Dock tiles stand for applications in a machine
+            // that has just stopped; nothing else would clear them while
+            // PowerEmu keeps running.
+            VMDisplayView.harmonized?.stopGuestDock()
             VMWindowController.close(self)
             state = .stopped
             runner = nil
@@ -899,6 +903,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
         clock = nil
         display?.stop()
         display = nil
+        VMDisplayView.harmonized?.stopGuestDock()
         VMWindowController.close(self)
         attachedUSB = [:]
         hostDiscName = nil

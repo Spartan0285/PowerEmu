@@ -19,6 +19,28 @@ final class Delegate: NSObject, NSApplicationDelegate {
         pid = Bundle.main.object(forInfoDictionaryKey: "PEGuestPID") as? String ?? ""
         // Nothing to show: the tile is the whole of it.
         NSApp.setActivationPolicy(.regular)
+        watchForOrphanhood()
+    }
+
+    /*
+     * Go when PowerEmu goes.
+     *
+     * This stands in the Dock for an application inside a virtual Mac, so it
+     * has nothing to say once the thing it represents is unreachable.  Nobody
+     * tears it down on the way out, though: PowerEmu starts it as a child, and
+     * this Mac does not end an application's children when the application
+     * ends.  Quitting PowerEmu -- or its crashing, or being force quit -- left
+     * a Dock full of icons for a virtual Mac that was no longer running, and
+     * the next run added its own on top.
+     *
+     * Being orphaned is the one signal that covers all of those, so watch for
+     * it.  Termination has to be immediate rather than polite: the ordinary
+     * quit path below refuses, because normally only the guest may decide.
+     */
+    private func watchForOrphanhood() {
+        Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
+            if getppid() == 1 { exit(0) }
+        }
     }
 
     /// Clicking the tile, whether or not this happens to be the active

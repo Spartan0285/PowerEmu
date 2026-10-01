@@ -222,6 +222,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Leave the guest at its own resolution, not Harmony's: it remembers
         // the last one and boots into it.
         MainActor.assumeIsolated { VMDisplayView.harmonized?.restoreGuestResolutionIfNeeded() }
+        // Take the guest's Dock tiles down on the way out.  They stand for
+        // applications in a virtual Mac that is about to stop existing, and
+        // nothing else will clear them until the next run.
+        MainActor.assumeIsolated { VMDisplayView.harmonized?.stopGuestDock() }
         // An install can't be picked up again, so say what quitting costs.
         let installing = MainActor.assumeIsolated { library?.installing ?? [] }
         if !installing.isEmpty {
