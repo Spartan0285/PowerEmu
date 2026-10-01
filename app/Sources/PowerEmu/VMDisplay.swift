@@ -29,6 +29,9 @@ final class DisplayChannel: @unchecked Sendable {
     func deliverWindowApps(_ a: [(id: Int, pid: Int, app: String)]) { onWindowApps?(a) }
     var onMinimized: (([(pid: Int, index: Int, title: String)]) -> Void)?
     func deliverMinimized(_ m: [(pid: Int, index: Int, title: String)]) { onMinimized?(m) }
+    /// What is in the guest's own Dock, which Harmony hides.
+    var onDockApps: (([(path: String, name: String, pid: Int)]) -> Void)?
+    func deliverDockApps(_ a: [(path: String, name: String, pid: Int)]) { onDockApps?(a) }
     /// Harmony: the front guest application's menu bar, and the contents of
     /// one of its menus once it has been asked for.
     var onFocused: ((Int) -> Void)?
@@ -547,6 +550,7 @@ final class VMDisplayView: NSView {
     /// this Mac does not end them with it.
     func stopGuestDock() {
         guestDock.stop()
+        closeGuestAppsPanel()
     }
 
     func restoreGuestResolutionIfNeeded() {
@@ -612,6 +616,42 @@ final class VMDisplayView: NSView {
     /// The display currently in Harmony, if any -- so the Dock menu can offer
     /// to leave it (its window is borderless and has no title bar of its own).
     static weak var harmonized: VMDisplayView?
+
+    /// The display of the machine on screen, Harmony or not.  The Dock menu
+    /// offers the guest's applications from here, so they can be reached
+    /// whenever a virtual Mac is running rather than only in Harmony.
+    static weak var showing: VMDisplayView?
+
+    /// The guest's applications, kept on screen above everything else.
+    private var appsPanel: GuestAppsPanel?
+
+    /// What is in the guest's own Dock.  Harmony hides that Dock, so this is
+    /// the only way back to an application that is not already running.
+    private(set) var guestDockApps: [(path: String, name: String, pid: Int)] = []
+    var onLaunchGuestApp: ((String) -> Void)?
+
+    func showGuestAppsPanel() {
+        let panel = appsPanel ?? GuestAppsPanel(title: machineName.isEmpty ? "Virtual Mac" : machineName)
+        appsPanel = panel
+        panel.present(apps: guestDockApps,
+                      open: { [weak self] item in
+                          if item.pid > 0 { self?.activateGuestApp(item.pid) }
+                          else { self?.onLaunchGuestApp?(item.path) }
+                      })
+    }
+
+    /// Keep an open panel current, and take it away with the machine.
+    func refreshGuestAppsPanel() { appsPanel?.update(apps: guestDockApps) }
+
+    /// The guest's Dock, as its tools report it.
+    func setGuestDockApps(_ items: [(path: String, name: String, pid: Int)]) {
+        guestDockApps = items
+        refreshGuestAppsPanel()
+    }
+    func closeGuestAppsPanel() { appsPanel?.close(); appsPanel = nil }
+
+    /// What to call this machine in the panel's title bar.
+    var machineName: String = ""
 
     var harmony = false {
         didSet {
@@ -1066,6 +1106,7 @@ final class VMDisplayView: NSView {
         channel.onSheets = { [weak self] parents in self?.harmonyManager.setSheets(parents) }
         channel.onWindowApps = { [weak self] apps in
             self?.guestWindowApps = apps
+            self?.refreshGuestAppsPanel()
             self?.harmonyManager.finderWindows = Set(apps.filter { $0.app == "Finder" }.map { $0.id })
             self?.harmonyManager.windowApplications = Dictionary(apps.filter { $0.id != 0 }.map { ($0.id, $0.pid) }, uniquingKeysWith: { _, last in last })
             self?.guestDock.setApps(apps.map { (pid: $0.pid, name: $0.app) })
@@ -2258,6 +2299,10 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
         display.onQuitGuestApp = { [weak vm] pid in vm?.quitGuestApp(pid) }
         display.onHarmonyMove = { [weak vm] id, x, y in vm?.moveGuestWindow(id, x, y) }
         display.onHarmonyRaiseAt = { [weak vm] id, x, y in vm?.raiseGuestWindowAt(id, x, y) }
+        channel.onDockApps = { [weak display] items in display?.setGuestDockApps(items) }
+        display.onLaunchGuestApp = { [weak vm] path in vm?.launchGuestApp(path: path) }
+        VMDisplayView.showing = display
+        display.machineName = vm.config.name
         display.onActivateGuestApp = { [weak vm] pid in vm?.activateGuestApp(pid) }
         display.onRestoreGuestWindow = { [weak vm] pid, i in vm?.restoreGuestWindow(pid, i) }
         display.onMinimizeGuestWindow = { [weak vm] id in vm?.minimizeGuestWindow(id) }

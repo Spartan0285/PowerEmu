@@ -184,6 +184,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
             a.onDragWindows = { [weak self] ids in self?.display?.onDragWindows?(ids) }
             a.onSheets = { [weak self] parents in self?.display?.onSheets?(parents) }
             a.onWindowApps = { [weak self] apps in self?.display?.deliverWindowApps(apps) }
+            a.onDockApps = { [weak self] items in self?.display?.deliverDockApps(items) }
             a.onMinimized = { [weak self] m in self?.display?.deliverMinimized(m) }
             a.onFocused = { [weak self] id in self?.display?.deliverFocused(id) }
             a.onOcclusion = { [weak self] o in self?.display?.deliverOcclusion(o) }
@@ -515,6 +516,8 @@ final class VirtualMachine: ObservableObject, Identifiable {
     }
 
     func activateGuestApp(_ pid: Int) { agent?.send("ACTIVATE", "\(pid)") }
+    /// Open one of the guest's Dock applications that is not running yet.
+    func launchGuestApp(path: String) { agent?.send("LAUNCH", path) }
     /// Raise by clicking a point the guest window is not covered at.
     func raiseGuestWindowAt(_ id: Int, _ x: Int, _ y: Int) { agent?.send("RAISE", "\(id) \(x) \(y)") }
     /// Move by dragging the window's title bar, which is the only way the guest

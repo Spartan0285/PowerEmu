@@ -22,6 +22,9 @@ final class GuestAgent: ObservableObject {
     var onWindows: (([(id: Int, rect: CGRect, visible: CGRect)]) -> Void)?
     /// Harmony: which application each guest window belongs to.
     var onWindowApps: (([(id: Int, pid: Int, app: String)]) -> Void)?
+    /// What is in the guest's own Dock: where each application lives, what the
+    /// Dock calls it, and its pid when it happens to be running.
+    var onDockApps: (([(path: String, name: String, pid: Int)]) -> Void)?
     /// Harmony: the guest's windows that have been put in its Dock.
     var onMinimized: (([(pid: Int, index: Int, title: String)]) -> Void)?
     /// One of the guest's applications' icons, as a PNG.
@@ -220,6 +223,14 @@ final class GuestAgent: ObservableObject {
                 }
             }
             onWindowApps?(apps)
+        case "DOCKAPPS":
+            var items: [(path: String, name: String, pid: Int)] = []
+            for line in text.split(separator: "\n") {
+                let f = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
+                guard f.count >= 3, !f[0].isEmpty else { continue }
+                items.append((path: f[0], name: f[1], pid: Int(f[2]) ?? 0))
+            }
+            onDockApps?(items)
         case "MINWINDOWS":
             var mins: [(pid: Int, index: Int, title: String)] = []
             for line in text.split(separator: "\n") {

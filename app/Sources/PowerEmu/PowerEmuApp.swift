@@ -111,17 +111,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Dock while Harmony is on -- the guest's Dock is put away, and macOS
         // will not let one app add Dock tiles for another's windows, so they
         // live in this menu.
-        if let d = MainActor.assumeIsolated({ VMDisplayView.harmonized }) {
+        /*
+         * Any running machine, not only one in Harmony.  The list was reached
+         * through VMDisplayView.harmonized, which is nil unless Harmony is on,
+         * so a guest running in an ordinary window offered nothing here at all.
+         */
+        if let d = MainActor.assumeIsolated({ VMDisplayView.harmonized ?? VMDisplayView.showing }) {
             let apps = MainActor.assumeIsolated { d.guestApps }
             if !apps.isEmpty {
                 menu.addItem(NSMenuItem.separator())
                 let header = NSMenuItem(title: "Virtual Mac", action: nil, keyEquivalent: "")
                 header.isEnabled = false
                 menu.addItem(header)
+                menu.addItem(withTitle: "Keep This List on Screen",
+                             action: #selector(showGuestAppsPanel), keyEquivalent: "").target = self
                 for a in apps {
                     let item = NSMenuItem(title: a.app, action: #selector(openGuestApp(_:)), keyEquivalent: "")
                     item.target = self
                     item.tag = a.pid
+                    item.indentationLevel = 1
+                    menu.addItem(item)
+                }
+            }
+            /*
+             * And the guest's own Dock -- what somebody keeps there, running or
+             * not.  Harmony hides that Dock, so without this there is no way to
+             * open anything that is not already up.  Needs PowerEmu Tools 2.21.
+             */
+            let dockApps = MainActor.assumeIsolated { d.guestDockApps }.filter { $0.pid == 0 }
+            if !dockApps.isEmpty {
+                menu.addItem(NSMenuItem.separator())
+                let h = NSMenuItem(title: "In the Virtual Mac's Dock", action: nil, keyEquivalent: "")
+                h.isEnabled = false
+                menu.addItem(h)
+                for a in dockApps.prefix(16) {
+                    let item = NSMenuItem(title: a.name, action: #selector(launchGuestApp(_:)), keyEquivalent: "")
+                    item.target = self
+                    item.representedObject = a.path
                     item.indentationLevel = 1
                     menu.addItem(item)
                 }
@@ -130,7 +156,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         // Windows the guest has put in its own Dock, which is hidden while
         // Harmony is on -- without these there would be no way back to them.
-        if let d = MainActor.assumeIsolated({ VMDisplayView.harmonized }) {
+        if let d = MainActor.assumeIsolated({ VMDisplayView.harmonized ?? VMDisplayView.showing }) {
             let mins = MainActor.assumeIsolated { d.minimizedGuestWindows }
             if !mins.isEmpty {
                 menu.addItem(NSMenuItem.separator())
@@ -172,7 +198,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @MainActor @objc private func openGuestApp(_ sender: NSMenuItem) {
-        VMDisplayView.harmonized?.activateGuestApp(sender.tag)
+        (VMDisplayView.harmonized ?? VMDisplayView.showing)?.activateGuestApp(sender.tag)
+    }
+
+    @MainActor @objc private func launchGuestApp(_ sender: NSMenuItem) {
+        guard let path = sender.representedObject as? String else { return }
+        (VMDisplayView.harmonized ?? VMDisplayView.showing)?.onLaunchGuestApp?(path)
+    }
+
+    /// The same list, kept on screen above everything, so it can be used
+    /// without holding the Dock icon down each time.
+    @MainActor @objc private func showGuestAppsPanel() {
+        (VMDisplayView.harmonized ?? VMDisplayView.showing)?.showGuestAppsPanel()
     }
 
     @MainActor @objc private func restoreGuestWindow(_ sender: NSMenuItem) {

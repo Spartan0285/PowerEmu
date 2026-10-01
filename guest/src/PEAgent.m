@@ -88,7 +88,7 @@ extern CGError CGSConnectionGetPID(CGSConnectionID cid, pid_t *pid, CGSConnectio
 
 #include "PETransferZip.h"
 
-#define PE_AGENT_VERSION "2.20"
+#define PE_AGENT_VERSION "2.21"
 
 extern CGError CGSGetConnectionIDForPSN(CGSConnectionID cid, ProcessSerialNumber *psn,
                                         CGSConnectionID *out);
@@ -494,6 +494,86 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
         lastChangeCount = [[NSPasteboard generalPasteboard] changeCount];
     }
     return self;
+}
+
+/*
+ * What is in this Mac's Dock, so PowerEmu can show it while Harmony has the
+ * real one hidden.
+ *
+ * The Dock keeps its own list in com.apple.dock: persistent-apps are the ones
+ * somebody put there, in the order they put them.  Each entry carries a file
+ * URL and the label the Dock draws.  Both are wanted -- the label because it
+ * is what the reader recognises, the path because it is what opens the thing.
+ *
+ * Running applications that are not in the Dock are added after them, which is
+ * what the Dock itself does: it shows what you keep and what you are using.
+ * They are marked so PowerEmu can bring one forward rather than open a second
+ * copy.
+ */
+- (void)sendDockApps
+{
+    NSUserDefaults *u = [NSUserDefaults standardUserDefaults];
+    NSDictionary *dock = [u persistentDomainForName:@"com.apple.dock"];
+    NSArray *items = [dock objectForKey:@"persistent-apps"];
+    NSMutableString *out = [NSMutableString string];
+    NSMutableSet *listed = [NSMutableSet set];
+    NSEnumerator *e = [items objectEnumerator];
+    NSDictionary *item;
+    ProcessSerialNumber psn = { 0, kNoProcess };
+
+    /* Which applications are up, by the path they were opened from. */
+    NSMutableDictionary *running = [NSMutableDictionary dictionary];
+    while (GetNextProcess(&psn) == noErr) {
+        ProcessInfoRec info;
+        FSSpec spec;
+        pid_t pid = 0;
+        memset(&info, 0, sizeof(info));
+        info.processInfoLength = sizeof(info);
+        info.processAppSpec = &spec;
+        if (GetProcessInformation(&psn, &info) != noErr) continue;
+        if (info.processMode & modeOnlyBackground) continue;
+        if (GetProcessPID(&psn, &pid) != noErr) continue;
+        {
+            CFURLRef url = CFURLCreateFromFSRef(NULL, (const FSRef *)&spec);
+            NSString *path = nil;
+            if (url) {
+                path = [(NSURL *)url path];
+                CFRelease(url);
+            }
+            if (path) [running setObject:[NSNumber numberWithInt:(int)pid] forKey:path];
+        }
+    }
+
+    while ((item = [e nextObject])) {
+        NSDictionary *tile = [item objectForKey:@"tile-data"];
+        NSDictionary *file = [tile objectForKey:@"file-data"];
+        NSString *url = [file objectForKey:@"_CFURLString"];
+        NSString *label = [tile objectForKey:@"file-label"];
+        NSString *path = nil;
+        NSNumber *pid;
+        if (!url) continue;
+        path = [url hasPrefix:@"file://"] ? [[NSURL URLWithString:url] path] : url;
+        if (![path length]) continue;
+        if (![label length]) label = [[path lastPathComponent] stringByDeletingPathExtension];
+        pid = [running objectForKey:path];
+        [out appendFormat:@"%@\t%@\t%d\n", path, label, pid ? [pid intValue] : 0];
+        [listed addObject:path];
+    }
+
+    /* Then anything running that nobody has kept in the Dock. */
+    {
+        NSEnumerator *r = [running keyEnumerator];
+        NSString *path;
+        while ((path = [r nextObject])) {
+            NSString *label;
+            if ([listed containsObject:path]) continue;
+            label = [[path lastPathComponent] stringByDeletingPathExtension];
+            if ([label isEqualToString:@"PowerEmu Agent"]) continue;
+            [out appendFormat:@"%@\t%@\t%d\n", path, label,
+                              [[running objectForKey:path] intValue]];
+        }
+    }
+    [self send:@"DOCKAPPS" text:out];
 }
 
 - (void)send:(NSString *)verb data:(NSData *)payload
@@ -987,6 +1067,21 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
         if (pid > 0 && GetProcessForPID(pid, &psn) == noErr) {
             SetFrontProcess(&psn);
         }
+    } else if ([verb isEqualToString:@"LAUNCH"]) {
+        /*
+         * Open one of the applications in this Mac's Dock.
+         *
+         * Harmony hides the Dock, because two of them on one screen is one too
+         * many -- but the Dock is where somebody keeps the applications they
+         * actually use, so hiding it takes away the way in to anything that is
+         * not already running.  PowerEmu shows the same list on its own side
+         * and sends the choice back here.
+         */
+        if ([text length]) {
+            [[NSWorkspace sharedWorkspace] launchApplication:text];
+        }
+    } else if ([verb isEqualToString:@"DOCKAPPS"]) {
+        [self sendDockApps];
     } else if ([verb isEqualToString:@"PING"]) {
         [self send:@"PONG" data:nil];
     }
@@ -1705,6 +1800,8 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
             CFRelease(nameRef);
         }
         [self send:@"WINAPPS" text:names];
+        [self sendDockApps];
+
 
         /*
          * Windows that have been put in the guest's Dock: they leave the
