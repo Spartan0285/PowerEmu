@@ -59,8 +59,6 @@ struct VMConfig: Codable, Equatable {
      *    failing in Open Firmware with "No valid state has been set by load
      *    or init-program" before the Mac OS ROM ever runs.  PowerEmu's own
      *    default of 2 GB would therefore never boot.
-     *  - The sound hardware is taken out of the device tree, because Mac OS
-     *    9 crashes on it at startup; see the note in VMRunner.
      *  - The pointer is the relative USB mouse.  Mac OS 9's USB stack has no
      *    driver for an absolute tablet, and with one attached the guest's
      *    cursor does not move at all, so the machine captures the mouse.
