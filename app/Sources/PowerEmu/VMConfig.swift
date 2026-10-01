@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 
 /// A hard disk attached to the virtual Mac; `file` is relative to the
 /// package's Disks folder.
@@ -101,6 +101,44 @@ struct VMConfig: Codable, Equatable {
     var chimeFile: String?
     /// The guest's last screen size: the next boot starts at it, so the
     /// firmware and the grey Apple are already the right size.
+    /*
+     * Startup resolutions worth offering, worked out from the screen this Mac
+     * has.
+     *
+     * The guest can change resolution in System Preferences once it is up, but
+     * the one it starts in came only from the configuration file, and nothing
+     * in the app ever showed it.  A reader on a notched Mac had no way to pick
+     * the size that clears the notch except by editing a plist.
+     *
+     * The host-shaped sizes come first because they are the ones that make
+     * fullscreen land right; the standard sizes follow for anything that wants
+     * a shape Mac OS X knows well.
+     */
+    struct DisplayMode: Hashable { let label: String, width: Int, height: Int }
+
+    static func displayModes(for screen: NSScreen?) -> [DisplayMode] {
+        var out: [DisplayMode] = []
+        if let screen {
+            let fitted = HarmonyDisplayMode.size(screen: screen)
+            let notch = HarmonyDisplayMode.notch(on: screen)
+            let whole = Int(screen.frame.height.rounded())
+            let w = Int(fitted.width)
+            if notch > 0 {
+                out.append(DisplayMode(label: "This Mac, below the notch", width: w, height: Int(fitted.height)))
+                out.append(DisplayMode(label: "This Mac, whole screen", width: w, height: whole))
+            } else {
+                out.append(DisplayMode(label: "This Mac’s screen", width: w, height: Int(fitted.height)))
+            }
+        }
+        let host = screen?.frame.size ?? CGSize(width: 4096, height: 4096)
+        for (w, h) in [(1024, 768), (1152, 870), (1280, 800), (1280, 1024),
+                       (1440, 900), (1680, 1050), (1920, 1200)]
+        where CGFloat(w) <= host.width && CGFloat(h) <= host.height {
+            out.append(DisplayMode(label: "\(w) × \(h)", width: w, height: h))
+        }
+        return out
+    }
+
     var bootWidth = 1024
     var bootHeight = 768
     /// Start this virtual Mac when PowerEmu opens.

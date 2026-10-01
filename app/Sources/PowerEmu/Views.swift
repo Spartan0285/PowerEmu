@@ -334,9 +334,56 @@ struct MachineDetail: View {
                 }.formStyle(.grouped).tabItem { Text("Storage") }
     }
 
+    /*
+     * What to pick in the guest, worked out from the screen this Mac actually
+     * has rather than named outright.  The sizes used to be written into the
+     * sentence, which was right on one machine and wrong on every other.
+     */
+    /// The startup resolution, as one choice rather than two numbers.
+    private var startupResolution: Binding<String> {
+        Binding(get: { "\(vm.config.bootWidth)x\(vm.config.bootHeight)" },
+                set: { v in
+                    guard !locked else { return }
+                    let parts = v.split(separator: "x").compactMap { Int($0) }
+                    guard parts.count == 2 else { return }
+                    vm.config.bootWidth = parts[0]
+                    vm.config.bootHeight = parts[1]
+                    do { try vm.save() } catch { self.error = error.localizedDescription }
+                })
+    }
+
+    private static var screenAdvice: String {
+        guard let screen = NSScreen.main else {
+            return "Modes shaped like this Mac’s screen are offered"
+        }
+        let full = HarmonyDisplayMode.size(screen: screen)
+        let notch = HarmonyDisplayMode.notch(on: screen)
+        let whole = Int(screen.frame.height.rounded())
+        let w = Int(full.width)
+        if notch > 0 {
+            return "\(w) × \(Int(full.height)) sits below the notch in fullscreen; "
+                 + "\(w) × \(whole) fills the screen and puts the guest’s menu bar behind it"
+        }
+        return "\(w) × \(Int(full.height)) fills this Mac’s screen"
+    }
+
     private var displayTab: some View {
         Form {
             Section {
+                Picker("Startup resolution", selection: startupResolution) {
+                    ForEach(VMConfig.displayModes(for: NSScreen.main), id: \.self) { m in
+                        Text("\(m.label) — \(m.width) × \(m.height)")
+                            .tag("\(m.width)x\(m.height)")
+                    }
+                    // Whatever the machine is set to now, if it is not one of
+                    // the offered sizes, so opening this page never silently
+                    // changes it.
+                    if !VMConfig.displayModes(for: NSScreen.main)
+                        .contains(where: { $0.width == vm.config.bootWidth && $0.height == vm.config.bootHeight }) {
+                        Text("\(vm.config.bootWidth) × \(vm.config.bootHeight)")
+                            .tag("\(vm.config.bootWidth)x\(vm.config.bootHeight)")
+                    }
+                }
                 Toggle("Start in fullscreen", isOn: binding(\.startFullscreen))
                 Toggle("Offer resolutions shaped like this Mac’s screen", isOn: binding(\.extraDisplayModes))
                 Toggle("Hardware cursor", isOn: binding(\.hardwareCursor))
@@ -350,7 +397,7 @@ struct MachineDetail: View {
             } header: {
                 Text("Display")
             } footer: {
-                Text("Mac OS X drives the emulated Radeon with its own ATI driver, so Quartz Extreme and OpenGL are available; more video memory lets games and the desktop keep more textures on the card. No ROM files are needed.\n\nWhile starting from an install disc the card is held at 64 MB, because the Mac OS X installer will not start with more. Your choice applies once Mac OS X is installed.\n\nPick the resolution inside Mac OS X, in System Preferences → Displays. 1440 × 932 fills this Mac’s screen; 1440 × 904 and 16:10 modes sit below the notch in fullscreen. Fullscreen: Control-Option-F; Control-Option-G releases the mouse.")
+                Text("Mac OS X drives the emulated Radeon with its own ATI driver, so Quartz Extreme and OpenGL are available; more video memory lets games and the desktop keep more textures on the card. No ROM files are needed.\n\nWhile starting from an install disc the card is held at 64 MB, because the Mac OS X installer will not start with more. Your choice applies once Mac OS X is installed.\n\nPick the resolution inside Mac OS X, in System Preferences → Displays. \(Self.screenAdvice). Fullscreen: Control-Option-F; Control-Option-G releases the mouse.")
                     .font(.caption).foregroundStyle(.secondary)
             }
 
