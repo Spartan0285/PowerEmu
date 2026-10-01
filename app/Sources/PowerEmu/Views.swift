@@ -645,7 +645,9 @@ struct ToolsSection: View {
                 }
                 Button(vm.toolsConnected ? "Update Tools…" : "Install Tools…") { vm.insertToolsDisc() }
                     .disabled(vm.state != .running || VirtualMachine.toolsDiscURL == nil)
-                    .help("Put the PowerEmu Tools disc in the drive; open its installer in Mac OS X.")
+                    .help(VirtualMachine.toolsDiscURL == nil
+                          ? "This copy of PowerEmu was built without the Tools disc."
+                          : "Put the PowerEmu Tools disc in the drive; open its installer in Mac OS X.")
             }
             Toggle("Share the clipboard with this Mac", isOn: Binding(
                 get: { vm.config.shareClipboard }, set: { vm.setShareClipboard($0) }))

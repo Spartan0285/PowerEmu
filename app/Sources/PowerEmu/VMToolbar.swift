@@ -32,7 +32,10 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
     /// the reader is told rather than having to go looking.
     func refreshToolsBadge() {
         guard let vm else { devicesBadge.isHidden = true; return }
+        // Only point at Devices when opening it leads somewhere: without a
+        // Tools disc the menu can explain the situation but not mend it.
         let show = vm.state == .running && vm.toolsState.needsAttention
+            && VirtualMachine.toolsDiscURL != nil
         devicesBadge.isHidden = !show
         if show, devicesBadge.superview == nil {
             devicesButton.addSubview(devicesBadge)
@@ -366,9 +369,24 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
             it.indentationLevel = 1
             menu.addItem(it)
         }
-        if VirtualMachine.toolsDiscURL != nil {
-            menu.addItem(NSMenuItem.separator())
-            header(menu, "PowerEmu Tools")
+        /*
+         * Always say where the guest's tools stand.
+         *
+         * This section used to appear only when the app had a Tools disc to
+         * offer, while the dot on this very button was put there by the state
+         * of the guest's tools alone.  A build without the disc therefore said
+         * "there is an update" and then gave the reader nothing to open --
+         * which is worse than saying nothing, because the badge is the only
+         * thing telling them to look here in the first place.
+         */
+        menu.addItem(NSMenuItem.separator())
+        header(menu, "PowerEmu Tools")
+        if VirtualMachine.toolsDiscURL == nil {
+            let s = NSMenuItem(title: "The Tools disc is missing from this copy of PowerEmu",
+                               action: nil, keyEquivalent: "")
+            s.isEnabled = false
+            menu.addItem(s)
+        } else {
             switch vm.toolsState {
             case .notInstalled:
                 let s = NSMenuItem(title: running ? "Not installed in this virtual Mac"
