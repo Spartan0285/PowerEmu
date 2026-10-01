@@ -391,7 +391,7 @@ final class VMRunner {
             let bundled = fw.appendingPathComponent("qemu_vga_hwc.ndrv")
             if let screen = NSScreen.main,
                let original = try? Data(contentsOf: bundled),
-               let patched = try? HarmonyDisplayMode.driver(original, size: HarmonyDisplayMode.size(screen: screen.frame, visible: screen.visibleFrame)) {
+               let patched = try? HarmonyDisplayMode.driver(original, size: HarmonyDisplayMode.size(screen: screen)) {
                 let custom = vm.logsURL.appendingPathComponent("Harmony.ndrv")
                 try patched.write(to: custom, options: .atomic)
                 env["QEMU_PPC_NDRV"] = custom.path
