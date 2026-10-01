@@ -59,15 +59,19 @@ struct VMConfig: Codable, Equatable {
      *    failing in Open Firmware with "No valid state has been set by load
      *    or init-program" before the Mac OS ROM ever runs.  PowerEmu's own
      *    default of 2 GB would therefore never boot.
-     *  - The Open Firmware boot-command is not sent.  It rewrites the PCI
-     *    node's ranges for Mac OS X's sake, and with it in place the Mac OS
-     *    ROM's CHRP boot script finds the blessed file and then fails the
-     *    same way.  Without it, the same disc boots to the Finder.
-     *  - Disks are laid out unjournaled.  Mac OS 9 has no journalling, so
-     *    the JHFS+ that Mac OS X wants is no use to it.
+     *  - The sound hardware is taken out of the device tree, because Mac OS
+     *    9 crashes on it at startup; see the note in VMRunner.
+     *  - The pointer is the relative USB mouse.  Mac OS 9's USB stack has no
+     *    driver for an absolute tablet, and with one attached the guest's
+     *    cursor does not move at all, so the machine captures the mouse.
+     *  - The disk is left blank for the guest to erase; see DiskLayout.
      *
      * via=pmu, the NDRV loader, output-device=ttya, the Radeon and its
-     * 128 MB were all tried and all boot, so they are left alone.
+     * 128 MB were all tried and all boot, so they are left alone.  So is the
+     * Open Firmware boot-command: an earlier reading here said it stopped a
+     * classic guest booting, but that test was missing the NDRV loader --
+     * with the loader, which every PowerEmu machine gets, the same disc
+     * boots to the Finder with the boot-command in place.
      */
     var classic = false
 
@@ -222,6 +226,7 @@ struct VMConfig: Codable, Equatable {
         case bootChime, chimeSound, chimeFile, bootWidth, bootHeight, autoStart, verboseBoot, safeBoot, singleUser, audio, network, sshPort, shareClipboard, sharedFolders
         case agpBridge, monitorPort, gpuTrace, extraQEMUArgs, gamepad, shareOnNetwork, bridgedInterface
         case externalDisk
+        case classic
     }
 
     init(from decoder: Decoder) throws {
@@ -243,6 +248,7 @@ struct VMConfig: Codable, Equatable {
         d.insertedDisc = try c.decodeIfPresent(String.self, forKey: .insertedDisc)
         d.discRecordable = try c.decodeIfPresent(Bool.self, forKey: .discRecordable) ?? false
         try get(.bootFromDisc, &d.bootFromDisc)
+        try get(.classic, &d.classic)
         try get(.hardwareCursor, &d.hardwareCursor); try get(.extraDisplayModes, &d.extraDisplayModes)
         try get(.startFullscreen, &d.startFullscreen); try get(.bootChime, &d.bootChime)
         try get(.chimeSound, &d.chimeSound)
