@@ -206,6 +206,16 @@ final class VMRunner {
         var gpu = r350Experiment
             ? "ppc-mac-r350-probe,id=gpu0,vgamem_mb=\(vram),x-r350-bridge-aic=on,x-r350-linear-render=on"
             : "ppc-mac-gpu,id=gpu0,vgamem_mb=\(vram)"
+        /*
+         * Classic Mac OS draws through qemu_vga.ndrv, which reports an
+         * unrounded row length to QuickDraw, while Mac OS X's ATI drivers all
+         * round rowBytes up to 256 bytes and the card is seeded to match them.
+         * Where the two differ -- any width that is not a multiple of 64 at
+         * 32bpp, so 800 and 1440 but not 1024 or 1280 -- the screen shears
+         * into diagonal bands.  Measured on Mac OS 9.2.2 at 1440x900: the
+         * card scanned out 5888 bytes a row where QuickDraw drew 5760.
+         */
+        if c.classic { gpu += ",exact-scanout-pitch=on" }
         // Bake this Mac's exact screen size (in points) into the card's EDID, so
         // Harmony can switch the guest to a mode that maps 1 guest pixel to 1
         // host point (scale 1.0).  The CRTC only encodes 8-px-aligned widths, so
