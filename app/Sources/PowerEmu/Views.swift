@@ -461,22 +461,8 @@ struct MachineDetail: View {
                     Text("On").tag("coreaudio")
                     Text("Off").tag("none")
                 }
-                .disabled(vm.config.classic)
                     } header: {
                         Text("Sound")
-                    } footer: {
-                        /*
-                         * The emulated AWACS answers Mac OS X's driver, not
-                         * Mac OS 9's: left in place, Apple Audio Extension
-                         * takes an address error at startup.  PowerEmu keeps
-                         * the sound hardware out of a classic guest's device
-                         * tree entirely -- see VMRunner -- so there is nothing
-                         * here to turn on.
-                         */
-                        if vm.config.classic {
-                            Text("Sound is not available in \(vm.config.osName) yet. The emulated audio hardware answers Mac OS X's driver, and \(vm.config.osName) crashes on it at startup, so PowerEmu leaves it out.")
-                                .font(.caption).foregroundStyle(.secondary)
-                        }
                     }.disabled(locked)
                     ToolsSection(vm: vm)
                     GamepadSection(vm: vm)
