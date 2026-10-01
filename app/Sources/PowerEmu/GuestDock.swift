@@ -35,6 +35,21 @@ final class GuestDock {
         var hasIcon = false
     }
     private var tiles: [Int: Tile] = [:]
+    /*
+     * When each application was last reported.
+     *
+     * The list this is fed from is the guest's *windows*, not its running
+     * applications: an application with nothing open does not appear in it.
+     * Taking a tile down the moment its owner stops being mentioned therefore
+     * killed the helper whenever the last window was minimised or closed, and
+     * the keeper below started it again a few seconds later -- a Dock icon
+     * that quit and came back, over and over, for as long as Harmony was on.
+     *
+     * So absence has to persist before it means anything.
+     */
+    private var lastSeen: [Int: Date] = [:]
+    /// How long an application must go unmentioned before its tile goes.
+    private static let graceBeforeRemoval: TimeInterval = 20
     /// When each tile was last asked to start, so a refusal is retried but a
     /// slow start is not trampled on.
     private var lastLaunch: [Int: Date] = [:]
@@ -146,7 +161,22 @@ final class GuestDock {
         }
         harmonyDebug("PEDOCK apps=\(apps.map { $0.name }.joined(separator: ",")) tiles=\(tiles.count)")
         let live = Set(apps.map { $0.pid })
-        for pid in tiles.keys where !live.contains(pid) { remove(pid) }
+        let now = Date()
+        for pid in live { lastSeen[pid] = now }
+        /*
+         * An empty report says the guest has no windows open, which is a
+         * normal thing for it to say and never a reason to tear every tile
+         * down.  Anything else only retires a tile once it has been missing
+         * for long enough that the application really has gone.
+         */
+        if !apps.isEmpty {
+            for pid in tiles.keys where !live.contains(pid) {
+                guard let seen = lastSeen[pid] else { lastSeen[pid] = now; continue }
+                if now.timeIntervalSince(seen) >= Self.graceBeforeRemoval {
+                    remove(pid)
+                }
+            }
+        }
         for a in apps where tiles[a.pid] == nil {
             // PowerEmu itself is already in the Dock, and the guest's own
             // helpers have no windows to come back to.
@@ -165,6 +195,9 @@ final class GuestDock {
         try? icns.write(to: icons.appendingPathComponent("app.icns"))
         t.hasIcon = true
         tiles[pid] = t
+        // The bundle is complete now, so it can be sealed; the icon has to be
+        // in place first because the signature covers it.
+        seal(t.bundle)
         // The Dock reads the icon when the application starts, so it is only
         // launched once the icon is there to read.
         launch(pid)
@@ -209,7 +242,7 @@ final class GuestDock {
         }
         let plist: [String: Any] = [
             "CFBundleExecutable": exeName,
-            "CFBundleIdentifier": "com.spartan0285.poweremu.guestapp.\(abs(safe.hashValue))",
+            "CFBundleIdentifier": "com.spartan0285.poweremu.guestapp.\(Self.stableID(safe))",
             "CFBundleName": name,
             "CFBundleDisplayName": name,
             "CFBundlePackageType": "APPL",
@@ -228,6 +261,42 @@ final class GuestDock {
         tiles[pid] = Tile(pid: pid, name: name, bundle: bundle)
         harmonyDebug("PEDOCK built \(name) at \(bundle.path)")
         wantIcon?(pid)          // launched once its icon has arrived
+    }
+
+    /*
+     * Sign the bundle this run just built.
+     *
+     * The helper is copied out of PowerEmu, where it is signed in its own
+     * right, and a signature made for one place does not describe another: the
+     * copy lands in a bundle whose sealed resources are not the ones the
+     * signature names, and this Mac reads that as a broken application --
+     * "\u{201C}System Preferences\u{201D} is damaged and can't be opened", once for every
+     * time the keeper tried to start it.
+     *
+     * Signing the finished bundle, icon and all, is what makes it a real
+     * application rather than a copy of part of one.  Ad hoc is enough: it
+     * never leaves this Mac, and nothing is being vouched for except that the
+     * bundle is internally consistent.
+     */
+    private func seal(_ bundle: URL) {
+        let sign = Process()
+        sign.executableURL = URL(fileURLWithPath: "/usr/bin/codesign")
+        sign.arguments = ["--force", "--sign", "-", bundle.path]
+        sign.standardOutput = FileHandle.nullDevice
+        let errors = Pipe()
+        sign.standardError = errors
+        do {
+            try sign.run()
+            sign.waitUntilExit()
+        } catch {
+            harmonyDebug("PEDOCK could not run codesign: \(error.localizedDescription)")
+            return
+        }
+        if sign.terminationStatus != 0 {
+            let said = String(decoding: errors.fileHandleForReading.readDataToEndOfFile(),
+                              as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+            harmonyDebug("PEDOCK signing \(bundle.lastPathComponent) failed: \(said)")
+        }
     }
 
     private func launch(_ pid: Int) {
@@ -273,6 +342,24 @@ final class GuestDock {
         t.child?.terminate()
         tiles[pid] = nil
         lastLaunch[pid] = nil
+        lastSeen[pid] = nil
+    }
+
+    /*
+     * A bundle identifier that is the same every run.
+     *
+     * Swift seeds hashValue differently in each process, so building the
+     * identifier from it gave the same guest application a different one
+     * every time PowerEmu started.  This Mac keeps a registration per
+     * identifier, so each run added another entry for the same path and the
+     * old ones stayed behind pointing at a bundle that had been rewritten.
+     */
+    private static func stableID(_ name: String) -> String {
+        var h: UInt64 = 0xcbf29ce484222325          // FNV-1a
+        for b in name.utf8 {
+            h = (h ^ UInt64(b)) &* 0x100000001b3
+        }
+        return String(h, radix: 36)
     }
 
     /// An .icns holding the one size the Dock needs.
