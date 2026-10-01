@@ -154,6 +154,12 @@ if [ "$SIGN" != "-" ]; then
     codesign --force --sign "$SIGN" $TIMESTAMP $RUNTIME --entitlements "$ROOT/app/Resources/PowerEmuVM.entitlements" "$HELPER" >/dev/null
 fi
 codesign --force --sign "$SIGN" $TIMESTAMP $RUNTIME "$OUT/Contents/Helpers/poweremu-netd" >/dev/null
+# The helper that holds a guest application's Dock tile.  It was added after
+# this list was written and never joined it, so it went out unsigned: no
+# Developer ID, no secure timestamp, no hardened runtime.  Everything else in
+# the bundle was signed, so nothing looked wrong until Apple refused the whole
+# archive over this one file.
+codesign --force --sign "$SIGN" $TIMESTAMP $RUNTIME "$OUT/Contents/Helpers/PowerEmuGuestApp" >/dev/null
 codesign --force --sign "$SIGN" $TIMESTAMP $RUNTIME --entitlements "$ROOT/app/Resources/PowerEmu.entitlements" "$OUT/Contents/MacOS/PowerEmu" >/dev/null
 if [ "${POWEREMU_SMP:-0}" = 1 ]; then
     # Hash the final signed executable: signing changes its bytes. This record
