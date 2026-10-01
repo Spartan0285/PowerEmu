@@ -81,6 +81,9 @@ struct VMConfig: Codable, Equatable {
     static let classicDefaultMemoryMB = 512
     /// Memory choices offered for a classic guest.
     static let classicMemoryChoices = [256, 512, 768, 1024]
+    /// Video memory offered to a classic guest.  64 MB and 128 MB were both
+    /// measured booting Mac OS 9.2.2; 256 MB was not, so it is not offered.
+    static let classicVRAMChoices = [64, 128]
 
     /// What this machine will actually be started with.
     var effectiveMemoryMB: Int {
@@ -171,8 +174,15 @@ struct VMConfig: Codable, Equatable {
             }
         }
         let host = screen?.frame.size ?? CGSize(width: 4096, height: 4096)
-        for (w, h) in [(1024, 768), (1152, 870), (1280, 800), (1280, 1024),
-                       (1440, 900), (1680, 1050), (1920, 1200)]
+        /*
+         * The small 4:3 sizes come first and are offered to every machine,
+         * not just a classic one.  A guest that has been left in a mode its
+         * display cannot show -- picked inside the guest, by hand -- is hard
+         * to get out of from inside, and the startup resolution is the way
+         * back.  832 x 624 and 1152 x 870 are the old Apple multiscan sizes.
+         */
+        for (w, h) in [(640, 480), (800, 600), (832, 624), (1024, 768), (1152, 870),
+                       (1280, 800), (1280, 1024), (1440, 900), (1680, 1050), (1920, 1200)]
         where CGFloat(w) <= host.width && CGFloat(h) <= host.height {
             out.append(DisplayMode(label: "\(w) × \(h)", width: w, height: h))
         }

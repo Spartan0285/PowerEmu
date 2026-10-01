@@ -279,12 +279,18 @@ struct MachineDetail: View {
                 TextField("System", text: binding(\.osName))
                 Picker("CPUs", selection: binding(\.cpuCount)) {
                     Text("1 CPU").tag(1)
-                    if SMPCapabilities.load(helper: VMRunner.helperURL) != nil || vm.config.cpuCount == 2 {
+                    // Classic Mac OS is single-processor: Mac OS 9 runs on one
+                    // CPU whatever the machine has, so a second is not offered.
+                    if !vm.config.classic,
+                       SMPCapabilities.load(helper: VMRunner.helperURL) != nil || vm.config.cpuCount == 2 {
                         Text("2 CPUs (experimental)").tag(2)
                     }
                 }
-                .disabled(vm.asleep)
-                if vm.asleep {
+                .disabled(vm.asleep || vm.config.classic)
+                if vm.config.classic {
+                    Text("\(vm.config.osName) uses one processor.")
+                        .font(.caption).foregroundStyle(.secondary)
+                } else if vm.asleep {
                     Text("Wake and shut down this virtual Mac before changing its CPUs.")
                         .font(.caption).foregroundStyle(.secondary)
                 } else if SMPCapabilities.load(helper: VMRunner.helperURL) != nil {
@@ -292,9 +298,16 @@ struct MachineDetail: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Picker("Memory", selection: binding(\.memoryMB)) {
-                    ForEach([512, 768, 1024, 1536, 2048], id: \.self) {
+                    ForEach(vm.config.classic ? VMConfig.classicMemoryChoices
+                                              : [512, 768, 1024, 1536, 2048], id: \.self) {
                         Text($0 >= 1024 ? "\(Double($0) / 1024, specifier: "%g") GB" : "\($0) MB").tag($0)
                     }
+                }
+                if vm.config.classic {
+                    // Measured: 1 GB starts, 1.5 GB and 2 GB fail in Open
+                    // Firmware before the Mac OS ROM runs.
+                    Text("More than 1 GB stops \(vm.config.osName) starting.")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
             }
 
@@ -318,9 +331,22 @@ struct MachineDetail: View {
                     }
                 }
                 Toggle("Start when PowerEmu opens", isOn: binding(\.autoStart))
-                Toggle("Verbose startup (show messages instead of the Apple logo)", isOn: binding(\.verboseBoot))
-                Toggle("Safe Boot (skip third-party extensions)", isOn: binding(\.safeBoot))
-                Toggle("Single-user mode (a root prompt instead of the desktop)", isOn: binding(\.singleUser))
+                /*
+                 * These three are Mac OS X boot-args.  Classic Mac OS has no
+                 * equivalent PowerEmu can set from here: extensions are
+                 * skipped by holding Shift as the guest starts, and there is
+                 * no single-user mode at all.
+                 */
+                Group {
+                    Toggle("Verbose startup (show messages instead of the Apple logo)", isOn: binding(\.verboseBoot))
+                    Toggle("Safe Boot (skip third-party extensions)", isOn: binding(\.safeBoot))
+                    Toggle("Single-user mode (a root prompt instead of the desktop)", isOn: binding(\.singleUser))
+                }
+                .disabled(vm.config.classic)
+                if vm.config.classic {
+                    Text("These are Mac OS X startup options. In \(vm.config.osName), hold Shift as it starts to skip extensions.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
             }
 
                 }.formStyle(.grouped).disabled(locked)
@@ -388,10 +414,15 @@ struct MachineDetail: View {
                 Toggle("Offer resolutions shaped like this Mac’s screen", isOn: binding(\.extraDisplayModes))
                 Toggle("Hardware cursor", isOn: binding(\.hardwareCursor))
                 Picker("Video memory", selection: binding(\.vramMB)) {
-                    ForEach(VMConfig.vramChoices, id: \.self) { Text("\($0) MB").tag($0) }
+                    ForEach(vm.config.classic ? VMConfig.classicVRAMChoices
+                                              : VMConfig.vramChoices, id: \.self) { Text("\($0) MB").tag($0) }
                 }
                 LabeledContent("Graphics acceleration") {
-                    Text("On — Quartz Extreme and OpenGL")
+                    // Quartz Extreme and the OpenGL renderer are Mac OS X's,
+                    // driven by its own ATI driver.  Classic Mac OS has
+                    // neither; it draws through the card's framebuffer.
+                    Text(vm.config.classic ? "Not available in \(vm.config.osName)"
+                                           : "On — Quartz Extreme and OpenGL")
                         .foregroundStyle(.secondary)
                 }
             } header: {
@@ -411,7 +442,11 @@ struct MachineDetail: View {
                 Toggle("Reach the guest’s Remote Login (ssh) at localhost:\(String(vm.sshPortInUse ?? vm.config.sshPort ?? 2222))", isOn: Binding(
                     get: { vm.config.sshPort != nil },
                     set: { vm.config.sshPort = $0 ? 2222 : nil; try? vm.save() }))
-                    .disabled(!vm.config.network)
+                    .disabled(!vm.config.network || vm.config.classic)
+                if vm.config.classic {
+                    Text("\(vm.config.osName) has no Remote Login (ssh) to reach.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
             }.disabled(locked)
 
                     NetworkShareSection(vm: vm)
@@ -421,11 +456,27 @@ struct MachineDetail: View {
 
     private var devicesTab: some View {
         Form {
-                    Section("Sound") {
+                    Section {
                 Picker("Sound", selection: binding(\.audio)) {
                     Text("On").tag("coreaudio")
                     Text("Off").tag("none")
                 }
+                .disabled(vm.config.classic)
+                    } header: {
+                        Text("Sound")
+                    } footer: {
+                        /*
+                         * The emulated AWACS answers Mac OS X's driver, not
+                         * Mac OS 9's: left in place, Apple Audio Extension
+                         * takes an address error at startup.  PowerEmu keeps
+                         * the sound hardware out of a classic guest's device
+                         * tree entirely -- see VMRunner -- so there is nothing
+                         * here to turn on.
+                         */
+                        if vm.config.classic {
+                            Text("Sound is not available in \(vm.config.osName) yet. The emulated audio hardware answers Mac OS X's driver, and \(vm.config.osName) crashes on it at startup, so PowerEmu leaves it out.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
                     }.disabled(locked)
                     ToolsSection(vm: vm)
                     GamepadSection(vm: vm)
@@ -626,6 +677,25 @@ struct ToolsSection: View {
     @ObservedObject var vm: VirtualMachine
 
     var body: some View {
+        if vm.config.classic { classicSection } else { toolsSection }
+    }
+
+    /// Classic Mac OS: the agent cannot run, so the section says so rather
+    /// than offering an install that would fail.
+    private var classicSection: some View {
+        Section {
+            Label("Not available in \(vm.config.osName)", systemImage: "circle.slash")
+                .foregroundStyle(.secondary)
+            Toggle("Share the clipboard with this Mac", isOn: .constant(false)).disabled(true)
+        } header: {
+            Text("PowerEmu Tools")
+        } footer: {
+            Text("PowerEmu Tools is a Mac OS X application, so it does not run in \(vm.config.osName). The shared clipboard and Harmony need it.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    private var toolsSection: some View {
         Section {
             HStack {
                 if let info = vm.agent?.info {
@@ -651,11 +721,24 @@ struct ToolsSection: View {
             }
             Toggle("Share the clipboard with this Mac", isOn: Binding(
                 get: { vm.config.shareClipboard }, set: { vm.setShareClipboard($0) }))
+                .disabled(vm.config.classic)
         } header: {
             Text("PowerEmu Tools")
         } footer: {
-            Text("With PowerEmu Tools installed in Mac OS X, text you copy on either Mac can be pasted on the other, and Shut Down and Restart work without asking.")
-                .font(.caption).foregroundStyle(.secondary)
+            /*
+             * The guest agent is a Mac OS X application built against Tiger's
+             * frameworks, so none of what it provides -- the shared clipboard,
+             * clean Shut Down and Restart, Harmony's window list -- reaches a
+             * classic guest.  Saying so is better than offering a disc that
+             * will not install.
+             */
+            if vm.config.classic {
+                Text("PowerEmu Tools is a Mac OS X application, so it does not run in \(vm.config.osName). The shared clipboard and Harmony need it.")
+                    .font(.caption).foregroundStyle(.secondary)
+            } else {
+                Text("With PowerEmu Tools installed in Mac OS X, text you copy on either Mac can be pasted on the other, and Shut Down and Restart work without asking.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
         }
     }
 }

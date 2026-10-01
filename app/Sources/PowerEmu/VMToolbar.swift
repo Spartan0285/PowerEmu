@@ -34,8 +34,10 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
         guard let vm else { devicesBadge.isHidden = true; return }
         // Only point at Devices when opening it leads somewhere: without a
         // Tools disc the menu can explain the situation but not mend it.
+        // PowerEmu Tools is a Mac OS X application; a classic guest is never
+        // nagged about an install that cannot work there.
         let show = vm.state == .running && vm.toolsState.needsAttention
-            && VirtualMachine.toolsDiscURL != nil
+            && VirtualMachine.toolsDiscURL != nil && !vm.config.classic
         devicesBadge.isHidden = !show
         if show, devicesBadge.superview == nil {
             devicesButton.addSubview(devicesBadge)
@@ -96,7 +98,7 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
         seg.controlSize = .small
         mouseControl = seg
 
-        let items: [NSView] = [
+        var items: [NSView] = [
             seg,
             separator(),
             menuButton("keyboard", "Keys", "Send keys this Mac would keep for itself", keys),
@@ -106,9 +108,19 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
             labelledButton("moon.fill", "Sleep", "Save the virtual Mac as it is and close it", #selector(sleepMachine)),
             menuButton("power", "Power", "Shut down, restart or force off", power),
             OverlayBar.space(),
-            labelledButton("macwindow.on.rectangle", "Harmony",
+        ]
+        /*
+         * Harmony puts the guest's windows on this Mac's desktop by asking
+         * the guest agent what windows it has.  The agent is a Mac OS X
+         * application, so there is nothing to ask in a classic guest and the
+         * button is left out rather than offered and doing nothing.
+         */
+        if vm?.config.classic != true {
+            items.append(labelledButton("macwindow.on.rectangle", "Harmony",
                            "In testing: show the virtual Mac's windows on this Mac's desktop, without its wallpaper (Control-Option-H)",
-                           #selector(toggleHarmony)),
+                           #selector(toggleHarmony)))
+        }
+        items += [
             labelledButton("speedometer", "Stats", "Show what the virtual Mac and this Mac are doing (Control-Option-P)", #selector(togglePerf)),
             labelledButton("arrow.up.left.and.arrow.down.right", "Full Screen", "Fill the screen (Control-Option-F)", #selector(fullScreen)),
         ]
