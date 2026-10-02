@@ -482,7 +482,11 @@ final class VMDisplayView: NSView {
     var qemuPID: (() -> pid_t?)?
     private let hostStats = HostStats()
     var showsPerformance: Bool { perfTimer != nil }
-    private(set) var guestSize = CGSize(width: 1024, height: 768)
+    private(set) var guestSize = CGSize(width: 1024, height: 768) {
+        // Scanlines and the phosphor mask are sized from the guest's screen,
+        // so a resolution change has to rebuild the filter.
+        didSet { if guestSize != oldValue, panelFilter > 0 { applyPanelFilter() } }
+    }
     private var cursorHot = CGPoint.zero
     private var cursorPos = CGPoint.zero
     private var cursorSize = CGSize.zero
@@ -1937,6 +1941,29 @@ final class VMDisplayView: NSView {
     /// with it; Control-Option-G gives it back.
     enum MouseMode: String { case seamless, captured }
 
+    /// VMConfig.panelFilter: period display emulation, 0 for off.
+    var panelFilter: Int = 0 {
+        didSet { guard panelFilter != oldValue else { return }; applyPanelFilter() }
+    }
+
+    /*
+     * The filter goes on the screen layer, so it costs one GPU pass over a
+     * layer that is already being composited and nothing on the CPU.  The
+     * guest's own size is handed to the kernel because the scanlines and the
+     * phosphor mask belong on the guest's pixels, not on this Mac's.
+     */
+    private func applyPanelFilter() {
+        guard panelFilter > 0, PanelFilters.kernel != nil else {
+            screen.filters = nil
+            return
+        }
+        let f = PanelFilter()
+        f.inputMode = NSNumber(value: panelFilter)
+        f.inputWidth = NSNumber(value: Double(guestSize.width))
+        f.inputHeight = NSNumber(value: Double(guestSize.height))
+        screen.filters = [f]
+    }
+
     /// VMConfig.scaling: "smooth", "sharp" or "integer".  See the note there.
     var scaling: String = "smooth" {
         didSet { guard scaling != oldValue else { return }; needsLayout = true }
@@ -2334,6 +2361,7 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
         }
         display.mouseMode = VMDisplayView.MouseMode(rawValue: vm.config.mouseMode) ?? .seamless
         display.scaling = vm.config.scaling
+        display.panelFilter = vm.config.panelFilter
         toolbar = VMToolbarController(self)
         display.controls = toolbar
         display.addSubview(toolbar!.bar)

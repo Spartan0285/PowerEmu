@@ -79,8 +79,16 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
          * in the configurator because it is the kind of thing a reader wants
          * to flip while looking at the screen and judge by eye.
          */
+        header(filters, "Scaling")
         for (value, title) in VMConfig.scalingChoices {
             let it = entry(title, #selector(setScaling(_:)))
+            it.representedObject = value
+            filters.addItem(it)
+        }
+        filters.addItem(.separator())
+        header(filters, "Display")
+        for (value, title) in PanelFilters.choices {
+            let it = entry(title, #selector(setPanelFilter(_:)))
             it.representedObject = value
             filters.addItem(it)
         }
@@ -202,6 +210,13 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
         vm.config.scaling = mode
         try? vm.save()
         display?.scaling = mode
+    }
+
+    @MainActor @objc private func setPanelFilter(_ sender: NSMenuItem) {
+        guard let vm, let mode = sender.representedObject as? Int else { return }
+        vm.config.panelFilter = mode
+        try? vm.save()
+        display?.panelFilter = mode
     }
 
     private func menuButton(_ symbol: String, _ title: String, _ tip: String, _ menu: NSMenu) -> NSButton {
@@ -373,9 +388,11 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         if menu === filters {
             // Tick whichever scaling the machine is set to.
-            let now = vm?.config.scaling ?? "smooth"
+            let scale = vm?.config.scaling ?? "smooth"
+            let panel = vm?.config.panelFilter ?? 0
             for it in menu.items {
-                it.state = (it.representedObject as? String) == now ? .on : .off
+                if let v = it.representedObject as? String { it.state = v == scale ? .on : .off }
+                if let v = it.representedObject as? Int { it.state = v == panel ? .on : .off }
             }
             return
         }

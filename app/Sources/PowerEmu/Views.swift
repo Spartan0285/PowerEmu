@@ -415,6 +415,9 @@ struct MachineDetail: View {
                 Picker("Scaling", selection: binding(\.scaling)) {
                     ForEach(VMConfig.scalingChoices, id: \.0) { Text($0.1).tag($0.0) }
                 }
+                Picker("Display filter", selection: binding(\.panelFilter)) {
+                    ForEach(PanelFilters.choices, id: \.0) { Text($0.1).tag($0.0) }
+                }
                 Toggle("Hardware cursor", isOn: binding(\.hardwareCursor))
                 Picker("Video memory", selection: binding(\.vramMB)) {
                     ForEach(vm.config.classic ? VMConfig.classicVRAMChoices

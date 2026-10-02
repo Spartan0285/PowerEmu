@@ -146,6 +146,10 @@ struct VMConfig: Codable, Equatable {
      *             than stretched to the last few points.
      */
     var scaling = "smooth"
+
+    /// Period display emulation over the guest's screen; 0 is off.  The
+    /// numbering is PocketShaver's -- see PanelFilters.
+    var panelFilter = 0
     static let scalingChoices: [(String, String)] = [
         ("smooth",  "Smooth"),
         ("sharp",   "Sharp"),
@@ -255,7 +259,7 @@ struct VMConfig: Codable, Equatable {
         case bootChime, chimeSound, chimeFile, bootWidth, bootHeight, autoStart, verboseBoot, safeBoot, singleUser, audio, network, sshPort, shareClipboard, sharedFolders
         case agpBridge, monitorPort, gpuTrace, extraQEMUArgs, gamepad, shareOnNetwork, bridgedInterface
         case externalDisk
-        case classic, scaling
+        case classic, scaling, panelFilter
     }
 
     init(from decoder: Decoder) throws {
@@ -279,6 +283,7 @@ struct VMConfig: Codable, Equatable {
         try get(.bootFromDisc, &d.bootFromDisc)
         try get(.classic, &d.classic)
         try get(.scaling, &d.scaling)
+        try get(.panelFilter, &d.panelFilter)
         try get(.hardwareCursor, &d.hardwareCursor); try get(.extraDisplayModes, &d.extraDisplayModes)
         try get(.startFullscreen, &d.startFullscreen); try get(.bootChime, &d.bootChime)
         try get(.chimeSound, &d.chimeSound)
