@@ -179,6 +179,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
                 // The tools have just said which version they are: the Devices
                 // badge depends on it.
                 self?.onToolsChanged?()
+                self?.runOnConnectCommandIfAsked()
             }
             a.onWindows = { [weak self] rects in self?.display?.deliverWindows(rects) }
             a.onDragWindows = { [weak self] ids in self?.display?.onDragWindows?(ids) }
@@ -539,6 +540,28 @@ final class VirtualMachine: ObservableObject, Identifiable {
     /// The URL a shared folder has inside the guest, as Mac OS X's mount
     /// volume wants it: not percent-encoded (webdavfs encodes it itself).
     static func guestURL(_ f: SharedFolder) -> String { "http://10.0.2.100/\(f.name)/" }
+
+
+    /// `POWEREMU_AGENT_RUN` -- a shell line for the guest to run as soon as
+    /// the tools connect, so the guest can be measured from here: `sysctl
+    /// hw.ncpu`, `hostinfo`, a timed parallel workload.  The output goes to
+    /// this process's log, and to the file named by `POWEREMU_AGENT_RUN_OUT`
+    /// if there is one.  Nothing in PowerEmu's interface sets either of these:
+    /// a guest runs what whoever started the emulator asked for, and no more.
+    private func runOnConnectCommandIfAsked() {
+        let env = ProcessInfo.processInfo.environment
+        guard let command = env["POWEREMU_AGENT_RUN"], !command.isEmpty,
+              let agent else { return }
+        let seconds = TimeInterval(env["POWEREMU_AGENT_RUN_TIMEOUT"] ?? "") ?? 300
+        if let path = env["POWEREMU_AGENT_RUN_OUT"] {
+            agent.onRunResult = { token, status, elapsed, note, output in
+                let report = String(format: "RUN %@ status=%d %.3fs (%@)\n%@",
+                                    token, status, elapsed, note, output)
+                try? report.write(toFile: path, atomically: true, encoding: .utf8)
+            }
+        }
+        agent.run(command, timeout: seconds, token: "onconnect")
+    }
 
     private func mountSharedFolders() {
         for f in config.sharedFolders { agent?.send("MOUNT", "\(Self.guestURL(f))\t\(f.name)") }

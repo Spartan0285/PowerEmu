@@ -67,6 +67,8 @@ extern CGError CGSOrderWindow(CGSConnectionID cid, CGSWindowID wid, int mode, CG
 extern CGError CGSGetWindowOwner(CGSConnectionID cid, CGSWindowID wid, CGSConnectionID *owner);
 extern CGError CGSConnectionGetPID(CGSConnectionID cid, pid_t *pid, CGSConnectionID owner);
 #include <sys/socket.h>
+#include <sys/select.h>
+#include <signal.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
@@ -218,6 +220,9 @@ static int AgentPort(void)
 - (void)setMinimiseEffect:(NSString *)effect;
 - (void)set:(NSString *)domain key:(NSString *)key yes:(BOOL)yes keep:(BOOL)keep;
 - (void)run:(NSString *)tool with:(NSArray *)args;
+- (void)runRequest:(NSString *)args;
+- (void)runWorker:(NSArray *)job;
+- (void)runResult:(NSArray *)result;
 - (void)sendAppIcon:(NSString *)pidStr;
 - (BOOL)reportMenuBarFor:(pid_t)pid;
 - (void)reportMenuItems:(NSString *)args;
@@ -951,6 +956,8 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
         SendLoginwindowEvent(kAEShutDown);
     } else if ([verb isEqualToString:@"RESTART"]) {
         SendLoginwindowEvent(kAERestart);
+    } else if ([verb isEqualToString:@"RUN"]) {
+        [self runRequest:text];
     } else if ([verb isEqualToString:@"MOUNT"]) {
         [self mount:text];
     } else if ([verb isEqualToString:@"UNMOUNT"]) {
@@ -1113,6 +1120,144 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
         /* A Mac without the tool is not a reason to take the agent down. */
     NS_ENDHANDLER
     [t release];
+}
+
+
+/*
+ * RUN: a shell line from the host, its combined output back.  This exists so
+ * the host can measure the guest -- `sysctl hw.ncpu`, `hostinfo`, a timed
+ * parallel build -- without a person driving the screen.
+ *
+ *     host  -> RUN <token> <seconds> <command line>
+ *     guest -> RUNRESULT <token> <status> <elapsed> <note>\n<output>
+ *
+ * <seconds> is a deadline, 0 for none -- SIGTERM at the deadline, SIGKILL five
+ * seconds later; <token> is echoed back so the host can match a reply to its
+ * request.  <status> is the shell's exit status, or -1 if
+ * it could not be started.
+ *
+ * It runs on a worker thread.  The agent's run loop drives Harmony's capture
+ * and pointer path, and a command that takes a minute must not stop it; the
+ * reply therefore goes back through the main thread, as every other worker
+ * here does, because the socket belongs to it.
+ */
+enum { PERunOutputCap = 256 * 1024 };
+
+- (void)runRequest:(NSString *)args
+{
+    NSArray *f = [args componentsSeparatedByString:@" "];
+    if ([f count] < 3) return;
+    NSString *token = [f objectAtIndex:0];
+    double limit = [[f objectAtIndex:1] doubleValue];
+    NSRange rest = [args rangeOfString:@" "];
+    NSString *tail = [args substringFromIndex:rest.location + 1];
+    rest = [tail rangeOfString:@" "];
+    NSString *command = [tail substringFromIndex:rest.location + 1];
+    if (![command length]) return;
+    [NSThread detachNewThreadSelector:@selector(runWorker:) toTarget:self
+        withObject:[NSArray arrayWithObjects:token,
+                       [NSNumber numberWithDouble:limit], command, nil]];
+}
+
+- (void)runWorker:(NSArray *)job
+{
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+    NSString *token = [job objectAtIndex:0];
+    double limit = [[job objectAtIndex:1] doubleValue];
+    NSString *command = [job objectAtIndex:2];
+    CFAbsoluteTime began = CFAbsoluteTimeGetCurrent();
+    NSMutableData *out = [NSMutableData data];
+    NSString *note = @"ok";
+    int status = -1;
+    BOOL launched = NO;
+    NSTask *t = [[NSTask alloc] init];
+    NSPipe *pipe = [NSPipe pipe];
+
+    [t setLaunchPath:@"/bin/sh"];
+    [t setArguments:[NSArray arrayWithObjects:@"-c", command, nil]];
+    [t setStandardOutput:pipe];
+    [t setStandardError:pipe];
+    /* Not the agent's own stdin: a command that reads should see EOF. */
+    [t setStandardInput:[NSFileHandle fileHandleForReadingAtPath:@"/dev/null"]];
+    NS_DURING
+        [t launch];
+        launched = YES;
+    NS_HANDLER
+        note = @"could not start /bin/sh";
+    NS_ENDHANDLER
+
+    if (launched) {
+        int fd = [[pipe fileHandleForReading] fileDescriptor];
+        BOOL killed = NO, capped = NO;
+        /* Our copy of the write end has to go, or EOF never arrives. */
+        [[pipe fileHandleForWriting] closeFile];
+        for (;;) {
+            fd_set readable;
+            struct timeval tick = { 0, 200000 };
+            int ready;
+            FD_ZERO(&readable);
+            FD_SET(fd, &readable);
+            ready = select(fd + 1, &readable, NULL, NULL, &tick);
+            if (ready > 0) {
+                char buf[16384];
+                ssize_t got = read(fd, buf, sizeof buf);
+                if (got > 0) {
+                    if ([out length] + got <= PERunOutputCap) {
+                        [out appendBytes:buf length:(unsigned)got];
+                    } else if (!capped) {
+                        capped = YES;
+                        note = @"output truncated";
+                    }
+                    continue;
+                }
+                if (got < 0 && (errno == EINTR || errno == EAGAIN)) continue;
+                break;                      /* 0 is EOF: the child is done */
+            }
+            if (ready < 0 && errno != EINTR) break;
+            if (limit > 0 && CFAbsoluteTimeGetCurrent() - began > limit) {
+                if (!killed) {
+                    /* Ask, keep draining -- it may still be writing as it goes. */
+                    [t terminate];
+                    killed = YES;
+                    if (!capped) note = @"timed out";
+                } else if (CFAbsoluteTimeGetCurrent() - began > limit + 5) {
+                    /* It is ignoring SIGTERM.  Without this the wait below
+                     * would sit here until it finished of its own accord,
+                     * which is the one thing a deadline is meant to prevent.
+                     * Only the shell dies; anything it has forked is left
+                     * orphaned, because the task shares this process's group
+                     * and killing the group would kill the agent too. */
+                    kill([t processIdentifier], SIGKILL);
+                    if (!capped) note = @"timed out, killed";
+                    break;
+                }
+            }
+        }
+        [t waitUntilExit];
+        status = [t terminationStatus];
+        [[pipe fileHandleForReading] closeFile];
+    }
+    [t release];
+
+    [self performSelectorOnMainThread:@selector(runResult:)
+        withObject:[NSArray arrayWithObjects:token,
+                       [NSNumber numberWithInt:status],
+                       [NSNumber numberWithDouble:CFAbsoluteTimeGetCurrent() - began],
+                       note, out, nil]
+        waitUntilDone:NO];
+    [pool release];
+}
+
+- (void)runResult:(NSArray *)result
+{
+    if (sock < 0) return;
+    NSString *head = [NSString stringWithFormat:@"%@ %d %.3f %@\n",
+        [result objectAtIndex:0], [[result objectAtIndex:1] intValue],
+        [[result objectAtIndex:2] doubleValue], [result objectAtIndex:3]];
+    NSMutableData *d = [NSMutableData dataWithData:
+        [head dataUsingEncoding:NSUTF8StringEncoding]];
+    [d appendData:[result objectAtIndex:4]];
+    [self send:@"RUNRESULT" data:d];
 }
 
 - (void)set:(NSString *)domain key:(NSString *)key yes:(BOOL)yes keep:(BOOL)keep

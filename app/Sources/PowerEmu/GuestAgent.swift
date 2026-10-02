@@ -46,6 +46,9 @@ final class GuestAgent: ObservableObject {
     var onMenuBar: ((Int, String, [(index: Int, title: String)]) -> Void)?
     /// Everything in one of those menus, once it has been asked for.
     var onMenuItems: ((Int, String, [HarmonyMenuItem]) -> Void)?
+    /// A RUN has finished: its token, the shell's exit status, how long it
+    /// took, the agent's note, and the command's combined output.
+    var onRunResult: ((String, Int, Double, String, String) -> Void)?
     private var listenFD: Int32 = -1
     private var acceptSource: DispatchSourceRead?
     private var conn: Connection?
@@ -158,6 +161,18 @@ final class GuestAgent: ObservableObject {
 
     func send(_ verb: String, _ text: String) { send(verb, Data(text.utf8)) }
 
+    /// Run a shell line in the guest and hand its output to `onRunResult`.
+    ///
+    /// For measuring the guest from here - `sysctl hw.ncpu`, `hostinfo`, a
+    /// timed parallel workload - rather than reading it off the screen.  The
+    /// agent runs each one on its own thread, so a slow command does not stop
+    /// Harmony; `timeout` of 0 lets it run as long as it likes.
+    @discardableResult
+    func run(_ command: String, timeout: TimeInterval = 120, token: String = UUID().uuidString.prefix(8).lowercased()) -> String {
+        send("RUN", "\(token) \(Int(timeout)) \(command)")
+        return token
+    }
+
     func send(_ verb: String, _ payload: Data = Data()) {
         conn?.send(verb, payload)
     }
@@ -200,6 +215,15 @@ final class GuestAgent: ObservableObject {
         case "LOG":
             NSLog("PowerEmu Agent: %@", text)
             harmonyDebug("PEAGENT " + text)
+        case "RUNRESULT":
+            // "<token> <status> <elapsed> <note>\n<output>"
+            let split = text.range(of: "\n")
+            let head = (split.map { String(text[text.startIndex..<$0.lowerBound]) } ?? text)
+                .split(separator: " ", maxSplits: 3).map(String.init)
+            let output = split.map { String(text[$0.upperBound...]) } ?? ""
+            guard head.count == 4, let status = Int(head[1]), let elapsed = Double(head[2]) else { return }
+            NSLog("PowerEmu RUN %@ status=%d %.3fs (%@)\n%@", head[0], status, elapsed, head[3], output)
+            onRunResult?(head[0], status, elapsed, head[3], output)
         case "FULLSCREEN":
             if text == "captured" { onGuestFullscreen?() }
         case "WINDOWS":
