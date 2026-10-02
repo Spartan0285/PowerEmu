@@ -171,8 +171,25 @@ final class VMRunner {
          * still boots.  Mac OS X keeps its sound; this costs a classic guest
          * audio until the device itself is taught Mac OS 9's driver.
          */
+        /*
+         * poweremu-audio's device-tree node, so a guest driver can find it.
+         *
+         * The device is in macio at 0x17000 whatever the guest, but nothing
+         * looks there without a node to point the way.  Published from here
+         * rather than from the firmware because the firmware we ship is a
+         * prebuilt binary; this is the same mechanism that edits the sound
+         * node below, and it needs no rebuild.
+         *
+         * AAPL,address carries the absolute address, which is what a classic
+         * Mac OS driver reads out of the Name Registry.  reg carries the
+         * macio-relative offset and length, the way the other macio children
+         * do.  device_type is deliberately not "sound": nothing of Apple's
+         * should try to claim this.
+         */
+        let audioNode = c.classic ? #"" /pci@f2000000/mac-io@c" find-device new-device " poweremu-audio" device-name " poweremu-sound" device-type " poweremu,audio" encode-string " compatible" property h# 17000 encode-int h# 1000 encode-int encode+ " reg" property h# 80017000 encode-int " AAPL,address" property finish-device device-end "# : ""
+
         let soundOff = c.classic ? #"" /pci@f2000000/mac-io@c/davbus@14000" ['] find-device catch 0= if " device_type" delete-property " compatible" delete-property " AAPL,clock-id" delete-property device-end then " /pci@f2000000/mac-io@c/davbus@14000/sound" ['] find-device catch 0= if " sound-objects" delete-property " model" delete-property device-end then "# : ""
-        let bootCmd = #"boot-command="# + cpuSpeed + pciRanges + #"" /pci@f2000000" find-device " uni-north" encode-string " compatible" property device-end " /pci@f2000000/ATY,Adagio@e" ['] find-device catch 0= if 7 encode-int " IOAGPFlags" property h# 104 encode-int " IOAGPCommandValue" property device-end then " /pci@f2000000/QEMU,VGA@e" ['] find-device catch 0= if h# "# + vramHex + #" encode-int " VRAM,totalsize" property device-end then "# + soundOff + #"boot"#
+        let bootCmd = #"boot-command="# + cpuSpeed + pciRanges + #"" /pci@f2000000" find-device " uni-north" encode-string " compatible" property device-end " /pci@f2000000/ATY,Adagio@e" ['] find-device catch 0= if 7 encode-int " IOAGPFlags" property h# 104 encode-int " IOAGPCommandValue" property device-end then " /pci@f2000000/QEMU,VGA@e" ['] find-device catch 0= if h# "# + vramHex + #" encode-int " VRAM,totalsize" property device-end then "# + soundOff + audioNode + #"boot"#
 
         var a: [String] = [
             "-name", c.name,
