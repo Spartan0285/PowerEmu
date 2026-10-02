@@ -59,6 +59,19 @@ cp "$ROOT/LICENSE" "$ROOT/COPYING" "$ROOT/THIRD-PARTY-NOTICES.md" "$ROOT/TERMS.m
 cp "$ROOT/app/Resources/cytruslogo.png" "$ROOT/app/Resources/cytruslogo-dark.png" "$OUT/Contents/Resources/"
 # Machine icons macOS no longer has (the Cube); the rest come from the system.
 cp "$ROOT"/app/Resources/Models/*.png "$OUT/Contents/Resources/" 2>/dev/null || true
+
+# The display filters, as a Core Image kernel.  Needs Xcode's Metal toolchain
+# (xcodebuild -downloadComponent MetalToolchain); without it the app still
+# builds and runs, with the filters reporting themselves unavailable.
+if xcrun metal -c -fcikernel "$ROOT/app/Resources/PanelFilters.ci.metal" \
+        -o "$OUT/Contents/Resources/PanelFilters.air" 2>/dev/null \
+   && xcrun metallib -cikernel "$OUT/Contents/Resources/PanelFilters.air" \
+        -o "$OUT/Contents/Resources/PanelFilters.ci.metallib" 2>/dev/null; then
+    rm -f "$OUT/Contents/Resources/PanelFilters.air"
+else
+    rm -f "$OUT/Contents/Resources/PanelFilters.air"
+    echo "warning: no Metal toolchain -- display filters will be unavailable in this build" >&2
+fi
 # Files dragged in from elsewhere carry Finder metadata, and codesign
 # refuses a bundle containing it ("resource fork ... not allowed").
 xattr -cr "$OUT/Contents/Resources" 2>/dev/null || true
