@@ -43,14 +43,20 @@ enum CPUOptions {
     }
 
     static func arguments(count: Int, smpCapable: Bool) throws -> [String] {
-        guard count == 1 || count == 2 else {
-            throw Failure("Choose one or two CPUs for this virtual Mac.")
+        /*
+         * One, two or four.  KeyLargo's OpenPIC addresses four CPUs
+         * (KEYLARGO_MAX_CPU) and mac99 now allows them; no real Core99 Mac
+         * was more than dual, so four is past the hardware and whether a
+         * guest enumerates them all is the guest's business.
+         */
+        guard [1, 2, 4].contains(count) else {
+            throw Failure("Choose one, two or four CPUs for this virtual Mac.")
         }
         guard count == 1 || smpCapable else {
-            throw Failure("Two CPUs require the experimental emulator build. Choose one CPU to use this helper.")
+            throw Failure("More than one CPU requires the experimental emulator build. Choose one CPU to use this helper.")
         }
         var args = ["-smp", "cpus=\(count),sockets=\(count),cores=1,threads=1",
-                    "-accel", count == 2 ? "tcg,thread=multi,tb-size=512" : "tcg,tb-size=512"]
+                    "-accel", count > 1 ? "tcg,thread=multi,tb-size=512" : "tcg,tb-size=512"]
         if smpCapable { args += ["-cpu", "7400"] }
         return args
     }

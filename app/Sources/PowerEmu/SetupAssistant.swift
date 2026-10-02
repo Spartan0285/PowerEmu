@@ -276,7 +276,7 @@ struct NewMachineSheet: View {
     /// changes no file inside Mac OS X.
     private var personalize: InstallPlan.Personalize? {
         guard aboutStyle == .custom else { return nil }
-        return InstallPlan.Personalize(processorText: cpu.dual ? cpu.aboutText : nil,
+        return InstallPlan.Personalize(processorText: cpu.count > 1 ? cpu.aboutText : nil,
                                        modelName: chosenModel.profilerName,
                                        aboutImage: aboutPicture ? AboutBoxImage.tiff(for: chosenModel) : nil)
     }
@@ -1034,6 +1034,17 @@ struct NewMachineSheet: View {
             }
             vm.config.model = model
             vm.config.cpuMHz = cpu.mhz
+            /*
+             * And the processors themselves, not just the speed.  About This
+             * Mac was told "2 x 1.42 GHz" by the chosen configuration while
+             * the machine was still given one CPU, so a dual Power Mac ran
+             * single and said otherwise.  Only when the helper can do SMP:
+             * CPUOptions refuses more than one otherwise, which would leave
+             * a machine that cannot start.
+             */
+            if cpu.count > 1, SMPCapabilities.load(helper: VMRunner.helperURL) != nil {
+                vm.config.cpuCount = cpu.count
+            }
             try? vm.save()
             onDone(vm)
             dismiss()

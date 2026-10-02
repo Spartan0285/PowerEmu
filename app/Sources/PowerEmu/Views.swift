@@ -282,8 +282,9 @@ struct MachineDetail: View {
                     // Classic Mac OS is single-processor: Mac OS 9 runs on one
                     // CPU whatever the machine has, so a second is not offered.
                     if !vm.config.classic,
-                       SMPCapabilities.load(helper: VMRunner.helperURL) != nil || vm.config.cpuCount == 2 {
+                       SMPCapabilities.load(helper: VMRunner.helperURL) != nil || vm.config.cpuCount > 1 {
                         Text("2 CPUs (experimental)").tag(2)
+                        Text("4 CPUs (experimental)").tag(4)
                     }
                 }
                 .disabled(vm.asleep || vm.config.classic)

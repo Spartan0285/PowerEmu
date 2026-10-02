@@ -357,12 +357,22 @@ final class VMStatusView: NSView {
 
     required init?(coder: NSCoder) { fatalError() }
 
-    func show(_ text: String, _ note: String?) {
+    func show(_ text: String, _ note: String?, spinning: Bool = true) {
         title.stringValue = text
         detail.stringValue = note ?? ""
         detail.isHidden = note == nil
         isHidden = false
-        wheel.startAnimation(nil)
+        /*
+         * A failure is not a progress report.  The spinner used to keep
+         * turning under "Harmony could not match the display", which reads
+         * as still trying when nothing is happening at all.
+         */
+        wheel.isHidden = !spinning
+        if spinning {
+            wheel.startAnimation(nil)
+        } else {
+            wheel.stopAnimation(nil)
+        }
     }
 
     func hideStatus() {
@@ -600,8 +610,29 @@ final class VMDisplayView: NSView {
         channel.sendToAgent?("PREPAREHARMONY", "\(token) \(Int(target.width)) \(Int(target.height))")
         let timeout = DispatchWorkItem { [weak self] in
             guard let self, self.harmonyPreparation?.token == token else { return }
+            /*
+             * Say which half failed.  "Could not match the display" with
+             * advice to install the tools is right when the agent never
+             * answered, and misleading when it answered and the guest
+             * simply settled at a size that is not the one asked for --
+             * which is what happens when the window has moved to another
+             * screen, or the guest has no mode of exactly this size.
+             */
+            let got = self.guestSize
+            let want = self.harmonyPreparation?.target ?? .zero
+            let acked = self.harmonyPreparation?.acknowledged ?? false
             self.requestHarmony(false)
-            self.showStatus("Harmony could not match the display", "Install PowerEmu Tools \(GuestTools.shippedVersion) and restart the virtual Mac, then try again.")
+            if acked {
+                self.showStatus("Harmony could not match the display",
+                                "The virtual Mac went to \(Int(got.width))x\(Int(got.height)), "
+                                + "not \(Int(want.width))x\(Int(want.height)). "
+                                + "Try again with the window on the display you want to match.",
+                                spinning: false, dismissAfter: 12)
+            } else {
+                self.showStatus("Harmony could not match the display",
+                                "Install PowerEmu Tools \(GuestTools.shippedVersion) and restart the virtual Mac, then try again.",
+                                spinning: false, dismissAfter: 12)
+            }
         }
         harmonyPreparationTimeout = timeout
         DispatchQueue.main.asyncAfter(deadline: .now() + 12, execute: timeout)
@@ -1254,13 +1285,45 @@ final class VMDisplayView: NSView {
 
     /// Say what is happening over the screen.  `untilFirstFrame` takes the
     /// message away the moment the guest has something to show.
-    func showStatus(_ text: String, _ note: String? = nil, untilFirstFrame: Bool = false) {
+    /*
+     * `dismissible` is for a status that reports a failure rather than
+     * progress.  Nothing else clears one of those: clearStatus() is called
+     * when Harmony is turned off or finishes, and neither happens after a
+     * failure, so the overlay stayed up for the rest of the session with
+     * no way past it.  A dismissible status goes away on its own, and on
+     * the next thing the reader does.
+     */
+    private var statusDismissTimer: DispatchWorkItem?
+    private(set) var statusDismissible = false
+
+    func showStatus(_ text: String, _ note: String? = nil, untilFirstFrame: Bool = false,
+                    spinning: Bool = true, dismissAfter: TimeInterval? = nil) {
         statusUntilFrame = untilFirstFrame
-        status.show(text, note)
+        status.show(text, note, spinning: spinning)
+        statusDismissTimer?.cancel()
+        statusDismissTimer = nil
+        statusDismissible = dismissAfter != nil
+        if let after = dismissAfter {
+            let work = DispatchWorkItem { [weak self] in self?.clearStatus() }
+            statusDismissTimer = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + after, execute: work)
+        }
+    }
+
+    /// Clear a status the reader is allowed to dismiss, and say whether one
+    /// was there.  The display view calls this on a click or a key.
+    @discardableResult
+    func dismissStatusIfAllowed() -> Bool {
+        guard statusDismissible else { return false }
+        clearStatus()
+        return true
     }
 
     func clearStatus() {
         statusUntilFrame = false
+        statusDismissible = false
+        statusDismissTimer?.cancel()
+        statusDismissTimer = nil
         status.hideStatus()
     }
 
@@ -2109,6 +2172,13 @@ final class VMDisplayView: NSView {
     }
 
     override func mouseDown(with e: NSEvent) {
+        /*
+         * A failure notice goes away on the first click, and that click is
+         * spent doing it.  The status view itself cannot take the click --
+         * it returns nil from hitTest so the toolbar and the guest stay
+         * live underneath -- so it has to be caught here.
+         */
+        if dismissStatusIfAllowed() { return }
         // The overlay is the reader's, not the guest's: a click on it picks
         // it up to be dragged, and never reaches Mac OS X.
         let p = convert(e.locationInWindow, from: nil)
@@ -2211,6 +2281,7 @@ final class VMDisplayView: NSView {
 
     override func keyDown(with e: NSEvent) {
         if isHostShortcut(e) { return }
+        if dismissStatusIfAllowed() { return }   /* see mouseDown */
         if e.isARepeat { return }            // the guest repeats keys itself
         syncModifiers(e.modifierFlags)
         key(e.keyCode, true)
