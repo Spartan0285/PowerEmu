@@ -33,8 +33,42 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <Types.h>
-#include <NameRegistry.h>
+#include <MacTypes.h>
+
+/*
+ * The Name Registry, declared here rather than included.
+ *
+ * Retro68's multiversal interfaces do not cover it -- there is no
+ * NameRegistry.h and no RegEntryID in them -- but the import library is
+ * there, so the symbols link.  Retro68's own NDRV sample does the same
+ * thing for the driver interfaces, for the same reason.  Layouts are from
+ * Apple's Universal Interfaces 3.4.1.
+ */
+enum { kRegIterContinue = 1, kRegIterDescendants = 2 };
+enum { nrNotFoundErr = -2545 };
+
+typedef SInt32 OSStatus;
+typedef struct RegEntryID { UInt32 contents[4]; } RegEntryID;
+typedef struct OpaqueRegEntryIter *RegEntryIter;
+typedef UInt32 RegEntryIterationOp;
+typedef UInt32 RegPropertyValueSize;
+typedef char   RegEntryNameBuf[48];
+typedef char   RegCStrPathName;
+typedef UInt32 RegPathNameSize;
+
+extern OSStatus RegistryEntryIterateCreate(RegEntryIter *cookie);
+extern OSStatus RegistryEntryIterateDispose(RegEntryIter *cookie);
+extern OSStatus RegistryEntryIterate(RegEntryIter *cookie,
+                                     RegEntryIterationOp relationship,
+                                     RegEntryID *foundEntry, Boolean *done);
+extern OSStatus RegistryEntryIDDispose(RegEntryID *id);
+extern OSStatus RegistryCStrEntryToPath(const RegEntryID *entryID,
+                                        RegCStrPathName *pathName,
+                                        RegPathNameSize pathSize);
+extern OSStatus RegistryPropertyGet(const RegEntryID *entryID,
+                                    const char *propertyName,
+                                    void *propertyValue,
+                                    RegPropertyValueSize *propertySize);
 
 #define PEAU_ID         0x00
 #define PEAU_VERSION    0x04
@@ -53,7 +87,7 @@ static OSStatus FindDevice(RegEntryID *found)
     RegEntryID       entry;
     Boolean          done = false;
     OSStatus         err;
-    RegEntryNameBuf  name;
+    char             name[512];
 
     err = RegistryEntryIterateCreate(&iter);
     if (err != noErr) {
@@ -65,7 +99,7 @@ static OSStatus FindDevice(RegEntryID *found)
         if (err != noErr || done) {
             break;
         }
-        if (RegistryEntryToPathName(&entry, name) == noErr) {
+        if (RegistryCStrEntryToPath(&entry, name, sizeof(name)) == noErr) {
             if (strstr(name, "poweremu-audio") != NULL) {
                 printf("  found at: %s\n", name);
                 *found = entry;
