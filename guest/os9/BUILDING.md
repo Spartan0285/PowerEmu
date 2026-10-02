@@ -188,3 +188,36 @@ whole of Initialize:
 
     -device loader,addr=0x4000000,file=.../ndrvloader
     -prom-env "boot-command=init-program go"
+
+## How this reaches the app
+
+`scripts/bundle-qemu.sh` copies `pc-bios/ppc-peaudio-loader` out of the
+QEMU tree into the VM app's firmware directory, and `VMRunner` gives a
+classic guest
+
+    -device loader,addr=0x4000000,file=.../ppc-peaudio-loader
+    -device poweremu-audio
+    -prom-env "boot-command=...init-program go"
+
+`init-program go` matters: `boot` boots the disk and leaves the loader
+sitting in memory unrun, which is what it did for a while -- the driver
+was built, installed and correct, and never reached the guest.
+
+The driver is compiled *into* the loader, so changing `PEAudioNDRV.c`
+means rebuilding `PEAudio.ndrv`, copying it to the loader's
+`build/ndrv/allndrv`, rebuilding the loader, and copying that to
+`pc-bios/ppc-peaudio-loader`.
+
+## Hearing it
+
+`-audio driver=wav,path=out.wav` captures what the device plays, which is
+how all of this was checked; `driver=coreaudio` plays it.
+
+If sound comes out far slower than real time, look at the other audio
+device before suspecting this one.  QEMU mixes by taking the *minimum* of
+what every active voice has supplied, so one voice that stays active and
+supplies nothing holds back every other voice on the same backend.  The
+screamer used to do exactly that and held poweremu-audio to about one per
+cent of real time; `QEMU_AUD_DEBUG=1` in the emulator's environment prints
+each voice's state, and `PEAU_CB_TRACE=1` prints how often this device is
+asked for frames.
