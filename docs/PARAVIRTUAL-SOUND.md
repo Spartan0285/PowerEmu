@@ -76,11 +76,28 @@ This is the part that decides whether any of it is worth doing.
 
 Classic Mac OS reaches sound hardware through the Sound Manager, which
 loads a *sound output device component* -- a Component Manager component of
-type `sdev`.  The device tree names which one: the firmware already
-publishes `AAPL,sndhw-plugin-id`, `AAPL,output-component`,
-`AAPL,input-component` and `AAPL,port-handler-component` on the `sound`
-node, and those are how Mac OS 9 picks its driver.  That is the hook, and
-it is already there.
+type `sdev`.
+
+An earlier draft of this document said the device tree names which one, and
+that `AAPL,sndhw-plugin-id`, `AAPL,output-component`, `AAPL,input-component`
+and `AAPL,port-handler-component` were a hook already waiting for us.  That
+is wrong.  Those four properties exist only on Old World machines, next to
+`driver-ptr` and `driver-ref`, and their values are Old World ROM addresses
+-- they name code inside the ROM, not an extension anyone can supply.  A
+New World machine does not have them at all, which our own device tree
+confirms: the `sound` node carries `sound-objects`, `#-detects`,
+`#-features` and no `AAPL,*-component` of any kind.
+
+What a New World Mac OS 9 actually uses is an `sdev` living in the Mac OS
+ROM, and it is 68k code -- SheepShaver finds that `thng` by scanning the
+ROM for type `sdev` subtype `sing`, and splices 68k glue into it.
+
+So a component of ours would have to be registered the ordinary way: a file
+of type `thng` in System Folder:Extensions, which the Component Manager
+scans at startup.  That is a documented, supported path -- Inside Macintosh
+is explicit that third parties may write sound output device components --
+but it is a later registration competing with the ROM's, not a slot the
+firmware points at.
 
 What is not here is a way to build the component:
 
@@ -146,9 +163,10 @@ reader drags from.
    emulated Screamer.
 2. Build `poweremu-audio` in QEMU with a host-side test that drives the
    ring without a guest.  Self-contained, and worth having either way.
-3. Publish its node and point `AAPL,sndhw-plugin-id` at our component.
-   This can be done from the Open Firmware boot-command, the way the sound
-   node is already edited today, without rebuilding OpenBIOS.
+3. Publish its node, so Open Firmware maps the page and a driver can find
+   it.  This can be done from the Open Firmware boot-command, the way the
+   sound node is already edited today, without rebuilding OpenBIOS.  It
+   cannot be pointed at from `AAPL,sndhw-plugin-id`; see above.
 4. Write the component against the register interface above.
 5. Keep the emulated AWACS.  Boot-time sound comes from the Mac OS ROM
    before any extension loads, and a guest without our component installed
