@@ -40,8 +40,16 @@
 
 /*
  * What the Expansion Bus Manager matches against.  nameInfoStr is a Pascal
- * string and must equal the node's "compatible" property, which PowerEmu
- * publishes as "poweremu,audio" -- fourteen characters, hence \x0e.
+ * string naming the device-tree node: PCI enumeration names ours after its
+ * IDs, pci1b36,5045 -- twelve characters, hence \x0c.
+ *
+ * It was a macio child first, matched on a "poweremu,audio" compatible
+ * property, and Mac OS never loaded the driver: that property is read for
+ * devices PCI enumeration discovers, and an on-board device is not one.
+ * The loader that installs this driver also finds it by searching the
+ * blob for "mtej\0\0\0\0\x0cpci1b36," -- so the old name did not merely
+ * fail to match in the guest, it stopped the driver being installed at
+ * all, and the loader printed an empty name to say so.
  *
  * kDriverIsLoadedUponDiscovery gets us loaded as soon as the node is seen,
  * and kDriverIsOpenedUponLoad opens us straight after, so Initialize runs
@@ -54,9 +62,16 @@
 DriverDescription TheDriverDescription = {
     kTheDescriptionSignature,
     kInitialDriverDescriptor,
-    { "\x0epoweremu,audio", { 0x00, 0x10, 0x80, 0x00 } },
+    { "\x0cpci1b36,5045", { 0x00, 0x10, 0x80, 0x00 } },
     { kDriverIsLoadedUponDiscovery | kDriverIsOpenedUponLoad,
-      "\x0a.PEAudio" },
+      /*
+       * The driver's unit-table name, and the length byte must be right:
+       * ".PEAudio" is eight characters.  It said \x0a here, and Mac OS
+       * installs the driver in the unit table under this name *before* it
+       * issues kInitializeCommand -- so a bad name meant Initialize was
+       * never reached and the device saw nothing at all.
+       */
+      "\x08.PEAudio" },
     { 1,
       { { kServiceCategoryNdrvDriver, kNdrvTypeIsGeneric,
           { 0x00, 0x10, 0x80, 0x00 } } } }
@@ -65,24 +80,37 @@ DriverDescription TheDriverDescription = {
 static volatile UInt32 *gRegs;
 
 /*
- * The node's address, from the Name Registry rather than hardcoded: the
- * probe already showed Mac OS computes AAPL,address from reg and the
- * parent's ranges, so this is the OS's own answer rather than our guess.
+ * The node's address, patched in by the loader.
+ *
+ * This looked it up with RegistryPropertyGet, which is the documented way
+ * and works perfectly from an application -- and makes the driver never
+ * run at all.  A driver flagged kDriverIsLoadedUponDiscovery is prepared
+ * during PCI enumeration, before the file system is up, so CFM can only
+ * connect it to libraries that live in ROM.  DriverServicesLib is one;
+ * NameRegistryLib and PCILib are disk-based and are not, and an import it
+ * cannot resolve makes CFM decline the fragment.  Nothing reports this:
+ * the node still gets driver-ptr, because the code was read, but never
+ * driver-ref, and DoDriverIO is never called.
+ *
+ * So the address cannot be looked up from in here.  The loader is an Open
+ * Firmware client program that already walks to this node to install the
+ * driver, and Open Firmware can read assigned-addresses perfectly well, so
+ * it resolves the BAR and writes it into the tag below before handing the
+ * image to Mac OS.  gBarTag[2] is the address; the two words before it are
+ * what the loader searches for.
  */
+UInt32 gBarTag[3] = { 0x50454155UL,      /* 'PEAU' */
+                      0x42415230UL,      /* 'BAR0' */
+                      0xBAADF00DUL };    /* <- the loader overwrites this */
+
 static OSStatus FindRegisters(RegEntryID *entry)
 {
-    RegPropertyValueSize size = sizeof(UInt32);
-    UInt32 base = 0;
-    OSStatus err;
+    (void)entry;
 
-    err = RegistryPropertyGet(entry, "AAPL,address", &base, &size);
-    if (err != noErr) {
-        return err;
+    if (gBarTag[2] == 0xBAADF00DUL || gBarTag[2] == 0) {
+        return paramErr;        /* the loader did not patch us */
     }
-    if (base == 0) {
-        return paramErr;
-    }
-    gRegs = (volatile UInt32 *)base;
+    gRegs = (volatile UInt32 *)gBarTag[2];
     return noErr;
 }
 
@@ -130,5 +158,19 @@ OSErr DoDriverIO(AddressSpaceID spaceID, IOCommandID cmdID,
         break;
     }
 
+    /*
+     * An immediate command returns its result directly; only queued ones
+     * are completed through IOCommandIsComplete.  This called it for every
+     * command, and Mac OS 9 issues kInitializeCommand with kind
+     * kImmediateIOCommandKind -- measured, by having the driver report
+     * code and kind through the device: 0xC0DE0704, code 7 kind 4.  The
+     * effect was that Initialize ran and succeeded, the completion looked
+     * wrong, and Mac OS finalized the driver instead of opening it
+     * (0xC0DE0804 right behind it) -- so driver-ref was never created and
+     * the driver never reached the unit table.
+     */
+    if (kind & kImmediateIOCommandKind) {
+        return err;
+    }
     return IOCommandIsComplete(cmdID, err);
 }

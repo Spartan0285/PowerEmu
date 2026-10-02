@@ -106,8 +106,9 @@ export list from `github.com/elliotnunn/classicvirtio`:
         -nostartfiles -nodefaultlibs \
         -T $C/ndrv.lds -Wl,-bE:$C/ndrv.exp \
         -Wl,--gc-sections -Wl,--gc-keep-exported \
-        PEAudioNDRV.c -lDriverServicesLib -lNameRegistryLib -lInterfaceLib
+        PEAudioNDRV.c -lDriverServicesLib
     $T/bin/MakePEF peaudio.so -o PEAudio.ndrv
+    python3 fixndrvmain.py PEAudio.ndrv
 
 Three things that are not obvious:
 
@@ -118,3 +119,72 @@ Three things that are not obvious:
     which does not exist for this target.
   - The result is a bare PEF -- `Joy!peffpwpc` in the first twelve bytes --
     with no resource fork and no Rez step.
+
+## What stops an NDRV running, and how to tell
+
+Four things went wrong here in a row, and none of them reports an error --
+the driver is simply never called.  In order of how much time they cost:
+
+  - **Only ROM libraries exist when the driver is prepared.**  A driver
+    flagged `kDriverIsLoadedUponDiscovery` is prepared during PCI
+    enumeration, before the file system is up, so CFM can connect it only
+    to libraries in ROM.  `DriverServicesLib` is one.  `NameRegistryLib`
+    and `PCILib` are disk-based and are not: import either and CFM declines
+    the fragment.  The node still gets a `driver-ptr` property, because the
+    code was read, but never a `driver-ref`, and `DoDriverIO` never runs.
+    This is why the BAR address is patched into the image by the loader
+    rather than looked up with `RegistryPropertyGet`.
+
+  - **An immediate command must not go through `IOCommandIsComplete`.**
+    Mac OS 9 issues `kInitializeCommand` with kind `kImmediateIOCommandKind`
+    -- measured, not assumed.  Completing it through `IOCommandIsComplete`
+    makes Initialize look like it failed, and Mac OS finalizes the driver
+    instead of opening it.
+
+  - **`MakePEF` writes a bogus main descriptor.**  `MakePEF.cc` always sets
+    `mainSection = 1` and `mainOffset` to the XCOFF entry; an NDRV is linked
+    `-nostartfiles` and has no entry, so the offset comes out `0xffffffff`.
+    Apple's own NDRVs ship `mainSection = -1`.  `fixndrvmain.py` writes that.
+
+  - **`nameInfoStr` must equal the node's `name` exactly**, Pascal length
+    byte included -- `"\x0cpci1b36,5045"` for a device OpenBIOS names
+    `pci1b36,5045`.  The loader also finds the driver in its blob by this
+    string, so a wrong one means the driver is not installed at all, and
+    the loader prints an empty name to say so.
+
+`PEDriverProbe` answers all of these from inside the guest: it prints every
+property Mac OS has on the node, decodes `driver-descriptor` (which is Mac
+OS's own parse of your `TheDriverDescription`, so it shows what Mac OS
+believes rather than what you wrote), and drives `GetDriverForDevice`,
+`InstallDriverForDevice` and `OpenInstalledDriver` by hand -- those return
+error codes where the boot path returns nothing.
+
+A working driver looks like this:
+
+    driver,AAPL,MacOS,PowerPC   present, 4642 bytes
+    driver-ref                  present (0xFFCF0000) -- the driver was opened
+    OpenDriver(".PEAudio")      OPENED, refNum -49
+
+and, with `PEAU_TRACE=1` in the emulator's environment, the host sees the
+whole of Initialize:
+
+    PEAU RD 0x00 = 0x50454155      <- ID, 'PEAU'
+    PEAU RD 0x04 = 0x00000001      <- VERSION
+    PEAU RD 0x08 = 0x00100001      <- CAPS
+    PEAU WR 0x24 = 0x0DEFACED      <- we got here
+    PEAU RD 0x00 = 0x50454155
+
+## Building the loader
+
+    T=~/Developer/Retro68-build/toolchain
+    $T/bin/powerpc-apple-macos-gcc -DTYPE_BOOL -Dbool=_Bool -Dtrue=1 -Dfalse=0 \
+        -Wno-scalar-storage-order -Os -e entrytvec \
+        -L ~/Developer/Retro68-build/build-target-ppc/libretro \
+        -Wl,--section-start=.data=0x100000 -Wl,--section-start=.text=0x200000 \
+        -o build/ndrv/ndrvloader ndrvloader.s ndrvloader.c
+
+`ndrvloader.c` `.incbin`s `build/ndrv/allndrv`, so copy the built
+`PEAudio.ndrv` there first.  Run it with
+
+    -device loader,addr=0x4000000,file=.../ndrvloader
+    -prom-env "boot-command=init-program go"
