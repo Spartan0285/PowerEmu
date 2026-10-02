@@ -95,6 +95,25 @@ What is not here is a way to build the component:
     opposed to an application or a code resource, is **unverified and is
     the first thing to find out.**
 
+A G3 PowerBook (Pismo) running Mac OS 9 is available, which changes this.
+CodeWarrior Pro runs natively there, and it is the toolchain classic Mac OS
+components were actually written with -- Apple's own Sound Manager sample
+code assumes it, as do the Universal Interfaces.  That turns the question
+from "can a modern cross-compiler be made to emit something nobody has
+tried" into "can period tools be installed on period hardware", which is a
+different kind of risk.  It is the same arrangement the project already
+uses for PowerEmu Tools, which can only be built on the G4 because Xcode
+2.5 is the only thing that produces 10.4 binaries; a Pismo for CFM is that,
+one generation further back.
+
+What it costs is file movement.  Mac OS 9 has no ssh, so source goes over
+AppleShare, an FTP server, or a disc; and the built component has to come
+back the same way.  Building inside the Mac OS 9 guest instead would avoid
+depending on the hardware, and getting source in is easy -- the Tools disc
+is already minted as an ISO -- but getting the result out is awkward,
+because this Mac cannot mount HFS and would have to read the guest's disk
+with a parser of ours or over the network.
+
 And once built it has to get into the guest, into System Folder:Extensions.
 Mac OS X guests have PowerEmu Tools for that; a classic guest has no agent,
 so that is a second thing to build -- or, for a first cut, a disc image the
@@ -102,10 +121,12 @@ reader drags from.
 
 ## Order of work
 
-1. Settle the toolchain question.  Install Retro68, build a trivial `sdev`
-   component, get Mac OS 9 to load it and report itself in the Sound
-   control panel.  If this cannot be done, the plan stops here and the
-   answer is to keep chasing the emulated Screamer.
+1. Settle the toolchain question.  Build a trivial `sdev` component and
+   get Mac OS 9 to load it and report itself in the Sound control panel.
+   CodeWarrior on the Pismo is the likely answer; Retro68 is worth
+   checking first only because it needs no period hardware.  If neither
+   can do it, the plan stops here and the answer is to keep chasing the
+   emulated Screamer.
 2. Build `poweremu-audio` in QEMU with a host-side test that drives the
    ring without a guest.  Self-contained, and worth having either way.
 3. Publish its node and point `AAPL,sndhw-plugin-id` at our component.
