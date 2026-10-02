@@ -38,6 +38,7 @@
 #include <Components.h>
 #include <Sound.h>
 #include <Timer.h>
+#include <DriverServices.h>
 #include <Devices.h>
 #include <MixedMode.h>
 
@@ -71,6 +72,18 @@
  * on interrupt-time behaviour.
  */
 #define siPERefill       FOUR_CHAR_CODE('PErf')
+
+/*
+ * A scratch register for progress markers.  RING_BASE means nothing now
+ * that the ring is a BAR, and a write to it shows up in the host's trace
+ * -- which is the only channel that survives a crash, the console window
+ * going with the application.  Nothing uses it at the moment; it is left
+ * here because it is the only way to see where this code died.
+ */
+#define PEAU_MARK        0x10
+#define PEMark(g, n)     do { if ((g) && (g)->regs) \
+                                 (g)->regs[PEAU_MARK / 4] = 0xAA000000UL | (n); \
+                         } while (0)
 #define PEAU_FRAME_BYTES 4
 
 #define PE_RATE          44100UL
@@ -98,7 +111,7 @@ typedef struct PEGlobals {
     UInt32              writePtr;       /* frames, free-running */
     Boolean             running;
     Boolean             taskInstalled;
-    TMTask              task;
+    TimerID             timerID;
     long                hwVolume;       /* siHardwareVolume, 0..0x0200 */
     Boolean             hwMute;
 } PEGlobals;
@@ -229,15 +242,38 @@ static void PERefill(PEGlobals *g)
     }
 }
 
-static pascal void PETimerProc(TMTaskPtr tmTaskPtr)
+/*
+ * The refill, on DriverServices' own timer.
+ *
+ * This was a Time Manager task to begin with, and that is the wrong tool
+ * for native code: tmAddr is called as a 68k subroutine, so it has to be a
+ * routine descriptor, and getting one built and called correctly from a
+ * PowerPC component went through three distinct failures -- the task never
+ * firing, then firing into an address error, then an unimplemented trap.
+ * SetInterruptTimer takes a plain CFM function, with no Mixed Mode
+ * anywhere, which is what a native driver is supposed to use and what
+ * Apple's own native drivers do.
+ */
+static OSStatus PETimerHandler(void *p1, void *p2);
+
+static void PEArmTimer(PEGlobals *g)
 {
-    PEGlobals *g = gActive;
+    AbsoluteTime when = AddDurationToAbsolute(
+        (Duration)(PE_TICK_MS * durationMillisecond), UpTime());
+
+    SetInterruptTimer(&when, PETimerHandler, g, &g->timerID);
+}
+
+static OSStatus PETimerHandler(void *p1, void *p2)
+{
+    PEGlobals *g = (PEGlobals *)p1;
+#pragma unused(p2)
 
     if (g && g->running) {
         PERefill(g);
-        PrimeTime((QElemPtr)&g->task, PE_TICK_MS);
+        PEArmTimer(g);
     }
-#pragma unused(tmTaskPtr)
+    return noErr;
 }
 
 static void PEStartHardware(PEGlobals *g)
@@ -267,7 +303,14 @@ static void PEStopHardware(PEGlobals *g)
 
 static pascal ComponentResult PEOpen(PEGlobals *unused, ComponentInstance self)
 {
-    PEGlobals *g = (PEGlobals *)NewPtrClear(sizeof(PEGlobals));
+    /*
+     * System heap, not the application's.  The storage holds the TMTask
+     * record, and a Time Manager task record has to stay put and stay
+     * valid at interrupt time, when the application whose heap it came
+     * from may not be the current one.  A component installed in
+     * Extensions outlives every application anyway.
+     */
+    PEGlobals *g = (PEGlobals *)NewPtrSysClear(sizeof(PEGlobals));
 #pragma unused(unused)
 
     if (g == NULL) {
@@ -295,7 +338,10 @@ static pascal ComponentResult PEClose(PEGlobals *g, ComponentInstance self)
             PEStopHardware(g);
         }
         if (g->taskInstalled) {
-            RmvTime((QElemPtr)&g->task);
+            if (g->timerID) {
+                CancelTimer(g->timerID, NULL);
+                g->timerID = NULL;
+            }
             g->taskInstalled = false;
         }
         if (gActive == g) {
@@ -331,6 +377,14 @@ static pascal ComponentResult PEInitOutputDevice(PEGlobals *g, long actions)
         return err;
     }
 
+    /*
+     * The Time Manager task that keeps the ring fed.  This is the same
+     * place a real card would do it from -- its DMA interrupt -- and it
+     * runs at interrupt time, so nothing in PERefill may allocate or move
+     * memory.  It does not: it reads a register, asks the source for a
+     * buffer it already owns, and copies.
+     */
+    g->taskInstalled = true;    /* the timer is armed when playback starts */
     gActive = g;
     return noErr;
 }
@@ -454,7 +508,8 @@ static pascal ComponentResult PEStartSource(PEGlobals *g, short count,
     if (!g->running) {
         g->running = true;
         PEStartHardware(g);
-        PERefill(g);
+        PERefill(g);                    /* prime before the first tick */
+        PEArmTimer(g);
     }
     return noErr;
 }
@@ -464,7 +519,7 @@ static pascal ComponentResult PEStopSource(PEGlobals *g, short count,
 {
 #pragma unused(count, sources)
     if (g->running) {
-        g->running = false;
+        g->running = false;             /* the task stops rescheduling */
         PEStopHardware(g);
     }
     return noErr;

@@ -373,33 +373,19 @@ int main(void)
             err = SoundComponentStartSource(ci, 1, NULL);
             printf("   StartSource = %d\n", (int)err);
 
-            /* Drive the refill from here, at task level. */
+            /*
+             * Nothing to do but wait: the component's Time Manager task
+             * pulls from the source at interrupt time, the way a real
+             * sound card's DMA interrupt would.
+             */
             {
-                long ticks = TickCount() + 60 * 90;
-                long queued = 0;
+                long ticks = TickCount() + 60 * 20;
+                long dummy;
 
-                while (TickCount() < ticks) {
-                    long dummy;
-
-                    if (SoundComponentGetInfo(ci, (SoundSource)1,
-                                              FOUR_CHAR_CODE('PErf'),
-                                              &queued) != noErr) {
-                        break;
-                    }
-                    if (gPCMPos >= gPCMFrames && queued == 0) {
-                        break;
-                    }
-                    /*
-                     * Breathe.  Polling flat out means an uninterrupted
-                     * stream of register reads, and the emulator takes a
-                     * lock for each one -- which starved its audio timer
-                     * so thoroughly that the device drained 232 ms of
-                     * sound in fifteen seconds and the ring simply stayed
-                     * full.  One tick between refills is far more often
-                     * than a 120 ms target needs.
-                     */
-                    Delay(1, &dummy);
+                while (TickCount() < ticks && gPCMPos < gPCMFrames) {
+                    Delay(2, &dummy);
                 }
+                Delay(30, &dummy);      /* let the ring drain */
             }
             printf("   played %ld of %ld frames\n", gPCMPos, gPCMFrames);
             SoundComponentStopSource(ci, 1, NULL);
