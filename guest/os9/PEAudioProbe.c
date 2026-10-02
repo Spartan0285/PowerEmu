@@ -70,6 +70,19 @@ extern OSStatus RegistryPropertyGet(const RegEntryID *entryID,
                                     void *propertyValue,
                                     RegPropertyValueSize *propertySize);
 
+typedef struct OpaqueRegPropertyIter *RegPropertyIter;
+typedef char RegPropertyNameBuf[33];
+
+extern OSStatus RegistryPropertyIterateCreate(const RegEntryID *entry,
+                                              RegPropertyIter *cookie);
+extern OSStatus RegistryPropertyIterateDispose(RegPropertyIter *cookie);
+extern OSStatus RegistryPropertyIterate(RegPropertyIter *cookie,
+                                        RegPropertyNameBuf foundProperty,
+                                        Boolean *done);
+extern OSStatus RegistryPropertyGetSize(const RegEntryID *entryID,
+                                        const char *propertyName,
+                                        RegPropertyValueSize *propertySize);
+
 #define PEAU_ID         0x00
 #define PEAU_VERSION    0x04
 #define PEAU_CAPS       0x08
@@ -133,14 +146,51 @@ int main(void)
         return 1;
     }
 
-    printf("\n2. reading its AAPL,address property\n");
+    /*
+     * Everything on the node, not just what we expected.  AAPL,address is
+     * supposed to be a *logical* address -- one Mac OS has mapped -- so if
+     * PowerEmu does not supply it, this says whether Mac OS fills it in
+     * itself and with what.
+     */
+    printf("\n2. every property Mac OS 9 has on that node\n");
+    {
+        RegPropertyIter      pit;
+        RegPropertyNameBuf   pname;
+        Boolean              pdone = false;
+
+        if (RegistryPropertyIterateCreate(&entry, &pit) == noErr) {
+            for (;;) {
+                UInt32 buf[8];
+                RegPropertyValueSize psize;
+
+                if (RegistryPropertyIterate(&pit, pname, &pdone) != noErr || pdone) {
+                    break;
+                }
+                psize = sizeof(buf);
+                memset(buf, 0, sizeof(buf));
+                if (RegistryPropertyGet(&entry, pname, buf, &psize) == noErr) {
+                    printf("  %-22s %2lu bytes  %08lX %08lX\n", pname,
+                           (unsigned long)psize, (unsigned long)buf[0],
+                           (unsigned long)buf[1]);
+                } else {
+                    printf("  %-22s (unreadable)\n", pname);
+                }
+            }
+            RegistryPropertyIterateDispose(&pit);
+        }
+    }
+
+    printf("\n   AAPL,address: ");
     size = sizeof(base);
     err = RegistryPropertyGet(&entry, "AAPL,address", &base, &size);
     if (err != noErr) {
-        printf("  FAILED (%d)\n", (int)err);
+        printf("absent (%d) -- Mac OS did not supply one\n", (int)err);
+        printf("   nothing to read; stopping here.\n");
+        printf("\nDone.  Press return.\n");
+        getchar();
         return 1;
     }
-    printf("  AAPL,address = 0x%08lX\n", (unsigned long)base);
+    printf("0x%08lX\n", (unsigned long)base);
 
     printf("\n3. reading the device's registers\n");
     regs = (volatile UInt32 *)base;
