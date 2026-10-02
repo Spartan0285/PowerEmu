@@ -90,3 +90,31 @@ few typedefs.  The import libraries do have the symbols, so declare what you
 use locally, against Apple's Universal Interfaces 3.4.1 layouts -- which is
 what Retro68's own NDRV sample does.  UI 3.4.1 is at
 github.com/elliotnunn/UniversalInterfaces if you want the real headers.
+
+## Building an NDRV
+
+Needs Apple's Universal Interfaces 3.4.1 (`github.com/elliotnunn/UniversalInterfaces`)
+for `DriverServices.h` and `DriverFamilyMatching.h`, and the linker script and
+export list from `github.com/elliotnunn/classicvirtio`:
+
+    T=~/Developer/Retro68-build/toolchain
+    U=~/Developer/UniversalInterfaces/3.4.1/Universal/Interfaces/CIncludes
+    C=~/Developer/classicvirtio
+
+    $T/bin/powerpc-apple-macos-gcc -o peaudio.so -std=gnu99 -I"$U" \
+        -Os -ffunction-sections -fdata-sections \
+        -nostartfiles -nodefaultlibs \
+        -T $C/ndrv.lds -Wl,-bE:$C/ndrv.exp \
+        -Wl,--gc-sections -Wl,--gc-keep-exported \
+        PEAudioNDRV.c -lDriverServicesLib -lNameRegistryLib -lInterfaceLib
+    $T/bin/MakePEF peaudio.so -o PEAudio.ndrv
+
+Three things that are not obvious:
+
+  - `-std=gnu99`.  GCC 16 defaults to C23, where `false` is a keyword, and
+    Apple's `MacTypes.h` declares it as an enumeration constant.
+  - `-nostartfiles -nodefaultlibs`.  A driver wants neither Retro68's
+    startup nor its C runtime, and the default spec pulls in `retrocrt`,
+    which does not exist for this target.
+  - The result is a bare PEF -- `Joy!peffpwpc` in the first twelve bytes --
+    with no resource fork and no Rez step.
