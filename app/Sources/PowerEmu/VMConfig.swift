@@ -133,6 +133,25 @@ struct VMConfig: Codable, Equatable {
     /// uni-north PCI window and matching Open Firmware ranges.
     var vramMB = 128
     static let vramChoices = [64, 128, 256]
+    /*
+     * How the guest's screen is scaled up to fill the window.
+     *
+     *   "smooth"  linear, except at exactly 1:1 -- what PowerEmu has always
+     *             done.  Kind to text at awkward scales, soft on pixel art.
+     *   "sharp"   nearest at every scale.  Every guest pixel stays a crisp
+     *             block, at the cost of uneven block sizes when the scale is
+     *             not a whole number.
+     *   "integer" nearest, and only whole multiples.  Every guest pixel is
+     *             the same size square; the picture is letterboxed rather
+     *             than stretched to the last few points.
+     */
+    var scaling = "smooth"
+    static let scalingChoices: [(String, String)] = [
+        ("smooth",  "Smooth"),
+        ("sharp",   "Sharp"),
+        ("integer", "Sharp, whole pixels"),
+    ]
+
     /// "seamless" (USB tablet: the pointer moves in and out freely) or
     /// "captured" (raw mouse movement for games).
     var mouseMode = "seamless"
@@ -236,7 +255,7 @@ struct VMConfig: Codable, Equatable {
         case bootChime, chimeSound, chimeFile, bootWidth, bootHeight, autoStart, verboseBoot, safeBoot, singleUser, audio, network, sshPort, shareClipboard, sharedFolders
         case agpBridge, monitorPort, gpuTrace, extraQEMUArgs, gamepad, shareOnNetwork, bridgedInterface
         case externalDisk
-        case classic
+        case classic, scaling
     }
 
     init(from decoder: Decoder) throws {
@@ -259,6 +278,7 @@ struct VMConfig: Codable, Equatable {
         d.discRecordable = try c.decodeIfPresent(Bool.self, forKey: .discRecordable) ?? false
         try get(.bootFromDisc, &d.bootFromDisc)
         try get(.classic, &d.classic)
+        try get(.scaling, &d.scaling)
         try get(.hardwareCursor, &d.hardwareCursor); try get(.extraDisplayModes, &d.extraDisplayModes)
         try get(.startFullscreen, &d.startFullscreen); try get(.bootChime, &d.bootChime)
         try get(.chimeSound, &d.chimeSound)

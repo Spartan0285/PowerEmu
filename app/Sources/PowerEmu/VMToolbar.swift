@@ -55,7 +55,7 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
             devicesButton.toolTip = "Discs, this Mac's drives and USB devices"
         }
     }
-    private var keys = NSMenu(), power = NSMenu()
+    private var keys = NSMenu(), power = NSMenu(), filters = NSMenu()
     let bar = OverlayBar()
     private var hideTimer: Timer?
     private var menuOpen = false
@@ -73,6 +73,18 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
         power.addItem(.separator())
         power.addItem(entry("Force Power Off…", #selector(forceOff)))
         power.delegate = self
+        /*
+         * Filters: how the guest's picture is drawn on this Mac, as opposed
+         * to what the guest is drawing.  Scaling lives here rather than only
+         * in the configurator because it is the kind of thing a reader wants
+         * to flip while looking at the screen and judge by eye.
+         */
+        for (value, title) in VMConfig.scalingChoices {
+            let it = entry(title, #selector(setScaling(_:)))
+            it.representedObject = value
+            filters.addItem(it)
+        }
+        filters.delegate = self
         build()
     }
 
@@ -102,6 +114,7 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
             seg,
             separator(),
             menuButton("keyboard", "Keys", "Send keys this Mac would keep for itself", keys),
+            menuButton("camera.filters", "Filters", "How the guest's picture is drawn on this Mac", filters),
             devicesButton,
             separator(),
             pauseItem(),
@@ -182,6 +195,13 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
         b.refusesFirstResponder = true
         b.setAccessibilityLabel(tip)
         return b
+    }
+
+    @MainActor @objc private func setScaling(_ sender: NSMenuItem) {
+        guard let vm, let mode = sender.representedObject as? String else { return }
+        vm.config.scaling = mode
+        try? vm.save()
+        display?.scaling = mode
     }
 
     private func menuButton(_ symbol: String, _ title: String, _ tip: String, _ menu: NSMenu) -> NSButton {
@@ -351,6 +371,14 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
     // MARK: devices (built when the menu opens)
 
     func menuNeedsUpdate(_ menu: NSMenu) {
+        if menu === filters {
+            // Tick whichever scaling the machine is set to.
+            let now = vm?.config.scaling ?? "smooth"
+            for it in menu.items {
+                it.state = (it.representedObject as? String) == now ? .on : .off
+            }
+            return
+        }
         guard menu === devicesMenu, let vm else { return }
         menu.removeAllItems()
         let running = vm.state == .running

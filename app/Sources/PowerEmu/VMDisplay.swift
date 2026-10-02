@@ -1345,7 +1345,14 @@ final class VMDisplayView: NSView {
                           width: bounds.width - i.left - i.right, height: bounds.height - i.top - i.bottom)
         guard guestSize.width > 0, guestSize.height > 0 else { return area }
         var scale = min(area.width / guestSize.width, area.height / guestSize.height)
-        if scale > 1 && scale < 1.1 { scale = 1 }       // a little border beats a blurry screen
+        if scaling == "integer" {
+            // Whole multiples only, so every guest pixel is the same size
+            // square.  Below 1:1 there is nothing to round to -- the guest's
+            // screen is larger than the window -- so fit as usual.
+            if scale >= 1 { scale = scale.rounded(.down) }
+        } else if scale > 1 && scale < 1.1 {
+            scale = 1                                   // a little border beats a blurry screen
+        }
         let w = (guestSize.width * scale).rounded(), h = (guestSize.height * scale).rounded()
         return CGRect(x: area.midX - w / 2, y: area.midY - h / 2, width: w, height: h).integral
     }
@@ -1359,9 +1366,15 @@ final class VMDisplayView: NSView {
             harmonyManager.setScreen(scr.frame, guestSize: guestSize)
             harmonyManager.update(harmonyWindowList)
         }
+        /*
+         * Nearest keeps every guest pixel a hard-edged block; linear softens
+         * it.  "smooth" is the long-standing behaviour -- nearest only when
+         * the scale is exactly 1:1, where linear would blur for nothing.
+         */
         let exact = screen.frame.width == guestSize.width
-        screen.magnificationFilter = exact ? .nearest : .linear
-        screen.minificationFilter = .linear
+        let nearest = scaling != "smooth" || exact
+        screen.magnificationFilter = nearest ? .nearest : .linear
+        screen.minificationFilter = scaling == "smooth" ? .linear : .nearest
         let hs = CGSize(width: 480, height: 22)
         hint.frame = CGRect(x: bounds.midX - hs.width / 2, y: 16, width: hs.width, height: hs.height)
         status.frame = bounds
@@ -1924,6 +1937,11 @@ final class VMDisplayView: NSView {
     /// with it; Control-Option-G gives it back.
     enum MouseMode: String { case seamless, captured }
 
+    /// VMConfig.scaling: "smooth", "sharp" or "integer".  See the note there.
+    var scaling: String = "smooth" {
+        didSet { guard scaling != oldValue else { return }; needsLayout = true }
+    }
+
     var mouseMode: MouseMode = .seamless {
         didSet {
             ungrab()
@@ -2315,6 +2333,7 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
             w.title = on ? "\(vm.config.name) \u{2014} Harmony (in testing)" : vm.config.name
         }
         display.mouseMode = VMDisplayView.MouseMode(rawValue: vm.config.mouseMode) ?? .seamless
+        display.scaling = vm.config.scaling
         toolbar = VMToolbarController(self)
         display.controls = toolbar
         display.addSubview(toolbar!.bar)

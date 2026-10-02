@@ -412,6 +412,9 @@ struct MachineDetail: View {
                 }
                 Toggle("Start in fullscreen", isOn: binding(\.startFullscreen))
                 Toggle("Offer resolutions shaped like this Mac’s screen", isOn: binding(\.extraDisplayModes))
+                Picker("Scaling", selection: binding(\.scaling)) {
+                    ForEach(VMConfig.scalingChoices, id: \.0) { Text($0.1).tag($0.0) }
+                }
                 Toggle("Hardware cursor", isOn: binding(\.hardwareCursor))
                 Picker("Video memory", selection: binding(\.vramMB)) {
                     ForEach(vm.config.classic ? VMConfig.classicVRAMChoices
