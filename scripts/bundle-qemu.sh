@@ -82,6 +82,10 @@ done
 FW="$OUT/Contents/Resources/firmware"
 cp "$OPENBIOS" "$FW/openbios-ppc"
 cp "$QEMU_SRC/pc-bios/ppc-ndrvloader" "$FW/"
+# The Mac OS 9 audio NDRV and the Open Firmware client program that installs
+# it; see guest/os9/BUILDING.md.  The driver is built into the loader, so
+# rebuilding the driver means rebuilding this.
+cp "$QEMU_SRC/pc-bios/ppc-peaudio-loader" "$FW/"
 [ -f "$QEMU_SRC/pc-bios/qemu_vga.ndrv" ] && cp "$QEMU_SRC/pc-bios/qemu_vga.ndrv" "$FW/"
 cp "$HERE/ndrv/qemu_vga_hwc.ndrv" "$FW/"
 

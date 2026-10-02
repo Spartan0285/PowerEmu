@@ -172,31 +172,27 @@ final class VMRunner {
          * audio until the device itself is taught Mac OS 9's driver.
          */
         /*
-         * poweremu-audio's device-tree node, so a guest driver can find it.
+         * poweremu-audio needs no device-tree node from here.
          *
-         * The device is in macio at 0x17000 whatever the guest, but nothing
-         * looks there without a node to point the way.  Published from here
-         * rather than from the firmware because the firmware we ship is a
-         * prebuilt binary; this is the same mechanism that edits the sound
-         * node below, and it needs no rebuild.
-         *
-         * AAPL,address carries the absolute address, which is what a classic
-         * Mac OS driver reads out of the Name Registry.  reg carries the
-         * macio-relative offset and length, the way the other macio children
-         * do.  device_type is deliberately not "sound": nothing of Apple's
-         * should try to claim this.
+         * It used to be a macio child, published by hand from this
+         * boot-command with an AAPL,address at 0x80017000, and Mac OS 9
+         * never loaded a driver for it: Mac OS reads
+         * driver,AAPL,MacOS,PowerPC for devices its PCI enumeration
+         * discovers, and an on-board macio child is not one of those.  The
+         * device is PCI now, so the firmware names the node itself after
+         * the IDs -- pci1b36,5045 -- which is what the driver matches on,
+         * and the loader below puts the driver on it.
          */
-        let audioNode = c.classic ? #"" /pci@f2000000/mac-io@c" find-device new-device " poweremu-audio" device-name " poweremu-sound" device-type " poweremu,audio" encode-string " compatible" property h# 17000 encode-int h# 1000 encode-int encode+ " reg" property h# 80017000 encode-int " AAPL,address" property finish-device device-end "# : ""
 
         let soundOff = c.classic ? #"" /pci@f2000000/mac-io@c/davbus@14000" ['] find-device catch 0= if " device_type" delete-property " compatible" delete-property " AAPL,clock-id" delete-property device-end then " /pci@f2000000/mac-io@c/davbus@14000/sound" ['] find-device catch 0= if " sound-objects" delete-property " model" delete-property device-end then "# : ""
-        let bootCmd = #"boot-command="# + cpuSpeed + pciRanges + #"" /pci@f2000000" find-device " uni-north" encode-string " compatible" property device-end " /pci@f2000000/ATY,Adagio@e" ['] find-device catch 0= if 7 encode-int " IOAGPFlags" property h# 104 encode-int " IOAGPCommandValue" property device-end then " /pci@f2000000/QEMU,VGA@e" ['] find-device catch 0= if h# "# + vramHex + #" encode-int " VRAM,totalsize" property device-end then "# + soundOff + audioNode + #"boot"#
+        let bootCmd = #"boot-command="# + cpuSpeed + pciRanges + #"" /pci@f2000000" find-device " uni-north" encode-string " compatible" property device-end " /pci@f2000000/ATY,Adagio@e" ['] find-device catch 0= if 7 encode-int " IOAGPFlags" property h# 104 encode-int " IOAGPCommandValue" property device-end then " /pci@f2000000/QEMU,VGA@e" ['] find-device catch 0= if h# "# + vramHex + #" encode-int " VRAM,totalsize" property device-end then "# + soundOff + (c.classic ? #"init-program go"# : #"boot"#)
 
         var a: [String] = [
             "-name", c.name,
             "-L", fw.path, "-nodefaults", "-vga", "none",
             "-machine", "mac99,via=pmu",
             "-g", "\(max(640, c.bootWidth))x\(max(480, c.bootHeight))x32",
-            "-device", "loader,addr=0x4000000,file=\(fw.appendingPathComponent("ppc-ndrvloader").path)",
+            "-device", "loader,addr=0x4000000,file=\(fw.appendingPathComponent(c.classic ? "ppc-peaudio-loader" : "ppc-ndrvloader").path)",
             "-m", String(c.effectiveMemoryMB),
             "-audio", c.audio,
         ]
@@ -256,6 +252,17 @@ final class VMRunner {
             gpu += ",host-native-height=\(Int(scr.frame.height.rounded()))"
         }
         a += ["-device", gpu]
+        /*
+         * The paravirtual sound device, for classic guests only.
+         *
+         * Mac OS X drives the AWACS screamer perfectly well and has no
+         * driver for this one.  Mac OS 9's handling of the screamer is the
+         * problem -- Apple Audio Extension bombs at startup often enough to
+         * be unusable, which is why soundOff above takes the node away from
+         * it -- so a classic guest gets this instead, with the NDRV that
+         * ppc-peaudio-loader installs.
+         */
+        if c.classic { a += ["-device", "poweremu-audio"] }
 
         // The paravirtual GPU, alongside the emulated R200 rather than in
         // place of it: the guest keeps booting and displaying through the
