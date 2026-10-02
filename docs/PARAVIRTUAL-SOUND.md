@@ -106,7 +106,24 @@ uses for PowerEmu Tools, which can only be built on the G4 because Xcode
 2.5 is the only thing that produces 10.4 binaries; a Pismo for CFM is that,
 one generation further back.
 
-What it costs is file movement.  Mac OS 9 has no ssh, so source goes over
+Better still, it may not need the Pismo.  CodeWarrior is an ordinary Mac
+OS 9 application and runs under Classic -- compiling needs nothing Classic
+withholds; only its debugger does, and we do not need that.  The Tiger
+guest already has a Mac OS 9.2.2 System Folder and runs 9.x apps under
+Classic, and PowerEmu Tools already moves files both ways, onto HFS+ this
+Mac can read.  That removes the period hardware and the HFS wall together.
+
+What Classic cannot be is the test environment: a sound output component
+talks to hardware, and Classic virtualises sound through Mac OS X rather
+than exposing the device.  So build in Classic -- in the Tiger guest or on
+the Pismo -- and test in the Mac OS 9 guest, which is a native boot.
+
+Against it: this is emulated PowerPC running Tiger running Classic running
+CodeWarrior, so compiles will take minutes.  Tolerable for one component,
+tiresome if it needs much iteration, and the Pismo booting Mac OS 9
+natively is the fallback rather than the plan.
+
+What any of it costs is file movement.  Mac OS 9 has no ssh, so source goes over
 AppleShare, an FTP server, or a disc; and the built component has to come
 back the same way.  Building inside the Mac OS 9 guest instead would avoid
 depending on the hardware, and getting source in is easy -- the Tools disc
