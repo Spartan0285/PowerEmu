@@ -1,12 +1,18 @@
 {
-  "version": "0.3.1",
-  "build": 4,
-  "published": "2026-10-01T05:11:53Z",
+  "version": "0.3.2",
+  "build": 5,
+  "published": "2026-10-02T18:29:51Z",
   "minimumSystem": "14.0",
-  "notes": "Guest applications in the Dock now open properly, stay put while you work, and clear themselves when the virtual Mac stops. Fullscreen starts below the notch on Macs that have one, and the startup resolution can be chosen in Display.",
-  "url": "https://github.com/Spartan0285/PowerEmu/releases/download/v0.3.1/PowerEmu-0.3.1.zip",
-  "sha256": "485f0fe9e64f803198434327aedaafd3743488e24a317585d690f24ae8d59e6b",
+  "notes": "Harmony's \"could not match the display\" notice can be dismissed now \u2014 it goes on the first click or key, and says whether the tools need installing or the virtual Mac ended up at a different size. Display filters and scaling choices for the guest's screen, in the window's toolbar. US English throughout. Set up a virtual Mac from a Mac OS 8 or 9 install disc. A dual-processor Power Mac now really has two processors, as About This Mac already claimed.",
+  "url": "https://github.com/Spartan0285/PowerEmu/releases/download/v0.3.2/PowerEmu-0.3.2.zip",
+  "sha256": "f25772a42f978210a72b634bdbe83a731a160da68946e9025454f9539813f124",
   "history": [
+    {
+      "version": "0.3.1",
+      "build": 4,
+      "published": "2026-10-01T05:11:53Z",
+      "notes": "Guest applications in the Dock now open properly, stay put while you work, and clear themselves when the virtual Mac stops. Fullscreen starts below the notch on Macs that have one, and the startup resolution can be chosen in Display."
+    },
     {
       "version": "0.3",
       "build": 3,
