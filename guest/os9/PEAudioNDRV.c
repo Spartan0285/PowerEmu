@@ -33,7 +33,20 @@
 #define PEAU_ID         0x00
 #define PEAU_VERSION    0x04
 #define PEAU_CAPS       0x08
+#define PEAU_RING_BASE  0x10
+#define PEAU_RING_SIZE  0x14
+#define PEAU_RATE       0x18
+#define PEAU_FORMAT     0x1c
+#define PEAU_CONTROL    0x20
 #define PEAU_WRITE_PTR  0x24
+#define PEAU_READ_PTR   0x28
+#define PEAU_STATUS     0x2c
+#define PEAU_RING_BYTES 0x30
+
+#define PEAU_CTL_RUN    0x00000001UL
+
+#define PEAU_FRAME_BYTES 4              /* 16-bit signed stereo */
+#define PEAU_TONE_RATE   44100UL
 
 #define PEAU_MAGIC      0x50454155UL        /* 'PEAU' */
 #define PEAU_HELLO      0x0DEFACEDUL        /* nothing writes this by chance */
@@ -78,6 +91,7 @@ DriverDescription TheDriverDescription = {
 };
 
 static volatile UInt32 *gRegs;
+static volatile SInt16 *gRing;
 
 /*
  * The node's address, patched in by the loader.
@@ -99,9 +113,10 @@ static volatile UInt32 *gRegs;
  * image to Mac OS.  gBarTag[2] is the address; the two words before it are
  * what the loader searches for.
  */
-UInt32 gBarTag[3] = { 0x50454155UL,      /* 'PEAU' */
+UInt32 gBarTag[4] = { 0x50454155UL,      /* 'PEAU' */
                       0x42415230UL,      /* 'BAR0' */
-                      0xBAADF00DUL };    /* <- the loader overwrites this */
+                      0xBAADF00DUL,      /* <- BAR 0, the registers       */
+                      0xBAADF00DUL };    /* <- BAR 1, the ring            */
 
 static OSStatus FindRegisters(RegEntryID *entry)
 {
@@ -111,7 +126,38 @@ static OSStatus FindRegisters(RegEntryID *entry)
         return paramErr;        /* the loader did not patch us */
     }
     gRegs = (volatile UInt32 *)gBarTag[2];
+    gRing = (volatile SInt16 *)gBarTag[3];
     return noErr;
+}
+
+/*
+ * A tone, so that the first thing this driver does is something you can
+ * hear.  The ring is the device's own BAR, so filling it is a plain store
+ * loop -- no buffer to allocate and no physical address to resolve, which
+ * matters because neither is available to a driver this early.
+ *
+ * A square wave rather than a sine: it needs no math library, and a
+ * driver that cannot call outside ROM cannot have one.  440 Hz, a quarter
+ * of full scale so it is audible without being unpleasant, and only the
+ * first part of the ring -- the rest is silence, so the tone sounds once
+ * and stops rather than looping forever.
+ */
+static void FillTone(UInt32 ringBytes)
+{
+    UInt32 frames = ringBytes / PEAU_FRAME_BYTES;
+    UInt32 halfPeriod = PEAU_TONE_RATE / (440UL * 2UL);
+    UInt32 toneFrames = frames / 2;
+    UInt32 i;
+
+    for (i = 0; i < frames; i++) {
+        SInt16 v = 0;
+
+        if (i < toneFrames) {
+            v = ((i / halfPeriod) & 1) ? (SInt16)-8000 : (SInt16)8000;
+        }
+        gRing[i * 2 + 0] = v;           /* left  */
+        gRing[i * 2 + 1] = v;           /* right */
+    }
 }
 
 static OSStatus Initialize(RegEntryID *entry)
@@ -127,11 +173,25 @@ static OSStatus Initialize(RegEntryID *entry)
     (void)gRegs[PEAU_VERSION / 4];
     (void)gRegs[PEAU_CAPS / 4];
 
-    /* Then a write nothing else would make, so the trace is unambiguous. */
-    gRegs[PEAU_WRITE_PTR / 4] = PEAU_HELLO;
-
     if (gRegs[PEAU_ID / 4] != PEAU_MAGIC) {
         return paramErr;        /* reached something, but not us */
+    }
+
+    /* Start the device and sound the tone. */
+    {
+        UInt32 ringBytes = gRegs[PEAU_RING_BYTES / 4];
+
+        if (ringBytes == 0 || gRing == 0 ||
+            gBarTag[3] == 0xBAADF00DUL) {
+            return paramErr;    /* no ring: the loader did not patch BAR 1 */
+        }
+        FillTone(ringBytes);
+
+        gRegs[PEAU_RATE / 4]      = PEAU_TONE_RATE;
+        gRegs[PEAU_FORMAT / 4]    = 0;
+        gRegs[PEAU_RING_SIZE / 4] = ringBytes;
+        gRegs[PEAU_WRITE_PTR / 4] = ringBytes / PEAU_FRAME_BYTES;
+        gRegs[PEAU_CONTROL / 4]   = PEAU_CTL_RUN;
     }
     return noErr;
 }

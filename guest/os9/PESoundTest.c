@@ -85,17 +85,76 @@ static Boolean BuildFromSndResource(void)
     long               frames = 0, offset = 0;
     unsigned char     *samples;
     long               i, rate;
+    OSErr              pErr;
 
-    h = GetIndResource(FOUR_CHAR_CODE('snd '), 1);
+    /*
+     * The longest 'snd ' in the resource chain rather than the first.  The
+     * first is typically a few hundred frames -- a click -- and the point
+     * of this test is to hear something recognisable.  The chain includes
+     * the System file, so these are the machine's own alert sounds.
+     */
+    {
+        short count = Count1Resources(FOUR_CHAR_CODE('snd '));
+        short total = CountResources(FOUR_CHAR_CODE('snd '));
+        short i;
+        long  best = 0;
+        Handle cand;
+
+        h = NULL;
+        (void)count;
+        for (i = 1; i <= total; i++) {
+            cand = GetIndResource(FOUR_CHAR_CODE('snd '), i);
+            if (cand == NULL) {
+                continue;
+            }
+            if (GetHandleSize(cand) > best) {
+                best = GetHandleSize(cand);
+                h = cand;
+            }
+        }
+        if (h != NULL) {
+            /*
+             * Load it and take it off the purge list before anything else
+             * touches the resource map.  Scanning for the largest means
+             * loading twenty others afterwards, and 'snd ' resources are
+             * purgeable: by the time the biggest one was chosen its data
+             * had been thrown away, and ParseSndHeader returned -109,
+             * nilHandleErr, on a handle whose master pointer was NULL.
+             */
+            HNoPurge(h);
+            LoadResource(h);
+            if (*h == NULL || GetHandleSize(h) == 0) {
+                h = NULL;
+            }
+        }
+        if (h != NULL) {
+            ResType  rt;
+            Str255   nm;
+            short    rid;
+            GetResInfo(h, &rid, &rt, nm);
+            nm[nm[0] + 1] = 0;
+            printf("   %d 'snd ' resources; using id %d \"%s\", %ld bytes\n",
+                   (int)total, (int)rid, (char *)&nm[1], best);
+        }
+    }
     if (h == NULL) {
         return false;
     }
     HLock(h);
     memset(&hdr, 0, sizeof(hdr));
-    if (ParseSndHeader((SndListHandle)h, &hdr, &frames, &offset) != noErr ||
-        frames <= 0 || hdr.sampleSize != 8 || hdr.numChannels != 1) {
+    pErr = ParseSndHeader((SndListHandle)h, &hdr, &frames, &offset);
+    if (pErr != noErr ||
+        frames <= 0 ||
+        (hdr.sampleSize != 8 && hdr.sampleSize != 16) ||
+        (hdr.numChannels != 1 && hdr.numChannels != 2) ||
+        (hdr.format != kSoundNotCompressed &&
+         hdr.format != k16BitBigEndianFormat &&
+         hdr.format != k8BitOffsetBinaryFormat)) {
+        printf("   ParseSndHeader = %d; %d bit, %d ch, format '%.4s'\n",
+               (int)pErr, (int)hdr.sampleSize, (int)hdr.numChannels,
+               (char *)&hdr.format);
         HUnlock(h);
-        return false;                   /* not a shape we convert */
+        return false;
     }
     rate = (long)(hdr.sampleRate >> 16);
     if (rate < 4000 || rate > PE_TEST_RATE) {
@@ -108,14 +167,29 @@ static Boolean BuildFromSndResource(void)
     gPCM = (SInt16 *)NewPtr(gPCMFrames * 4);
     if (gPCM == NULL) { gPCMFrames = 0; HUnlock(h); return false; }
 
+    /*
+     * 8-bit samples are unsigned and centred on 128; 16-bit are signed
+     * big-endian ('twos'), which is what the machine and the device both
+     * use, so those copy straight through.
+     * Mono goes to both channels.  Nearest neighbour on the rate, which is
+     * crude but adds no risk.
+     */
     for (i = 0; i < gPCMFrames; i++) {
         long   src = (i * rate) / PE_TEST_RATE;
-        SInt16 v;
+        SInt16 l, r;
 
         if (src >= frames) src = frames - 1;
-        v = (SInt16)(((long)samples[src] - 128) << 8);
-        gPCM[i * 2 + 0] = v;
-        gPCM[i * 2 + 1] = v;
+        if (hdr.sampleSize == 8) {
+            l = (SInt16)(((long)samples[src * hdr.numChannels] - 128) << 8);
+            r = (hdr.numChannels == 2)
+                ? (SInt16)(((long)samples[src * 2 + 1] - 128) << 8) : l;
+        } else {
+            const SInt16 *p16 = (const SInt16 *)samples;
+            l = p16[src * hdr.numChannels];
+            r = (hdr.numChannels == 2) ? p16[src * 2 + 1] : l;
+        }
+        gPCM[i * 2 + 0] = l;
+        gPCM[i * 2 + 1] = r;
     }
     HUnlock(h);
     printf("   using a 'snd ' resource: %ld frames at %ld Hz -> %ld at %ld\n",
@@ -301,10 +375,12 @@ int main(void)
 
             /* Drive the refill from here, at task level. */
             {
-                long ticks = TickCount() + 60 * 15;
+                long ticks = TickCount() + 60 * 90;
                 long queued = 0;
 
                 while (TickCount() < ticks) {
+                    long dummy;
+
                     if (SoundComponentGetInfo(ci, (SoundSource)1,
                                               FOUR_CHAR_CODE('PErf'),
                                               &queued) != noErr) {
@@ -313,6 +389,16 @@ int main(void)
                     if (gPCMPos >= gPCMFrames && queued == 0) {
                         break;
                     }
+                    /*
+                     * Breathe.  Polling flat out means an uninterrupted
+                     * stream of register reads, and the emulator takes a
+                     * lock for each one -- which starved its audio timer
+                     * so thoroughly that the device drained 232 ms of
+                     * sound in fifteen seconds and the ring simply stayed
+                     * full.  One tick between refills is far more often
+                     * than a 120 ms target needs.
+                     */
+                    Delay(1, &dummy);
                 }
             }
             printf("   played %ld of %ld frames\n", gPCMPos, gPCMFrames);

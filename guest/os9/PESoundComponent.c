@@ -85,6 +85,9 @@
 #define PE_TICK_MS       20
 #define PE_TARGET_MS     120
 
+/* The most a source is expected to hand over in one pull. */
+#define PE_PULL_FRAMES   2048
+
 typedef struct PEGlobals {
     ComponentInstance   self;
     ComponentInstance   source;         /* the mixer above us */
@@ -189,6 +192,18 @@ static void PERefill(PEGlobals *g)
         if (queued >= target) {
             break;
         }
+        /*
+         * Only ask when there is certainly room for an answer.  The source
+         * hands over a whole buffer and considers it delivered, so taking
+         * less than it gives loses the rest -- which is what happened when
+         * this clamped the count to the free space instead: the ring
+         * filled, every further pull was discarded, and the sound stopped
+         * part way through with the source's position far ahead of what
+         * had actually been played.
+         */
+        if (PEFreeFrames(g) < PE_PULL_FRAMES) {
+            break;
+        }
         if (SoundComponentGetSourceData(g->source, &data) != noErr ||
             data == NULL || data->buffer == NULL || data->sampleCount <= 0) {
             break;
@@ -196,7 +211,7 @@ static void PERefill(PEGlobals *g)
 
         got = data->sampleCount;
         if ((UInt32)got > PEFreeFrames(g)) {
-            got = PEFreeFrames(g);
+            got = PEFreeFrames(g);      /* should not happen; never overrun */
         }
         for (i = 0; i < got; i++) {
             UInt32 idx = (g->writePtr + i) % g->ringFrames;

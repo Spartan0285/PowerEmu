@@ -222,27 +222,38 @@ void putNDRVs(void) {
 			 *
 			 * assigned-addresses is five words per BAR:
 			 *   phys-hi phys-mid phys-lo size-hi size-lo
-			 * and phys-lo of the first entry is our memory BAR.
+			 * so phys-lo of the first entry is BAR 0, the
+			 * registers, and of the second is BAR 1, the ring.
 			 */
 			unsigned long assigned[10];
 			long alen = 0;
+			memset(assigned, 0, sizeof assigned);
 			of("getprop",
 				4, ph, "assigned-addresses", assigned, sizeof assigned,
 				1, &alen);
 			if (alen >= 20) {
 				unsigned char *img = (unsigned char *)supported[vid].ndrv;
 				long i;
-				for (i = 0; i + 12 <= supported[vid].len; i += 4) {
+				for (i = 0; i + 16 <= supported[vid].len; i += 4) {
 					if (img[i+0]==0x50 && img[i+1]==0x45 &&
 					    img[i+2]==0x41 && img[i+3]==0x55 &&
 					    img[i+4]==0x42 && img[i+5]==0x41 &&
 					    img[i+6]==0x52 && img[i+7]==0x30) {
-						unsigned long bar = assigned[2];
-						img[i+8]  = (bar >> 24) & 0xff;
-						img[i+9]  = (bar >> 16) & 0xff;
-						img[i+10] = (bar >>  8) & 0xff;
-						img[i+11] =  bar        & 0xff;
-						ofprint("  BAR patched\n");
+						unsigned long bar0 = assigned[2];
+						unsigned long bar1 = (alen >= 40) ? assigned[7] : 0;
+						img[i+8]  = (bar0 >> 24) & 0xff;
+						img[i+9]  = (bar0 >> 16) & 0xff;
+						img[i+10] = (bar0 >>  8) & 0xff;
+						img[i+11] =  bar0        & 0xff;
+						img[i+12] = (bar1 >> 24) & 0xff;
+						img[i+13] = (bar1 >> 16) & 0xff;
+						img[i+14] = (bar1 >>  8) & 0xff;
+						img[i+15] =  bar1        & 0xff;
+						ofprint("  BAR0 ");
+						ofhex(bar0);
+						ofprint(" BAR1 ");
+						ofhex(bar1);
+						ofprint("\n");
 						break;
 					}
 				}
