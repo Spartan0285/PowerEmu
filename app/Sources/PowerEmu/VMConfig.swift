@@ -272,8 +272,8 @@ struct VMConfig: Codable, Equatable {
         d.model = try c.decodeIfPresent(String.self, forKey: .model)
         d.cpuMHz = try c.decodeIfPresent(Int.self, forKey: .cpuMHz)
         try get(.cpuCount, &d.cpuCount)
-        guard [1, 2, 4].contains(d.cpuCount) else {
-            throw DecodingError.dataCorruptedError(forKey: .cpuCount, in: c, debugDescription: "CPU count must be 1, 2 or 4")
+        guard [1, 2].contains(d.cpuCount) else {
+            throw DecodingError.dataCorruptedError(forKey: .cpuCount, in: c, debugDescription: "CPU count must be 1 or 2")
         }
         try get(.disks, &d.disks)
         d.startupDisk = try c.decodeIfPresent(UUID.self, forKey: .startupDisk)

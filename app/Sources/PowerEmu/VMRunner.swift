@@ -172,58 +172,31 @@ final class VMRunner {
          * audio until the device itself is taught Mac OS 9's driver.
          */
         /*
-         * poweremu-audio needs no device-tree node from here.
+         * poweremu-audio's device-tree node, so a guest driver can find it.
          *
-         * It used to be a macio child, published by hand from this
-         * boot-command with an AAPL,address at 0x80017000, and Mac OS 9
-         * never loaded a driver for it: Mac OS reads
-         * driver,AAPL,MacOS,PowerPC for devices its PCI enumeration
-         * discovers, and an on-board macio child is not one of those.  The
-         * device is PCI now, so the firmware names the node itself after
-         * the IDs -- pci1b36,5045 -- which is what the driver matches on,
-         * and the loader below puts the driver on it.
+         * The device is in macio at 0x17000 whatever the guest, but nothing
+         * looks there without a node to point the way.  Published from here
+         * rather than from the firmware because the firmware we ship is a
+         * prebuilt binary; this is the same mechanism that edits the sound
+         * node below, and it needs no rebuild.
+         *
+         * AAPL,address carries the absolute address, which is what a classic
+         * Mac OS driver reads out of the Name Registry.  reg carries the
+         * macio-relative offset and length, the way the other macio children
+         * do.  device_type is deliberately not "sound": nothing of Apple's
+         * should try to claim this.
          */
+        let audioNode = c.classic ? #"" /pci@f2000000/mac-io@c" find-device new-device " poweremu-audio" device-name " poweremu-sound" device-type " poweremu,audio" encode-string " compatible" property h# 17000 encode-int h# 1000 encode-int encode+ " reg" property h# 80017000 encode-int " AAPL,address" property finish-device device-end "# : ""
 
         let soundOff = c.classic ? #"" /pci@f2000000/mac-io@c/davbus@14000" ['] find-device catch 0= if " device_type" delete-property " compatible" delete-property " AAPL,clock-id" delete-property device-end then " /pci@f2000000/mac-io@c/davbus@14000/sound" ['] find-device catch 0= if " sound-objects" delete-property " model" delete-property device-end then "# : ""
-        /*
-         * What a secondary CPU needs before Mac OS will start it.
-         *
-         * The firmware publishes a node per CPU with reg and state, which
-         * is enough for the guest to see them and not enough for it to
-         * release any: on a KeyLargo machine a CPU is held in soft reset
-         * through a GPIO, and the node has to say which one.  The offsets
-         * are KL_GPIO_RESET_CPU0..3 -- 0x5b, 0x5c, 0x67, 0x68 -- matching
-         * hw/misc/macio/gpio.c, and timebase-enable is the GPIO that lets
-         * a released CPU's timebase run.
-         *
-         * Published from here for the same reason as everything else in
-         * this boot-command: the firmware we ship is a prebuilt binary.
-         * The GPIO node's phandle is read at run time rather than guessed
-         * -- it is a node address and moves between boots.
-         */
-        let smpProps: String = {
-            guard c.cpuCount > 1 else { return "" }
-            let reset = ["5b", "5c", "67", "68"]
-            var f = #"dev /pci@f2000000/mac-io@c/gpio@50 active-package device-end "#
-            for i in 1..<min(c.cpuCount, reset.count) {
-                f += #"dev /cpus/PowerPC,G4@\#(i) dup encode-int " gpio-parent" property "#
-                f += #"" off" encode-string " state" property "#
-                f += #"h# \#(reset[i]) encode-int " soft-reset" property "#
-                f += #"1 encode-int " gpio-mask" property "#
-                f += #"1 encode-int " gpio-value" property "#
-                f += #"h# 73 encode-int " timebase-enable" property device-end "#
-            }
-            return f + "drop "
-        }()
-
-        let bootCmd = #"boot-command="# + cpuSpeed + pciRanges + smpProps + #"" /pci@f2000000" find-device " uni-north" encode-string " compatible" property device-end " /pci@f2000000/ATY,Adagio@e" ['] find-device catch 0= if 7 encode-int " IOAGPFlags" property h# 104 encode-int " IOAGPCommandValue" property device-end then " /pci@f2000000/QEMU,VGA@e" ['] find-device catch 0= if h# "# + vramHex + #" encode-int " VRAM,totalsize" property device-end then "# + soundOff + (c.classic ? #"init-program go"# : #"boot"#)
+        let bootCmd = #"boot-command="# + cpuSpeed + pciRanges + #"" /pci@f2000000" find-device " uni-north" encode-string " compatible" property device-end " /pci@f2000000/ATY,Adagio@e" ['] find-device catch 0= if 7 encode-int " IOAGPFlags" property h# 104 encode-int " IOAGPCommandValue" property device-end then " /pci@f2000000/QEMU,VGA@e" ['] find-device catch 0= if h# "# + vramHex + #" encode-int " VRAM,totalsize" property device-end then "# + soundOff + audioNode + #"boot"#
 
         var a: [String] = [
             "-name", c.name,
             "-L", fw.path, "-nodefaults", "-vga", "none",
             "-machine", "mac99,via=pmu",
             "-g", "\(max(640, c.bootWidth))x\(max(480, c.bootHeight))x32",
-            "-device", "loader,addr=0x4000000,file=\(fw.appendingPathComponent(c.classic ? "ppc-peaudio-loader" : "ppc-ndrvloader").path)",
+            "-device", "loader,addr=0x4000000,file=\(fw.appendingPathComponent("ppc-ndrvloader").path)",
             "-m", String(c.effectiveMemoryMB),
             "-audio", c.audio,
         ]
@@ -283,17 +256,6 @@ final class VMRunner {
             gpu += ",host-native-height=\(Int(scr.frame.height.rounded()))"
         }
         a += ["-device", gpu]
-        /*
-         * The paravirtual sound device, for classic guests only.
-         *
-         * Mac OS X drives the AWACS screamer perfectly well and has no
-         * driver for this one.  Mac OS 9's handling of the screamer is the
-         * problem -- Apple Audio Extension bombs at startup often enough to
-         * be unusable, which is why soundOff above takes the node away from
-         * it -- so a classic guest gets this instead, with the NDRV that
-         * ppc-peaudio-loader installs.
-         */
-        if c.classic { a += ["-device", "poweremu-audio"] }
 
         // The paravirtual GPU, alongside the emulated R200 rather than in
         // place of it: the guest keeps booting and displaying through the
