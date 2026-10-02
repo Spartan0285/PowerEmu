@@ -33,7 +33,12 @@
  */
 
 #include <stdio.h>
-#include <string.h>
+/*
+ * No string.h, and no C library.  Built as a stand-alone component this
+ * links against nothing but the Mac OS shared libraries, and Retro68's
+ * multiversal set has no StdCLib to pull memset and strstr from, so the
+ * two this needs are here.
+ */
 #include <MacTypes.h>
 #include <Components.h>
 #include <Sound.h>
@@ -116,6 +121,46 @@ typedef struct PEGlobals {
     Boolean             hwMute;
 } PEGlobals;
 
+/*
+ * The compiler emits calls to memset for struct initialisation whether or
+ * not the source mentions it, so it has to exist even with no C library.
+ */
+void *memset(void *p, int c, unsigned long n);
+void *memset(void *p, int c, unsigned long n)
+{
+    unsigned char *b = (unsigned char *)p;
+
+    while (n-- > 0) {
+        *b++ = (unsigned char)c;
+    }
+    return p;
+}
+
+static void PEZero(void *p, long n)
+{
+    char *b = (char *)p;
+
+    while (n-- > 0) {
+        *b++ = 0;
+    }
+}
+
+static Boolean PEContains(const char *hay, const char *needle)
+{
+    for (; *hay; hay++) {
+        const char *h = hay, *n = needle;
+
+        while (*n && *h == *n) {
+            h++;
+            n++;
+        }
+        if (*n == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 static PEGlobals *gActive;              /* the task has no refcon of its own */
 
 /* ---------------------------------------------------------------- device */
@@ -140,11 +185,11 @@ static OSStatus PEFindDevice(PEGlobals *g)
             break;
         }
         if (RegistryCStrEntryToPath(&entry, path, sizeof(path)) == noErr &&
-            strstr(path, PE_NODE_NAME) != NULL) {
+            PEContains(path, PE_NODE_NAME)) {
             RegistryEntryIterateDispose(&iter);
 
             size = sizeof(assigned);
-            memset(assigned, 0, sizeof(assigned));
+            PEZero(assigned, sizeof(assigned));
             err = RegistryPropertyGet(&entry, "assigned-addresses",
                                       assigned, &size);
             if (err != noErr || size < 40) {
@@ -585,6 +630,14 @@ pascal ComponentResult PEAudioComponentEntry(ComponentParameters *params,
 pascal ComponentResult PEAudioComponentEntry(ComponentParameters *params,
                                              Handle storage)
 {
+    /*
+     * Every call, logged to a fixed address rather than through the
+     * storage, so it works before the device has been found and when the
+     * component is loaded from Extensions with no console anywhere.  The
+     * BAR is mapped by Open Firmware whether or not our driver ran.
+     */
+    *(volatile UInt32 *)0x88010010UL = 0xBB000000UL | (params->what & 0xFFFF);
+
     switch (params->what) {
     case kComponentOpenSelect:
         return PE_CALL(PEOpen, PE_PROC2(PE_L, PE_L));
