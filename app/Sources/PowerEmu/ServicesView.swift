@@ -39,7 +39,36 @@ private struct WebAcceleratorSection: View {
 
 /// PowerMusic: this Mac holds the music and plays it; old Macs search and
 /// control it.
-private struct MusicSection: View {
+private /// Printing from the guest to this Mac.
+struct PrintingSection: View {
+    @ObservedObject private var hub = ServicesHub.shared
+    @State private var printers: [String] = []
+
+    var body: some View {
+        Section {
+            Toggle("Printing", isOn: Binding(get: { hub.config.printEnabled },
+                                             set: { hub.setPrintEnabled($0) }))
+            if hub.config.printEnabled {
+                Picker("Send to", selection: Binding(get: { hub.config.printDestination },
+                                                     set: { hub.setPrintDestination($0) })) {
+                    Text("Keep the file on this Mac").tag("")
+                    ForEach(printers, id: \.self) { Text($0).tag($0) }
+                }
+                Button("Show Print Jobs") {
+                    NSWorkspace.shared.open(PrinterServer.spool)
+                }
+            }
+        } header: {
+            Text("Printing")
+        } footer: {
+            Text("The virtual Mac prints to PowerEmu as if it were a printer on the network. In Mac OS X add an LPD printer at 10.0.2.100; in Mac OS 8 or 9 use the Desktop Printer Utility to make a Printer (LPR) at the same address. Any queue name will do.\n\nMac OS X usually sends PDF, which this Mac can open. Mac OS 9 sends PostScript, which today’s Macs can no longer open but can still print — so choose a printer if you print from a classic system.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+        .task { printers = ServicesHub.hostPrinters() }
+    }
+}
+
+struct MusicSection: View {
     @ObservedObject var hub = ServicesHub.shared
     @State private var team = ""
     @State private var key = ""
@@ -162,6 +191,8 @@ struct ServicesView: View {
             WebAcceleratorSection()
 
             MusicSection()
+
+            PrintingSection()
 
             Section {
                 ForEach(hub.config.accounts) { a in

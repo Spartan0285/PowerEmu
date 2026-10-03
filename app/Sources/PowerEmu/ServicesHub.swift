@@ -102,6 +102,10 @@ struct ServicesConfig: Codable {
     // search and control it.  Off until it has a key to sign with.
     var musicEnabled = false
     var musicPort = 3001
+    /// Printing from the guest to this Mac.  The destination is a CUPS
+    /// printer name, or "" to keep each job and open it.
+    var printEnabled = true
+    var printDestination = ""
     var musicTeamID = ""
     var musicKeyID = ""
     /// The private key downloaded from the Apple Developer portal (.p8).
@@ -227,6 +231,7 @@ final class ServicesHub: ObservableObject {
     nonisolated static let webSocket = NSTemporaryDirectory() + "poweremu-web.sock"
     /// PowerMusic, for virtual Macs at 10.0.2.100:3001.
     nonisolated static let musicSocket = NSTemporaryDirectory() + "poweremu-music.sock"
+    nonisolated static let printSocket = NSTemporaryDirectory() + "poweremu-print.sock"
 
     /// The Web Accelerator (always exists; listens only when switched on).
     nonisolated let web = WebAccelerator(note: { s in Task { @MainActor in ServicesHub.shared.note(s) } })
@@ -239,6 +244,11 @@ final class ServicesHub: ObservableObject {
 
     /// What the proxy sessions (on their own threads) read.
     nonisolated let accounts = AccountStore()
+    /// The printer the guest sees (always exists; listens only when on).
+    lazy var printer = PrinterServer(note: { [weak self] m in
+        Task { @MainActor in self?.note(m) }
+    })
+
     private var listeners: [SocketListener] = []
 
     private var configURL: URL {
@@ -322,6 +332,13 @@ final class ServicesHub: ObservableObject {
                 musicBonjour = b
             }
         }
+        printer.update(PrinterServer.Settings(destination: config.printDestination))
+        if config.printEnabled {
+            let pr = self.printer
+            l.append(SocketListener(unixPath: Self.printSocket, name: "virtual Mac") { fd, peer in
+                pr.serve(fd: fd, peer: peer)
+            })
+        }
         for x in l {
             do { try x.start() } catch { note("Could not listen for \(x.name): \(error.localizedDescription)") }
         }
@@ -336,6 +353,23 @@ final class ServicesHub: ObservableObject {
     }
 
     // MARK: settings
+
+    func setPrintEnabled(_ on: Bool) { config.printEnabled = on; save(); restartListeners() }
+    func setPrintDestination(_ d: String) { config.printDestination = d; save(); restartListeners() }
+    /// The printers this Mac has, for the destination list.
+    static func hostPrinters() -> [String] {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/lpstat")
+        p.arguments = ["-p"]
+        let pipe = Pipe(); p.standardOutput = pipe; p.standardError = Pipe()
+        guard (try? p.run()) != nil else { return [] }
+        let out = pipe.fileHandleForReading.readDataToEndOfFile()
+        p.waitUntilExit()
+        return String(decoding: out, as: UTF8.self).split(separator: "\n").compactMap { line in
+            guard line.hasPrefix("printer ") else { return nil }
+            return line.split(separator: " ").dropFirst().first.map(String.init)
+        }
+    }
 
     func setMailEnabled(_ on: Bool) { config.mailEnabled = on; save(); restartListeners() }
     func setWebEnabled(_ on: Bool) { config.webEnabled = on; save(); restartListeners() }

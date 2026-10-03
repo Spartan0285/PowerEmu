@@ -336,6 +336,8 @@ final class VMRunner {
             // at 10.0.2.100:3001.  Always forwarded, like the mail and the
             // web; whether anything answers is the Service Hub's switch.
             net += ",guestfwd=tcp:10.0.2.100:3001-cmd:/usr/bin/nc -U \(ServicesHub.musicSocket)"
+            // The guest prints to this as an LPD printer at 10.0.2.100.
+            net += ",guestfwd=tcp:10.0.2.100:515-cmd:/usr/bin/nc -U \(ServicesHub.printSocket)"
             a += ["-netdev", net, "-device", "sungem,netdev=net0"]
             /*
              * Bridged: a second card, straight on to this Mac's network
