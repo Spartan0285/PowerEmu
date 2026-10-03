@@ -1,0 +1,11 @@
+listening on /tmp/pedual/d1.sock
+QEMU connected
+SURFACE 640x480 stride=2560 (announce #1)
+SURFACE 1024x768 stride=4096 (announce #2)
+SNAP 1 /private/tmp/claude-501/-Users-adam-PB-Firmware/d8fb27b8-cca0-4a78-8e8d-7082c2c105ce/scratchpad/dual/run/s1/frame-0001.png 1024x768 bytes=621050 png_md5=886a6be3ebcd2acbe3c31f367d61bc87 raw_md5=fe18b6f581903ae4e677873975676dae surfaces=2 damage=10 cursor=0 mouse=2 last_damage=(0, 545, 1024, 72)
+SNAP 2 /private/tmp/claude-501/-Users-adam-PB-Firmware/d8fb27b8-cca0-4a78-8e8d-7082c2c105ce/scratchpad/dual/run/s1/frame-0002.png 1024x768 bytes=621050 png_md5=886a6be3ebcd2acbe3c31f367d61bc87 raw_md5=fe18b6f581903ae4e677873975676dae surfaces=2 damage=10 cursor=0 mouse=2 last_damage=(0, 545, 1024, 72)
+SNAP 3 /private/tmp/claude-501/-Users-adam-PB-Firmware/d8fb27b8-cca0-4a78-8e8d-7082c2c105ce/scratchpad/dual/run/s1/frame-0003.png 1024x768 bytes=621050 png_md5=886a6be3ebcd2acbe3c31f367d61bc87 raw_md5=fe18b6f581903ae4e677873975676dae surfaces=2 damage=10 cursor=0 mouse=2 last_damage=(0, 545, 1024, 72)
+SNAP 4 /private/tmp/claude-501/-Users-adam-PB-Firmware/d8fb27b8-cca0-4a78-8e8d-7082c2c105ce/scratchpad/dual/run/s1/frame-0004.png 1024x768 bytes=621050 png_md5=886a6be3ebcd2acbe3c31f367d61bc87 raw_md5=fe18b6f581903ae4e677873975676dae surfaces=2 damage=10 cursor=0 mouse=2 last_damage=(0, 545, 1024, 72)
+SNAP 5 /private/tmp/claude-501/-Users-adam-PB-Firmware/d8fb27b8-cca0-4a78-8e8d-7082c2c105ce/scratchpad/dual/run/s1/frame-0005.png 1024x768 bytes=621050 png_md5=886a6be3ebcd2acbe3c31f367d61bc87 raw_md5=fe18b6f581903ae4e677873975676dae surfaces=2 damage=10 cursor=0 mouse=2 last_damage=(0, 545, 1024, 72)
+SNAP 6 /private/tmp/claude-501/-Users-adam-PB-Firmware/d8fb27b8-cca0-4a78-8e8d-7082c2c105ce/scratchpad/dual/run/s1/frame-0006.png 1024x768 bytes=621050 png_md5=886a6be3ebcd2acbe3c31f367d61bc87 raw_md5=fe18b6f581903ae4e677873975676dae surfaces=2 damage=10 cursor=0 mouse=2 last_damage=(0, 545, 1024, 72)
+SNAP 7 /private/tmp/claude-501/-Users-adam-PB-Firmware/d8fb27b8-cca0-4a78-8e8d-7082c2c105ce/scratchpad/dual/run/s1/frame-0007.png 1024x768 bytes=621050 png_md5=886a6be3ebcd2acbe3c31f367d61bc87 raw_md5=fe18b6f581903ae4e677873975676dae surfaces=2 damage=10 cursor=0 mouse=2 last_damage=(0, 545, 1024, 72)

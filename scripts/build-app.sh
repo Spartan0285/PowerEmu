@@ -142,6 +142,14 @@ cat > "$OUT/Contents/Info.plist" <<EOF
 	</array>
 	<key>NSHighResolutionCapable</key>
 	<true/>
+	<!-- The virtual Mac's sound input. The emulator is the process that
+	     opens the capture stream and carries this string too, but this Mac
+	     asks on behalf of the application responsible for it, which is
+	     PowerEmu. Without it here the request is refused before anyone is
+	     asked. Nothing is recorded unless a machine is given a microphone
+	     and something inside it starts recording. -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Lets a virtual Mac hear this Mac’s microphone, when you give it one.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>PowerEmu is free software under the GNU GPL v2 or later.</string>
 	<!-- The WebAccelerator proxy fetches the guest's web traffic on the host,
