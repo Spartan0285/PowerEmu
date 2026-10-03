@@ -83,6 +83,30 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
         for (value, title) in VMConfig.scalingChoices {
             let it = entry(title, #selector(setScaling(_:)))
             it.representedObject = value
+            it.tag = Self.tagScaling
+            filters.addItem(it)
+        }
+        filters.addItem(.separator())
+        /*
+         * Picture and overscan belong next to scaling, and in the bar rather
+         * than only in the configurator: the configurator locks while the
+         * machine runs, which is exactly when these are worth adjusting --
+         * they are judged by eye against what is on the screen.
+         */
+        header(filters, "Picture")
+        for (value, title) in VMConfig.displayFitChoices {
+            let it = entry(title, #selector(setDisplayFit(_:)))
+            it.representedObject = value
+            it.tag = Self.tagFit
+            filters.addItem(it)
+        }
+        filters.addItem(.separator())
+        header(filters, "Overscan")
+        for step in stride(from: -10.0, through: 10.0, by: 2.5) {
+            let title = step == 0 ? "None" : String(format: "%+.1f%%", step)
+            let it = entry(title, #selector(setOverscan(_:)))
+            it.representedObject = step
+            it.tag = Self.tagOverscan
             filters.addItem(it)
         }
         filters.addItem(.separator())
@@ -90,11 +114,14 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
         for (value, title) in PanelFilters.choices {
             let it = entry(title, #selector(setPanelFilter(_:)))
             it.representedObject = value
+            it.tag = Self.tagPanel
             filters.addItem(it)
         }
         filters.delegate = self
         build()
     }
+
+    private static let tagScaling = 1, tagFit = 2, tagOverscan = 3, tagPanel = 4
 
     private var vm: VirtualMachine? { controller?.vm }
     private var display: VMDisplayView? { controller?.display }
@@ -210,6 +237,20 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
         vm.config.scaling = mode
         try? vm.save()
         display?.scaling = mode
+    }
+
+    @MainActor @objc private func setDisplayFit(_ sender: NSMenuItem) {
+        guard let vm, let mode = sender.representedObject as? String else { return }
+        vm.config.displayFit = mode
+        try? vm.save()
+        display?.displayFit = mode
+    }
+
+    @MainActor @objc private func setOverscan(_ sender: NSMenuItem) {
+        guard let vm, let v = sender.representedObject as? Double else { return }
+        vm.config.overscan = v
+        try? vm.save()
+        display?.overscan = v
     }
 
     @MainActor @objc private func setPanelFilter(_ sender: NSMenuItem) {
@@ -387,12 +428,28 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         if menu === filters {
-            // Tick whichever scaling the machine is set to.
+            /*
+             * Tick what the machine is set to.  Which group an item belongs to
+             * is carried by its tag: matching on the type of representedObject
+             * worked only while scaling was the one String in the menu, and
+             * quietly stopped as soon as Picture added another.
+             */
             let scale = vm?.config.scaling ?? "smooth"
+            let fit = vm?.config.displayFit ?? "fit"
+            let over = vm?.config.overscan ?? 0
             let panel = vm?.config.panelFilter ?? 0
             for it in menu.items {
-                if let v = it.representedObject as? String { it.state = v == scale ? .on : .off }
-                if let v = it.representedObject as? Int { it.state = v == panel ? .on : .off }
+                switch it.tag {
+                case Self.tagScaling:
+                    it.state = (it.representedObject as? String) == scale ? .on : .off
+                case Self.tagFit:
+                    it.state = (it.representedObject as? String) == fit ? .on : .off
+                case Self.tagOverscan:
+                    it.state = (it.representedObject as? Double) == over ? .on : .off
+                case Self.tagPanel:
+                    it.state = (it.representedObject as? Int) == panel ? .on : .off
+                default: break
+                }
             }
             return
         }

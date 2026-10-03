@@ -1371,7 +1371,7 @@ final class VMDisplayView: NSView {
             needsLayout = true
         }
         finishHarmonyPreparation()
-        screen.contents = s
+        screen.contents = filtered(s, w: w, h: h) ?? s
         lastSurface = s
         if harmony {
             harmonyManager.setSurface(s)
@@ -2043,6 +2043,39 @@ final class VMDisplayView: NSView {
      * guest's own size is handed to the kernel because the scanlines and the
      * phosphor mask belong on the guest's pixels, not on this Mac's.
      */
+    /// A Metal-backed context, made once; making one per frame is expensive.
+    private lazy var filterContext: CIContext = {
+        if let dev = MTLCreateSystemDefaultDevice() {
+            return CIContext(mtlDevice: dev, options: [.cacheIntermediates: false])
+        }
+        return CIContext(options: [.cacheIntermediates: false])
+    }()
+
+    /*
+     * The guest's frame with the display filter applied, or nil to show the
+     * surface untouched.
+     *
+     * This has to happen here rather than as a CALayer filter: the layer's
+     * contents is an IOSurface, and CALayer.filters does not composite that at
+     * all -- hanging a filter on it rendered nothing and blanked the machine.
+     * Composing the filtered frame into a CGImage and showing that instead
+     * costs a GPU pass per frame, which is the price of the effect being
+     * visible at all.
+     *
+     * Every failure returns nil so the caller shows the plain surface: a
+     * decorative filter must never be the reason the machine cannot be seen.
+     */
+    private func filtered(_ s: IOSurfaceRef, w: Int, h: Int) -> CGImage? {
+        guard panelFilter > 0, PanelFilters.kernel != nil, !harmony else { return nil }
+        let f = PanelFilter()
+        f.inputImage = CIImage(ioSurface: s)
+        f.inputMode = NSNumber(value: panelFilter)
+        f.inputWidth = NSNumber(value: Double(w))
+        f.inputHeight = NSNumber(value: Double(h))
+        guard let out = f.outputImage else { return nil }
+        return filterContext.createCGImage(out, from: CGRect(x: 0, y: 0, width: w, height: h))
+    }
+
     private func applyPanelFilter() {
         /*
          * Not yet.  The guest's screen layer is backed by an IOSurface
@@ -2059,10 +2092,10 @@ final class VMDisplayView: NSView {
          * until it is applied somewhere that works: at the point the surface
          * is composed, rather than as a layer filter over it.
          */
-        screen.filters = nil
-        if panelFilter > 0 {
-            harmonyDebug("PEFILTER display filters are not applied yet; "
-                + "see the note in applyPanelFilter()")
+        screen.filters = nil          // never a layer filter; see filtered(_:w:h:)
+        // Show the change at once rather than at the guest's next frame.
+        if let s = lastSurface {
+            screen.contents = filtered(s, w: Int(guestSize.width), h: Int(guestSize.height)) ?? s
         }
     }
 
