@@ -258,6 +258,14 @@ struct VMConfig: Codable, Equatable {
      * turning it off again restores what the reader had rather than a set of
      * defaults.
      */
+    /*
+     * USB devices this machine connects by itself once it is running, by the
+     * identity HostUSBDevice gives them.  Without this every device has to be
+     * picked from the menu again on every start, which for a machine that
+     * exists to use one dongle is the whole job done by hand each time.
+     */
+    var autoConnectUSB: [String] = []
+
     var isolated = false
     /*
      * Rollback: run from a throwaway overlay, so everything the guest writes
@@ -303,7 +311,7 @@ struct VMConfig: Codable, Equatable {
         case bootChime, chimeSound, chimeFile, bootWidth, bootHeight, autoStart, verboseBoot, safeBoot, singleUser, audio, network, sshPort, shareClipboard, sharedFolders
         case agpBridge, monitorPort, gpuTrace, extraQEMUArgs, gamepad, shareOnNetwork, bridgedInterface
         case externalDisk
-        case classic, scaling, panelFilter, displayFit, isolated, discardChanges
+        case classic, scaling, panelFilter, displayFit, isolated, discardChanges, autoConnectUSB
     }
 
     init(from decoder: Decoder) throws {
@@ -331,6 +339,7 @@ struct VMConfig: Codable, Equatable {
         try get(.displayFit, &d.displayFit)
         try get(.isolated, &d.isolated)
         try get(.discardChanges, &d.discardChanges)
+        try get(.autoConnectUSB, &d.autoConnectUSB)
         try get(.hardwareCursor, &d.hardwareCursor); try get(.extraDisplayModes, &d.extraDisplayModes)
         try get(.startFullscreen, &d.startFullscreen); try get(.bootChime, &d.bootChime)
         try get(.chimeSound, &d.chimeSound)

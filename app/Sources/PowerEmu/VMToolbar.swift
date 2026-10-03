@@ -594,12 +594,17 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
             none.isEnabled = false
             menu.addItem(none)
         }
+        let remembered = Set(vm.config.autoConnectUSB)
         for d in usb {
-            let it = entry(d.name, #selector(toggleUSB(_:)))
+            let auto = remembered.contains(d.id)
+            let it = entry(auto ? d.name + " (automatic)" : d.name,
+                           #selector(toggleUSB(_:)))
             it.representedObject = d
             it.state = vm.attachedUSB[d.id] != nil ? .on : .off
-            it.isEnabled = running
-            it.toolTip = String(format: "%04x:%04x — checked means the virtual Mac owns it", d.vendor, d.product)
+            it.isEnabled = true
+            it.toolTip = String(format: "%04x:%04x — checked means the virtual Mac owns it; "
+                                + "hold Option to connect it automatically at every start",
+                                d.vendor, d.product)
             menu.addItem(it)
         }
     }
@@ -663,7 +668,16 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
     }
 
     @objc private func toggleUSB(_ item: NSMenuItem) {
-        if let d = item.representedObject as? HostUSBDevice { vm?.toggleUSB(d) }
+        if let d = item.representedObject as? HostUSBDevice {
+            // Option-click sets whether this machine takes the device by
+            // itself in future, rather than connecting it now.
+            if NSEvent.modifierFlags.contains(.option) {
+                let on = !(vm?.config.autoConnectUSB.contains(d.id) ?? false)
+                vm?.setAutoConnectUSB(d, on)
+            } else if vm?.state == .running {
+                vm?.toggleUSB(d)
+            }
+        }
         refocus()
     }
 

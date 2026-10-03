@@ -262,6 +262,16 @@ final class VirtualMachine: ObservableObject, Identifiable {
                 }
             }
             state = .running
+            /*
+             * Take the remembered USB devices now the machine can accept
+             * them.  A moment's grace first: the emulator has only just
+             * started and the guest has not finished looking at its bus.
+             */
+            if !config.autoConnectUSB.isEmpty {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+                    MainActor.assumeIsolated { self?.connectRememberedUSB() }
+                }
+            }
             if asleep {
                 /*
                  * The saved copy is thrown away once the machine is back on
@@ -450,6 +460,35 @@ final class VirtualMachine: ObservableObject, Identifiable {
     }
 
     func pressPowerKey() { runner?.pressPowerKey() }
+
+    /// Whether this machine takes that device by itself when it starts.
+    func setAutoConnectUSB(_ d: HostUSBDevice, _ on: Bool) {
+        if on {
+            guard !config.autoConnectUSB.contains(d.id) else { return }
+            config.autoConnectUSB.append(d.id)
+        } else {
+            config.autoConnectUSB.removeAll { $0 == d.id }
+        }
+        try? save()
+        objectWillChange.send()
+    }
+
+    /*
+     * Connect the remembered devices once the machine is running.  A device
+     * that is not plugged in is simply not there to take, which is not an
+     * error worth reporting -- the machine is expected to start without it.
+     */
+    func connectRememberedUSB() {
+        guard state == .running, !config.autoConnectUSB.isEmpty else { return }
+        for d in HostUSBDevice.list() where config.autoConnectUSB.contains(d.id) {
+            guard attachedUSB[d.id] == nil else { continue }
+            runner?.attachUSB(d) { err in
+                Task { @MainActor in
+                    if err == nil { self.attachedUSB[d.id] = d.name }
+                }
+            }
+        }
+    }
 
     func toggleUSB(_ d: HostUSBDevice) {
         guard let runner, state == .running else { return }
