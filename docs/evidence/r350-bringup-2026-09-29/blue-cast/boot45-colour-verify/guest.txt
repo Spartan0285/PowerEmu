@@ -1,0 +1,24 @@
+2026-09-29 13:52:30.493 system_profiler[97:10b] _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+Graphics/Displays:
+
+    QEMU VGA:
+
+      Chipset Model: QEMU VGA
+      Type: Display
+      Bus: AGP
+      VRAM (Total): 128 MB
+      Vendor: ATI (0x1002)
+      Device ID: 0x4e48
+      Revision ID: 0x0001
+      Displays:
+        Display:
+          Resolution: 1680 x 1050
+          Depth: 32-Bit Color
+          Core Image: Hardware Accelerated
+          Main Display: Yes
+          Mirror: Off
+          Online: Yes
+          Quartz Extreme: Supported
+
+   55 ??         0:01.73 /System/Library/Frameworks/ApplicationServices.framework/Frameworks/CoreGraphics.framework/Resources/WindowServer -daemon
+   92 ??         0:00.29 /System/Library/CoreServices/Finder.app/Contents/MacOS/Finder -psn_0_36873

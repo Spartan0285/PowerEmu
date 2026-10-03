@@ -1,0 +1,23 @@
+2026-09-29 13:28:35.168 system_profiler[91:10b] _CFGetHostUUIDString: unable to determine UUID for host. Error: 35
+Graphics/Displays:
+
+    QEMU VGA:
+
+      Chipset Model: QEMU VGA
+      Type: Display
+      Bus: AGP
+      VRAM (Total): 128 MB
+      Vendor: ATI (0x1002)
+      Device ID: 0x5960
+      Revision ID: 0x0001
+      Displays:
+        Display:
+          Resolution: 1680 x 1050
+          Depth: 32-Bit Color
+          Core Image: Software
+          Main Display: Yes
+          Mirror: Off
+          Online: Yes
+          Quartz Extreme: Supported
+
+   52 ??         0:00.81 /System/Library/Frameworks/ApplicationServices.framework/Frameworks/CoreGraphics.framework/Resources/WindowServer -daemon

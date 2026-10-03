@@ -1,0 +1,12 @@
+[PRESENT_PITCH_PROBE] site=MMIO_NOSRT dst=0x0 crtc=0x0 src_pitch=4096 dst_pitch=4096 bpp=4 disp_bpp=0 disp_stride=0 1024x768 rop3=-1 size_ok=yes disp_bpp_ok=no
+[PRESENT_PITCH_PROBE] site=MMIO_NOSRT dst=0x0 crtc=0x0 src_pitch=6912 dst_pitch=6912 bpp=4 disp_bpp=0 disp_stride=0 656x768 rop3=-1 size_ok=yes disp_bpp_ok=no
+[PRESENT_PITCH_PROBE] site=MMIO_NOSRT dst=0x0 crtc=0x0 src_pitch=6912 dst_pitch=6912 bpp=4 disp_bpp=0 disp_stride=0 1680x282 rop3=-1 size_ok=yes disp_bpp_ok=no
+[PRESENT_PITCH_PROBE] site=MMIO_NOSRT dst=0x0 crtc=0x0 src_pitch=6912 dst_pitch=6912 bpp=4 disp_bpp=0 disp_stride=0 1680x1050 rop3=-1 size_ok=yes disp_bpp_ok=no
+[PRESENT_PITCH_PROBE] site=MMIO_NOSRT dst=0x0 crtc=0x0 src_pitch=6912 dst_pitch=6912 bpp=4 disp_bpp=0 disp_stride=0 1680x1050 rop3=-1 size_ok=yes disp_bpp_ok=no
+[PRESENT_PITCH_PROBE] site=MMIO_NOSRT dst=0x0 crtc=0x0 src_pitch=6912 dst_pitch=6912 bpp=4 disp_bpp=0 disp_stride=0 1680x1028 rop3=-1 size_ok=yes disp_bpp_ok=no
+[PRESENT_PITCH_PROBE] site=MMIO_NOSRT dst=0x0 crtc=0x0 src_pitch=4096 dst_pitch=6912 bpp=4 disp_bpp=0 disp_stride=0 1023x52 rop3=-1 size_ok=no disp_bpp_ok=no
+[PRESENT_PITCH_PROBE] site=MMIO_NOSRT dst=0x0 crtc=0x0 src_pitch=4096 dst_pitch=6912 bpp=4 disp_bpp=0 disp_stride=0 975x1 rop3=-1 size_ok=no disp_bpp_ok=no
+[STRIDE_CHANGE] MMIO_NOSRT: override activate 0 -> 4096
+[STRIDE_CHANGE] MMIO_NOSRT: override update 4096 -> 6912
+[STRIDE_CHANGE] update_display_mode: CRTC gives 6720, override forces 6912
+[STRIDE_CHANGE] update_display_mode: CRTC gives 6720, override forces 6912

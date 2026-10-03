@@ -1,0 +1,117 @@
+R350_TEXDIAG draw=1 unit=0 f0=8007f8ff f1=0000aa0c f2=000000ff off=00600000 swz=2,1,0,5 perm=0 tw=256 th=256 tp=256 bpp=4
+R350_TEXDIAG_RAW  draw=1 unit=0 px=0 ff 42 6b ad
+R350_TEXDIAG_RGBA draw=1 unit=0 px=0 42 6b ad ff
+R350_TEXDIAG_RAW  draw=1 unit=0 px=1 ff 42 6b ad
+R350_TEXDIAG_RGBA draw=1 unit=0 px=1 42 6b ad ff
+R350_TEXDIAG_RAW  draw=1 unit=0 px=2 ff 42 6b ad
+R350_TEXDIAG_RGBA draw=1 unit=0 px=2 42 6b ad ff
+R350_TEXDIAG_RAW  draw=1 unit=0 px=3 ff 42 6b ad
+R350_TEXDIAG_RGBA draw=1 unit=0 px=3 42 6b ad ff
+R350_TGTDIAG draw=1 off=00300000 crtc=00000000 pitch=1024 endian=2 w=1024 h=768 scissor=0,0,1024,768 mask=f prem=0
+R350_TGTDIAG_VRAM draw=1 px=0 00 00 00 00 -> rgba 00 00 00 00
+R350_TGTDIAG_VRAM draw=1 px=1 00 00 00 00 -> rgba 00 00 00 00
+R350_TGTDIAG_VRAM draw=1 px=2 00 00 00 00 -> rgba 00 00 00 00
+R350_TGTDIAG_OUT draw=1 px=0 rgba 42 6b ad ff
+R350_TGTDIAG_OUT draw=1 px=1 rgba 42 6b ad ff
+R350_TGTDIAG_OUT draw=1 px=2 rgba 42 6b ad ff
+R350_TEXDIAG draw=13 unit=0 f0=8017fbff f1=0000a60c f2=000003ff off=00300004 swz=2,1,0,3 perm=0 tw=1024 th=768 tp=1024 bpp=4
+R350_TEXDIAG_RAW  draw=13 unit=0 px=0 ff 42 6b ad
+R350_TEXDIAG_RGBA draw=13 unit=0 px=0 42 6b ad ff
+R350_TEXDIAG_RAW  draw=13 unit=0 px=1 ff 42 6b ad
+R350_TEXDIAG_RGBA draw=13 unit=0 px=1 42 6b ad ff
+R350_TEXDIAG_RAW  draw=13 unit=0 px=2 ff 42 6b ad
+R350_TEXDIAG_RGBA draw=13 unit=0 px=2 42 6b ad ff
+R350_TEXDIAG_RAW  draw=13 unit=0 px=3 ff 42 6b ad
+R350_TEXDIAG_RGBA draw=13 unit=0 px=3 42 6b ad ff
+R350_TGTDIAG draw=13 off=00000000 crtc=00000000 pitch=1024 endian=2 w=1024 h=768 scissor=0,0,1024,768 mask=f prem=0
+R350_TGTDIAG_VRAM draw=13 px=0 00 00 00 00 -> rgba 00 00 00 00
+R350_TGTDIAG_VRAM draw=13 px=1 00 00 00 00 -> rgba 00 00 00 00
+R350_TGTDIAG_VRAM draw=13 px=2 00 00 00 00 -> rgba 00 00 00 00
+R350_TGTDIAG_OUT draw=13 px=0 rgba 42 6b ad ff
+R350_TGTDIAG_OUT draw=13 px=1 rgba 42 6b ad ff
+R350_TGTDIAG_OUT draw=13 px=2 rgba 42 6b ad ff
+R350_TGTDIAG draw=165 off=00736000 crtc=00000000 pitch=1024 endian=2 w=1024 h=104 scissor=24,52,975,1 mask=f prem=1
+R350_TGTDIAG_VRAM draw=165 px=0 ff 07 08 0c -> rgba 07 08 0c ff
+R350_TGTDIAG_VRAM draw=165 px=1 ff 08 09 0d -> rgba 08 09 0d ff
+R350_TGTDIAG_VRAM draw=165 px=2 ff 08 09 0d -> rgba 08 09 0d ff
+R350_TGTDIAG_OUT draw=165 px=0 rgba 07 08 0c ff
+R350_TGTDIAG_OUT draw=165 px=1 rgba 08 09 0d ff
+R350_TGTDIAG_OUT draw=165 px=2 rgba 08 09 0d ff
+R350_TEXDIAG draw=352 unit=0 f0=8003f87f f1=00000000 f2=0000007f off=0079c000 swz=0,0,0,0 perm=0 tw=128 th=128 tp=128 bpp=1
+R350_TEXDIAG_RAW  draw=352 unit=0 px=0 00 00 00 00
+R350_TEXDIAG_RGBA draw=352 unit=0 px=0 00 00 00 00
+R350_TEXDIAG_RAW  draw=352 unit=0 px=1 00 00 00 00
+R350_TEXDIAG_RGBA draw=352 unit=0 px=1 00 00 00 00
+R350_TEXDIAG_RAW  draw=352 unit=0 px=2 00 00 00 00
+R350_TEXDIAG_RGBA draw=352 unit=0 px=2 00 00 00 00
+R350_TEXDIAG_RAW  draw=352 unit=0 px=3 00 00 00 00
+R350_TEXDIAG_RGBA draw=352 unit=0 px=3 00 00 00 00
+R350_TGTDIAG draw=352 off=00736000 crtc=00000000 pitch=1088 endian=2 w=1088 h=87 scissor=0,0,1025,87 mask=f prem=1
+R350_TGTDIAG_VRAM draw=352 px=0 ff 08 09 0d -> rgba 08 09 0d ff
+R350_TGTDIAG_VRAM draw=352 px=1 ff 08 09 0d -> rgba 08 09 0d ff
+R350_TGTDIAG_VRAM draw=352 px=2 ff 08 0a 0c -> rgba 08 0a 0c ff
+R350_TGTDIAG_OUT draw=352 px=0 rgba 08 09 0d ff
+R350_TGTDIAG_OUT draw=352 px=1 rgba 08 09 0d ff
+R350_TGTDIAG_OUT draw=352 px=2 rgba 08 0a 0c ff
+R350_TEXDIAG draw=380 unit=0 f0=80030cff f1=1000a60c f2=000004ff off=0080c000 swz=2,1,0,3 perm=0 tw=1280 th=98 tp=1280 bpp=4
+R350_TEXDIAG_RAW  draw=380 unit=0 px=0 a3 43 43 43
+R350_TEXDIAG_RGBA draw=380 unit=0 px=0 43 43 43 a3
+R350_TEXDIAG_RAW  draw=380 unit=0 px=1 a6 4a 4a 4a
+R350_TEXDIAG_RGBA draw=380 unit=0 px=1 4a 4a 4a a6
+R350_TEXDIAG_RAW  draw=380 unit=0 px=2 a5 4a 4a 4a
+R350_TEXDIAG_RGBA draw=380 unit=0 px=2 4a 4a 4a a5
+R350_TEXDIAG_RAW  draw=380 unit=0 px=3 a5 4a 4a 4a
+R350_TEXDIAG_RGBA draw=380 unit=0 px=3 4a 4a 4a a5
+R350_TEXDIAG draw=380 unit=1 f0=2007f8ff f1=18000000 f2=00003fff off=0088700c swz=0,0,0,0 perm=0 tw=256 th=256 tp=256 bpp=1
+R350_TEXDIAG_RAW  draw=380 unit=1 px=0 ff 00 00 00
+R350_TEXDIAG_RGBA draw=380 unit=1 px=0 ff ff ff ff
+R350_TEXDIAG_RAW  draw=380 unit=1 px=1 ff 00 00 00
+R350_TEXDIAG_RGBA draw=380 unit=1 px=1 ff ff ff ff
+R350_TEXDIAG_RAW  draw=380 unit=1 px=2 ff 00 00 00
+R350_TEXDIAG_RGBA draw=380 unit=1 px=2 ff ff ff ff
+R350_TEXDIAG_RAW  draw=380 unit=1 px=3 ff 00 00 00
+R350_TEXDIAG_RGBA draw=380 unit=1 px=3 ff ff ff ff
+R350_TGTDIAG draw=380 off=00736000 crtc=00000000 pitch=1088 endian=2 w=1088 h=87 scissor=0,35,1025,52 mask=f prem=1
+R350_TGTDIAG_VRAM draw=380 px=0 ff 07 08 0c -> rgba 07 08 0c ff
+R350_TGTDIAG_VRAM draw=380 px=1 ff 07 08 0c -> rgba 07 08 0c ff
+R350_TGTDIAG_VRAM draw=380 px=2 ff 07 08 0c -> rgba 07 08 0c ff
+R350_TGTDIAG_OUT draw=380 px=0 rgba 07 08 0c ff
+R350_TGTDIAG_OUT draw=380 px=1 rgba 07 08 0c ff
+R350_TGTDIAG_OUT draw=380 px=2 rgba 07 08 0c ff
+R350_TGTDIAG draw=509 off=00750000 crtc=00000000 pitch=64 endian=0 w=64 h=64 scissor=0,0,64,64 mask=f prem=0
+R350_TGTDIAG_VRAM draw=509 px=0 02 00 00 a7 -> rgba 00 00 a7 02
+R350_TGTDIAG_VRAM draw=509 px=1 ff 93 e5 a9 -> rgba 93 e5 a9 ff
+R350_TGTDIAG_VRAM draw=509 px=2 ff 8d e4 af -> rgba 8d e4 af ff
+R350_TGTDIAG_OUT draw=509 px=0 rgba 00 00 a7 02
+R350_TGTDIAG_OUT draw=509 px=1 rgba 93 e5 a9 ff
+R350_TGTDIAG_OUT draw=509 px=2 rgba 8d e4 af ff
+R350_TGTDIAG draw=510 off=00750000 crtc=00000000 pitch=64 endian=0 w=64 h=64 scissor=0,0,58,18 mask=f prem=1
+R350_TGTDIAG_VRAM draw=510 px=0 02 00 00 a7 -> rgba 00 00 a7 02
+R350_TGTDIAG_VRAM draw=510 px=1 ff 93 e5 a9 -> rgba 93 e5 a9 ff
+R350_TGTDIAG_VRAM draw=510 px=2 ff 8d e4 af -> rgba 8d e4 af ff
+R350_TGTDIAG_OUT draw=510 px=0 rgba 00 00 a7 02
+R350_TGTDIAG_OUT draw=510 px=1 rgba 93 e5 a9 ff
+R350_TGTDIAG_OUT draw=510 px=2 rgba 8d e4 af ff
+R350_TEXDIAG draw=511 unit=0 f0=8001f83f f1=0008860c f2=0000003f off=0075000c swz=0,1,2,3 perm=0 tw=64 th=64 tp=64 bpp=4
+R350_TEXDIAG_RAW  draw=511 unit=0 px=0 02 00 00 a7
+R350_TEXDIAG_RGBA draw=511 unit=0 px=0 a7 00 00 02
+R350_TEXDIAG_RAW  draw=511 unit=0 px=1 ff 93 e5 a9
+R350_TEXDIAG_RGBA draw=511 unit=0 px=1 a9 e5 93 ff
+R350_TEXDIAG_RAW  draw=511 unit=0 px=2 ff 8d e4 af
+R350_TEXDIAG_RGBA draw=511 unit=0 px=2 af e4 8d ff
+R350_TEXDIAG_RAW  draw=511 unit=0 px=3 ff 89 e6 b7
+R350_TEXDIAG_RGBA draw=511 unit=0 px=3 b7 e6 89 ff
+R350_TGTDIAG draw=511 off=00736000 crtc=00000000 pitch=192 endian=2 w=192 h=87 scissor=0,0,130,87 mask=f prem=1
+R350_TGTDIAG_VRAM draw=511 px=0 ff 08 07 0d -> rgba 08 07 0d ff
+R350_TGTDIAG_VRAM draw=511 px=1 ff 08 07 0d -> rgba 08 07 0d ff
+R350_TGTDIAG_VRAM draw=511 px=2 ff 07 08 0d -> rgba 07 08 0d ff
+R350_TGTDIAG_OUT draw=511 px=0 rgba 08 07 0d ff
+R350_TGTDIAG_OUT draw=511 px=1 rgba 08 07 0d ff
+R350_TGTDIAG_OUT draw=511 px=2 rgba 07 08 0d ff
+R350_TGTDIAG draw=522 off=00750000 crtc=00000000 pitch=64 endian=0 w=64 h=64 scissor=0,0,64,64 mask=f prem=0
+R350_TGTDIAG_VRAM draw=522 px=0 02 00 00 a7 -> rgba 00 00 a7 02
+R350_TGTDIAG_VRAM draw=522 px=1 ff 93 e5 a9 -> rgba 93 e5 a9 ff
+R350_TGTDIAG_VRAM draw=522 px=2 ff 8d e4 af -> rgba 8d e4 af ff
+R350_TGTDIAG_OUT draw=522 px=0 rgba 00 00 a7 02
+R350_TGTDIAG_OUT draw=522 px=1 rgba 93 e5 a9 ff
+R350_TGTDIAG_OUT draw=522 px=2 rgba 8d e4 af ff

@@ -1,0 +1,176 @@
+diff --git a/hw/display/ppc_mac_gpu.c b/hw/display/ppc_mac_gpu.c
+index fb5232c3b3..071cda1007 100644
+--- a/hw/display/ppc_mac_gpu.c
++++ b/hw/display/ppc_mac_gpu.c
+@@ -75,6 +75,63 @@ static void r350_probe_access(PPCMacGPUState *s, hwaddr addr,
+ 
+ /* Shader-only diagnostic snapshots. Geometry and referenced guest memory
+  * are not captured, so these are not replayable draw fixtures. */
++/* Bounded channel diagnostics: report each distinct (format, swap, role)
++ * combination once instead of only the first draws, so the desktop-sized
++ * draws are covered as well as the 1024x768 startup ones. */
++/*
++ * Byte order of 32-bit colour in this emulator's VRAM.
++ *
++ * Every other consumer of VRAM -- the guest CPU through the PCI aperture, the
++ * inherited 2D engine, and the CRTC scan-out, which decodes
++ * PIXMAN_BE_x8r8g8b8 -- sees one layout: [A][R][G][B], the big-endian ARGB
++ * word the PowerPC guest writes.  A Radeon 9200 guest, whose driver leaves
++ * SURFACE_CNTL at zero, agrees with that.
++ *
++ * The Leopard ATIRadeon9700 driver does not: it sets SURFACE_CNTL
++ * NONSURF_AP0_SWP_32BPP (observed value 0x00200001, against 0 for the 9200),
++ * which on real hardware byte-swaps 32-bit CPU accesses through the aperture,
++ * so physical VRAM ends up holding the little-endian word.  Every byte order
++ * the driver then declares per resource -- the texture swap in the low bits of
++ * TX_OFFSET, the swap field of RB3D_COLORPITCH -- is stated relative to that
++ * physical, little-endian memory.
++ *
++ * This device does not model the aperture swap, so VRAM stays big-endian for
++ * everyone.  A GPU-side access therefore has to compose the missing reversal
++ * itself: byte i of the guest's little-endian word is byte 3 - i here.  That
++ * is what this helper names, and it is why the render target conversion below
++ * is the same rotation for both swap modes the driver uses instead of
++ * honouring the field: the storage order is fixed by the CPU/2D/scan-out
++ * contract, not by the declaration.
++ *
++ * Measured, not assumed.  With the correction absent, a source texture holding
++ * the Dock's blue as ff 42 6b ad was fetched as rgba 6b 42 ff ff -- red and
++ * green exchanged, blue taking the alpha byte -- and written back as
++ * ff 6b 42 ff, which is the whole-screen blue cast.  Modelling SURFACE_CNTL
++ * properly instead would move every surface in VRAM and is not something to
++ * attempt while the 9200 is the shipping path.
++ */
++static inline unsigned r350_vram_component_byte(unsigned component)
++{
++    return 3 - component;
++}
++
++static bool r350_diag_once(uint32_t a, uint32_t b, uint32_t c)
++{
++    static uint64_t seen[32];
++    static unsigned count;
++    uint64_t key = ((uint64_t)a << 8) | ((uint64_t)(b & 15) << 4) | (c & 15);
++    for (unsigned i = 0; i < count; i++) {
++        if (seen[i] == key) {
++            return false;
++        }
++    }
++    if (count == ARRAY_SIZE(seen)) {
++        return false;
++    }
++    seen[count++] = key;
++    return true;
++}
++
+ static void r350_probe_shader_snapshot(PPCMacGPUState *s, uint32_t draw, bool failure)
+ {
+     if (!s->r350_shader_snapshots || (draw > 8 && !failure)) {
+@@ -6677,6 +6734,10 @@ static bool r350_linear_draw(PPCMacGPUState *s, const uint32_t *words,
+     int active_bottom=RG(0x43d0)==0xaaaa ? MIN(clip_bottom,scissor_bottom) : scissor_bottom;
+     unsigned height=MAX(1,MIN(4096,MAX(active_bottom,
+         (int)ceil(viewport_y_offset+fabsf(ys)))));
++    /* Only the two swap modes Leopard uses are accepted.  Neither changes how
++     * the buffer is laid out here: VRAM keeps the big-endian order every other
++     * consumer expects, for the reason r350_vram_component_byte() gives.  A
++     * third mode would need its own evidence before it is let through. */
+     REQUIRE(((pitch>>21)&15)==6 &&
+             (target_endian==0 || target_endian==2) &&
+             ((pitch>>17)&3)<=1 &&
+@@ -6910,9 +6971,33 @@ static bool r350_linear_draw(PPCMacGPUState *s, const uint32_t *words,
+         static const unsigned perm[4][4]={{0,1,2,3},{1,0,3,2},{3,2,1,0},{2,3,0,1}};
+         for(unsigned y=0;y<th;y++) for(unsigned x=0;x<tw;x++) for(unsigned c=0;c<4;c++) {
+             unsigned sel=swizzle[c];
++            /* The swizzle names a component of the little-endian texel word,
++             * so component 0 is the lowest-addressed byte of the texel as the
++             * texture unit would fetch it.  This VRAM is the guest CPU's
++             * big-endian view: see r350_vram_component_byte(). */
+             textures[unit][((size_t)y*tw+x)*4+c]=sel==4 ? 0:sel==5 ? 255:
+                 raw[((size_t)y*tp+x)*texture_bpp+
+-                    (texture_bpp==1 ? 0 : perm[texoffset&3][sel])];
++                    (texture_bpp==1 ? 0 :
++                     r350_vram_component_byte(perm[texoffset&3][sel]))];
++        }
++        if (s->r350_shader_snapshots && r350_diag_once(format1,texoffset&3u,0)) {
++            fprintf(stderr,"R350_TEXDIAG draw=%u unit=%u f0=%08x f1=%08x f2=%08x "
++                    "off=%08x swz=%u,%u,%u,%u perm=%u tw=%u th=%u tp=%u bpp=%u\n",
++                    s->r350->draws_seen,unit,format0,format1,format2,texoffset,
++                    swizzle[0],swizzle[1],swizzle[2],swizzle[3],texoffset&3u,
++                    tw,th,tp,texture_bpp);
++            for (unsigned px=0; px<4 && (size_t)(px+1)*texture_bpp<=bytes; px++) {
++                fprintf(stderr,"R350_TEXDIAG_RAW  draw=%u unit=%u px=%u %02x %02x %02x %02x\n",
++                        s->r350->draws_seen,unit,px,
++                        raw[px*texture_bpp],
++                        texture_bpp>1?raw[px*texture_bpp+1]:0,
++                        texture_bpp>2?raw[px*texture_bpp+2]:0,
++                        texture_bpp>3?raw[px*texture_bpp+3]:0);
++                fprintf(stderr,"R350_TEXDIAG_RGBA draw=%u unit=%u px=%u %02x %02x %02x %02x\n",
++                        s->r350->draws_seen,unit,px,
++                        textures[unit][px*4],textures[unit][px*4+1],
++                        textures[unit][px*4+2],textures[unit][px*4+3]);
++            }
+         }
+         draw.textures[unit]=(R300MetalTexture){.rgba=textures[unit],.size=output,
+             .width=tw,.height=th,.linear_filter=min>=2,
+@@ -6935,12 +7020,8 @@ static bool r350_linear_draw(PPCMacGPUState *s, const uint32_t *words,
+     draw.target_size=(size_t)width*height*4;target=g_malloc(draw.target_size);draw.target=target;
+     const uint8_t *vram=memory_region_get_ram_ptr(&s->vram);
+     for(size_t i=0;i<draw.target_size;i+=4) {
+-        if (target_endian==0) {
+-            memcpy(target+i,vram+offset+i,4);
+-        } else {
+-            target[i]=vram[offset+i+1];target[i+1]=vram[offset+i+2];
+-            target[i+2]=vram[offset+i+3];target[i+3]=vram[offset+i];
+-        }
++        target[i]=vram[offset+i+1];target[i+1]=vram[offset+i+2];
++        target[i+2]=vram[offset+i+3];target[i+3]=vram[offset+i];
+     }
+     if (dual_tex_route && s->r350_capture_dir && s->r350->draws_seen <= 500) {
+         g_autofree char *name = g_strdup_printf("draw-%u-target-before-rgba.bin",
+@@ -6948,8 +7029,31 @@ static bool r350_linear_draw(PPCMacGPUState *s, const uint32_t *words,
+         g_autofree char *path = g_build_filename(s->r350_capture_dir,name,NULL);
+         g_file_set_contents(path,(const char *)target,draw.target_size,NULL);
+     }
++    bool diag = s->r350_shader_snapshots &&
++        r350_diag_once(RG(0x44c0),target_endian,offset==s->regs.crtc_offset?1:2);
++    if (diag) {
++        size_t o = ((size_t)draw.scissor[1]*width + draw.scissor[0])*4;
++        fprintf(stderr,"R350_TGTDIAG draw=%u off=%08x crtc=%08x pitch=%u endian=%u w=%u h=%u "
++                "scissor=%u,%u,%u,%u mask=%x prem=%u\n",
++                s->r350->draws_seen,offset,s->regs.crtc_offset,width,target_endian,width,height,
++                draw.scissor[0],draw.scissor[1],draw.scissor[2],draw.scissor[3],
++                draw.color_mask,draw.premultiplied_over);
++        for (unsigned px=0; px<3 && o+(px+1)*4<=draw.target_size; px++)
++            fprintf(stderr,"R350_TGTDIAG_VRAM draw=%u px=%u %02x %02x %02x %02x "
++                    "-> rgba %02x %02x %02x %02x\n", s->r350->draws_seen,px,
++                    vram[offset+o+px*4],vram[offset+o+px*4+1],
++                    vram[offset+o+px*4+2],vram[offset+o+px*4+3],
++                    target[o+px*4],target[o+px*4+1],target[o+px*4+2],target[o+px*4+3]);
++    }
+     if(!s->r350->renderer) s->r350->renderer=r300_metal_create();
+     REQUIRE(r300_metal_draw(s->r350->renderer,&draw,metal_error,sizeof(metal_error)),metal_error);
++    if (diag) {
++        size_t o = ((size_t)draw.scissor[1]*width + draw.scissor[0])*4;
++        for (unsigned px=0; px<3 && o+(px+1)*4<=draw.target_size; px++)
++            fprintf(stderr,"R350_TGTDIAG_OUT draw=%u px=%u rgba %02x %02x %02x %02x\n",
++                    s->r350->draws_seen,px,
++                    target[o+px*4],target[o+px*4+1],target[o+px*4+2],target[o+px*4+3]);
++    }
+     if (dual_tex_route && s->r350_capture_dir && s->r350->draws_seen <= 500) {
+         g_autofree char *name = g_strdup_printf("draw-%u-target-after-rgba.bin",
+                                                 s->r350->draws_seen);
+@@ -6963,12 +7067,8 @@ static bool r350_linear_draw(PPCMacGPUState *s, const uint32_t *words,
+     REQUIRE(!dual_tex_route, "dual-texture output validation pending");
+     uint8_t *destination=(uint8_t *)memory_region_get_ram_ptr(&s->vram)+offset;
+     for(size_t i=0;i<draw.target_size;i+=4) {
+-        if (target_endian==0) {
+-            memcpy(destination+i,target+i,4);
+-        } else {
+-            destination[i]=target[i+3];destination[i+1]=target[i];
+-            destination[i+2]=target[i+1];destination[i+3]=target[i+2];
+-        }
++        destination[i]=target[i+3];destination[i+1]=target[i];
++        destination[i+2]=target[i+1];destination[i+3]=target[i+2];
+     }
+     ppc_mac_gpu_dirty(s,offset,draw.target_size);
+     s->display_invalid=true;
