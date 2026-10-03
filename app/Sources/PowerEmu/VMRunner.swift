@@ -39,11 +39,6 @@ final class VMRunner {
     private(set) var displayPath: String
     /// The second screen's socket, when the machine has two.
     private(set) var displayPath2: String
-    /// The slot the second graphics card sits in, so Open Firmware gives
-    /// it the same name whatever else is on the bus.
-    /// The unit address as Open Firmware spells it in the node name
-    /// (QEMU,VGA@12); the emulator wants it as 0x12.
-    static let secondGPUSlotHex = "12"
     /// The game controller's socket (GamepadServer listens on it).
     private(set) var gamepadPath: String
     /// Services of the guest offered to the network: guest service to the
@@ -239,39 +234,7 @@ final class VMRunner {
             return f + "drop "
         }()
 
-        /*
-         * The second screen's row length, in the device tree.
-         *
-         * Mac OS X binds its accelerated driver to the first card and draws
-         * there at the 256-byte-aligned row length every Radeon-era Mac
-         * driver rounds to.  Nothing binds to the second card, so its
-         * picture is drawn through the plain linear frame buffer Open
-         * Firmware describes -- and Open Firmware says a row is width times
-         * bytes exactly.  The card, meanwhile, scans out the aligned one.
-         *
-         * Measured at 1680x1050: the guest wrote 1050 rows of 6720 bytes
-         * and the card read them back as 6912, so each row drifted 48
-         * pixels and the picture ran out after 1021 of them -- 29 black
-         * rows at the foot of the screen and a shear above it.
-         *
-         * Telling Open Firmware the aligned length makes both sides agree,
-         * and keeps agreeing when the displays are mirrored, where the
-         * accelerated driver does drive the second card.  Only the second
-         * card is touched: the first one's boot frame buffer really is
-         * drawn at the exact length, which is what the Apple logo is
-         * scanned out at.
-         */
-        let secondScreenPitch: String = {
-            guard c.displays > 1 && !c.classic && !headless else { return "" }
-            let w = max(640, c.bootWidth)
-            let aligned = (w * 4 + 255) & ~255
-            return #"" /pci@f2000000/QEMU,VGA@"# + Self.secondGPUSlotHex
-                + #"" ['] find-device catch 0= if h# "#
-                + String(aligned, radix: 16)
-                + #" encode-int " linebytes" property device-end then "#
-        }()
-
-        let bootCmd = #"boot-command="# + cpuSpeed + pciRanges + smpProps + #"" /pci@f2000000" find-device " uni-north" encode-string " compatible" property device-end " /pci@f2000000/ATY,Adagio@e" ['] find-device catch 0= if 7 encode-int " IOAGPFlags" property h# 104 encode-int " IOAGPCommandValue" property device-end then " /pci@f2000000/QEMU,VGA@e" ['] find-device catch 0= if h# "# + vramHex + #" encode-int " VRAM,totalsize" property device-end then "# + secondScreenPitch + #""# + soundOff + (c.classic ? #"init-program go"# : #"boot"#)
+        let bootCmd = #"boot-command="# + cpuSpeed + pciRanges + smpProps + #"" /pci@f2000000" find-device " uni-north" encode-string " compatible" property device-end " /pci@f2000000/ATY,Adagio@e" ['] find-device catch 0= if 7 encode-int " IOAGPFlags" property h# 104 encode-int " IOAGPCommandValue" property device-end then " /pci@f2000000/QEMU,VGA@e" ['] find-device catch 0= if h# "# + vramHex + #" encode-int " VRAM,totalsize" property device-end then "# + soundOff + (c.classic ? #"init-program go"# : #"boot"#)
 
         var a: [String] = [
             "-name", c.name,
@@ -383,16 +346,7 @@ final class VMRunner {
             var gpu2 = r350Experiment
                 ? "ppc-mac-r350-probe,id=gpu1,vgamem_mb=\(vram)"
                 : "ppc-mac-gpu,id=gpu1,vgamem_mb=\(vram)"
-            /*
-             * A fixed slot, so the card has a name worth writing down.
-             * Open Firmware names a node after the slot it sits in, and
-             * which slot a card lands in depends on everything else on the
-             * bus -- measured as QEMU,VGA@d and @e in one arrangement and
-             * @e and @f in another.  Pinning it makes QEMU,VGA@12 the
-             * second screen in every arrangement, which is what lets the
-             * row length below be set on it and not on the first card.
-             */
-            gpu2 += ",addr=0x\(Self.secondGPUSlotHex)"
+            gpu2 += ",exact-scanout-pitch=on"
             a += ["-device", gpu2]
         }
         /*
