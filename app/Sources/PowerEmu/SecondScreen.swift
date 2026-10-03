@@ -50,13 +50,34 @@ final class SecondScreenController: NSWindowController, NSWindowDelegate {
         display.scaling = vm.config.scaling
         display.panelFilter = vm.config.panelFilter
         display.displayFit = vm.config.displayFit
+        let size = CGSize(width: max(640, vm.config.display2Width),
+                          height: max(480, vm.config.display2Height))
+        display.setGuestSize(size)
+        w.contentAspectRatio = size
         if w.frameAutosaveName.isEmpty || !w.setFrameUsingName(w.frameAutosaveName) {
-            // Beside the main window rather than on top of it, since the two
-            // stand side by side in the guest's desktop as well.
-            w.cascadeTopLeft(from: NSPoint(x: 120, y: 120))
+            /*
+             * Never placed before: put it beside the machine's own window
+             * rather than on top of it, since the two stand side by side in
+             * the guest's desktop as well.  Once it has been moved or
+             * resized it stays where it was left.
+             */
+            var f = w.frame
+            if let main = VMWindowController.open[vm.url]?.window,
+               let screen = main.screen ?? NSScreen.main {
+                let scale = min(1, (screen.visibleFrame.width - main.frame.width - 24)
+                                / size.width,
+                                screen.visibleFrame.height / size.height)
+                let content = CGSize(width: (size.width * max(scale, 0.25)).rounded(),
+                                     height: (size.height * max(scale, 0.25)).rounded())
+                f = w.frameRect(forContentRect: CGRect(origin: .zero, size: content))
+                f.origin = CGPoint(x: min(main.frame.maxX + 12,
+                                          screen.visibleFrame.maxX - f.width),
+                                   y: main.frame.maxY - f.height)
+                f.origin.x = max(screen.visibleFrame.minX, f.origin.x)
+                f.origin.y = max(screen.visibleFrame.minY, f.origin.y)
+            }
+            w.setFrame(f, display: false)
         }
-        display.setGuestSize(CGSize(width: max(640, vm.config.display2Width),
-                                    height: max(480, vm.config.display2Height)))
     }
 
     required init?(coder: NSCoder) { fatalError() }

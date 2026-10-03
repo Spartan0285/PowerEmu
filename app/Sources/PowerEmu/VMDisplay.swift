@@ -2636,11 +2636,28 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
         display.qemuPID = { [weak vm] in
             MainActor.assumeIsolated { vm?.qemuPID }
         }
-        if w.frameAutosaveName.isEmpty || !w.setFrameUsingName(w.frameAutosaveName) { w.center() }
+        /*
+         * Where this window was left.
+         *
+         * A window that has been moved or resized keeps that, rather than
+         * being fitted to the guest's picture all over again on the next
+         * start -- fitting centres it and sizes it to the guest, which
+         * undoes the arrangement somebody made on purpose.  Only a window
+         * that has never been placed is fitted.
+         */
+        let placed = !w.frameAutosaveName.isEmpty
+            && w.setFrameUsingName(w.frameAutosaveName)
         // Open at the size the guest last had (it boots at it too).
         let boot = CGSize(width: max(640, vm.config.bootWidth), height: max(480, vm.config.bootHeight))
         display.setGuestSize(boot)
-        fitWindow(boot)
+        if placed {
+            // Keep the guest's shape for live resizing, but leave the frame.
+            w.contentAspectRatio = boot
+            sizedOnce = true
+        } else {
+            w.center()
+            fitWindow(boot)
+        }
     }
 
     required init?(coder: NSCoder) { fatalError() }

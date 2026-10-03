@@ -308,11 +308,16 @@ final class VMRunner {
          * Mac OS does not get a second screen.
          */
         if c.displays > 1 && !c.classic && !headless {
-            var gpu2 = r350Experiment
+            /*
+             * Plainer than the first card on purpose.  The host-native EDID
+             * exists so Harmony can map one guest pixel to one host point,
+             * and Harmony runs on the first screen; giving the second card
+             * a native size the guest then does not pick leaves the EDID
+             * and the mode disagreeing for no gain.
+             */
+            let gpu2 = r350Experiment
                 ? "ppc-mac-r350-probe,id=gpu1,vgamem_mb=\(vram)"
                 : "ppc-mac-gpu,id=gpu1,vgamem_mb=\(vram)"
-            gpu2 += ",host-native-width=\(c.display2Width)"
-            gpu2 += ",host-native-height=\(c.display2Height)"
             a += ["-device", gpu2]
         }
         /*
