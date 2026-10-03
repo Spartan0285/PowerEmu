@@ -382,7 +382,21 @@ final class VMRunner {
         let cdSlot = "bus=ide.1,unit=0"
         var freeSlots = ["bus=ide.0,unit=0", "bus=ide.0,unit=1", "bus=ide.1,unit=1"]
         let hdOrder: [DiskConfig] = boot.map { b in [b] + c.hardDisks.filter { $0.id != b.id } } ?? []
-        let bootCD = c.bootFromDisc && c.insertedDisc != nil
+        /*
+         * A disc the machine remembers can be gone by the time it next
+         * starts -- a Tools disc inside an app bundle that has since been
+         * replaced or deleted, most commonly.  QEMU refuses to start at all
+         * when it cannot open a drive's backing file, so the machine became
+         * unbootable, with a raw emulator error, because of a disc that is
+         * optional and merely absent.  Treat a missing one as an empty tray.
+         */
+        let insertedDisc: String? = {
+            guard let d = c.insertedDisc else { return nil }
+            if FileManager.default.fileExists(atPath: d) { return d }
+            NSLog("PowerEmu: the disc %@ is gone; starting with an empty drive", d)
+            return nil
+        }()
+        let bootCD = c.bootFromDisc && insertedDisc != nil
         let bootExternal = (c.externalDisk?.bootFrom ?? false) && !bootCD
         // startup disk (a booting installer disc or external disk takes priority)
         if !hdOrder.isEmpty {
@@ -397,9 +411,9 @@ final class VMRunner {
         // or a blank recordable disc.  That lets a blank disc be dropped in and
         // burned while the machine runs, with no restart.  Booting from a
         // pressed/installer disc keeps it read-only.
-        let recordable = !bootCD && (c.insertedDisc == nil || c.discRecordable)
+        let recordable = !bootCD && (insertedDisc == nil || c.discRecordable)
         var cd = "if=none,id=cd0,media=cdrom"
-        if let disc = c.insertedDisc {
+        if let disc = insertedDisc {
             cd += ",file.filename=\(disc),format=\(VMConfig.imageFormat(disc))"
         }
         if !recordable { cd += ",readonly=on" }
@@ -469,7 +483,8 @@ final class VMRunner {
         // Burner on whenever the drive is recordable-capable (empty tray or a
         // blank disc) and not booting from a pressed disc.  Recordability of
         // any given disc is still decided by whether its backing is writable.
-        if !(vm.config.bootFromDisc && vm.config.insertedDisc != nil) {
+        if !(vm.config.bootFromDisc && vm.config.insertedDisc
+                .map({ FileManager.default.fileExists(atPath: $0) }) == true) {
             env["POWEREMU_BURNER"] = "1"
             if let sock = burnStreamSocket {
                 env["POWEREMU_BURN_STREAM"] = sock
