@@ -2466,7 +2466,29 @@ final class VMDisplayView: NSView {
     }
 
     override func performKeyEquivalent(with e: NSEvent) -> Bool {
-        guard window?.firstResponder === self, e.type == .keyDown else { return super.performKeyEquivalent(with: e) }
+        /*
+         * Command shortcuts belong to the guest, and this is where they are
+         * taken from this Mac before the menus see them.
+         *
+         * The test used to be that this view was exactly the first responder,
+         * which is true most of the time and not all of it: focus drifts to a
+         * control in the window, or does not come back after the window stops
+         * being key, and from then on Command-W closed this Mac's window --
+         * or did nothing -- instead of closing the guest's.  That is why it
+         * worked in Harmony, where each guest window is a window of this Mac
+         * and Command-W is a real close, and only sometimes worked in the
+         * ordinary window.
+         *
+         * Being in the key window is enough.  The exception is somewhere that
+         * is taking text, which must keep its own editing keys.
+         */
+        guard e.type == .keyDown, let w = window, w.isKeyWindow else {
+            return super.performKeyEquivalent(with: e)
+        }
+        if let r = w.firstResponder, r !== self,
+           r is NSText || r is NSTextView || r is NSTextField {
+            return super.performKeyEquivalent(with: e)
+        }
         keyDown(with: e)
         return true
     }
@@ -2681,6 +2703,18 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func windowDidResignKey(_ n: Notification) { display.releaseAll() }
+
+    /*
+     * Give the keyboard back to the guest when the window comes forward.
+     * Nothing restored it, so after a trip to another application the first
+     * responder could be anything the window last focused, and the guest
+     * quietly stopped receiving Command keys.
+     */
+    func windowDidBecomeKey(_ n: Notification) {
+        guard let w = window, !(w.firstResponder is NSText),
+              !(w.firstResponder is NSTextView) else { return }
+        if w.firstResponder !== display { w.makeFirstResponder(display) }
+    }
     /*
      * Harmony and full screen cannot both own the screen.
      *
