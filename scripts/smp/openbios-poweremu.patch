@@ -249,12 +249,27 @@ diff --git a/drivers/pci_database.c b/drivers/pci_database.c
 index 1cb0727..d910ecd 100644
 --- a/drivers/pci_database.c
 +++ b/drivers/pci_database.c
-@@ -246,7 +246,7 @@ static const pci_dev_t vga_devices[] = {
+@@ -246,7 +246,20 @@ static const pci_dev_t vga_devices[] = {
          NULL, NULL,
      },
      {
 -        PCI_VENDOR_ID_QEMU, PCI_DEVICE_ID_QEMU_VGA,
 +        PCI_VENDOR_ID_ATI, 0x5960, /* PowerEmu RV280: match the bundled firmware. */
++        NULL, "QEMU,VGA", "QEMU VGA",    "VGA\0",
++        0, 0, 0,
++        NULL, NULL,
++    },
++    {
++        /*
++         * The second screen's card.  Same model, a different PCI id, so
++         * that Mac OS X's ATIRadeon8500 -- which matches on vendor and
++         * device and would otherwise attach its accelerator to both cards
++         * and fault on the one with no accelerated frame buffer -- leaves
++         * it alone.  It has to be here as well, because this table is what
++         * decides whether a display card is configured at all: an id that
++         * is not in it gets no mode, no properties and no driver.
++         */
++        PCI_VENDOR_ID_ATI, 0x5964, /* Radeon 9200 SE: in no ATI kext's list. */
          NULL, "QEMU,VGA", "QEMU VGA",    "VGA\0",
          0, 0, 0,
          NULL, NULL,
