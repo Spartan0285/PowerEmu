@@ -220,9 +220,11 @@ static int AgentPort(void)
 - (void)setMinimiseEffect:(NSString *)effect;
 - (void)set:(NSString *)domain key:(NSString *)key yes:(BOOL)yes keep:(BOOL)keep;
 - (void)run:(NSString *)tool with:(NSArray *)args;
+#ifdef PE_AGENT_ALLOW_RUN
 - (void)runRequest:(NSString *)args;
 - (void)runWorker:(NSArray *)job;
 - (void)runResult:(NSArray *)result;
+#endif
 - (void)sendAppIcon:(NSString *)pidStr;
 - (BOOL)reportMenuBarFor:(pid_t)pid;
 - (void)reportMenuItems:(NSString *)args;
@@ -956,8 +958,10 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
         SendLoginwindowEvent(kAEShutDown);
     } else if ([verb isEqualToString:@"RESTART"]) {
         SendLoginwindowEvent(kAERestart);
+#ifdef PE_AGENT_ALLOW_RUN
     } else if ([verb isEqualToString:@"RUN"]) {
         [self runRequest:text];
+#endif
     } else if ([verb isEqualToString:@"MOUNT"]) {
         [self mount:text];
     } else if ([verb isEqualToString:@"UNMOUNT"]) {
@@ -1123,6 +1127,7 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
 }
 
 
+#ifdef PE_AGENT_ALLOW_RUN
 /*
  * RUN: a shell line from the host, its combined output back.  This exists so
  * the host can measure the guest -- `sysctl hw.ncpu`, `hostinfo`, a timed
@@ -1259,6 +1264,7 @@ enum { PERunOutputCap = 256 * 1024 };
     [d appendData:[result objectAtIndex:4]];
     [self send:@"RUNRESULT" data:d];
 }
+#endif /* PE_AGENT_ALLOW_RUN */
 
 - (void)set:(NSString *)domain key:(NSString *)key yes:(BOOL)yes keep:(BOOL)keep
 {

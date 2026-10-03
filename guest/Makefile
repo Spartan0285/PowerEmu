@@ -3,7 +3,16 @@
 #   scripts/build.sh [host]    (from a modern Mac; default host g4)
 CC      = gcc-4.0
 SDK     = /Developer/SDKs/MacOSX10.4u.sdk
-CFLAGS  = -arch ppc -isysroot $(SDK) -mmacosx-version-min=10.4 -Os -Wall -Wno-unused-parameter
+# RUN lets the host execute a shell command in the guest.  It is a measuring
+# tool -- sysctl, hostinfo, a timed workload -- and it is deliberately NOT in
+# a shipped Tools disc, because it generalises the agent from a handful of
+# known operations to arbitrary execution.  Build it in on purpose:
+#   make AGENT_RUN=1
+AGENT_RUN ?= 0
+ifeq ($(AGENT_RUN),1)
+RUNFLAG = -DPE_AGENT_ALLOW_RUN
+endif
+CFLAGS  = -arch ppc -isysroot $(SDK) -mmacosx-version-min=10.4 -Os -Wall -Wno-unused-parameter $(RUNFLAG)
 LDFLAGS = -arch ppc -isysroot $(SDK) -Wl,-syslibroot,$(SDK) -mmacosx-version-min=10.4
 AGENT   = build/PowerEmu Agent.app
 INST    = build/Install PowerEmu Tools.app
