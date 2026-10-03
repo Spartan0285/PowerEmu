@@ -61,3 +61,73 @@ manufactured plausible work.
 
 `/tmp/chess.sh` on the Studio takes `<tag> <gpu-device-args> <fwdir>
 <monitor-port> <ssh-port>` and boots an overlay on `tiger-base.qcow2`.
+
+---
+
+# Second session, same night: the measurement is fixed, and Chess now has numbers
+
+## The harness was the whole of the "blue screen"
+
+With `-display none` and no `-object poweremu-display`, QEMU registers no
+DisplayChangeListener, so nothing drives `graphic_hw_update()` at refresh rate.
+`screendump` calls it once, which is not enough for the R350 path.  The effect
+is worse than a bad screenshot: **the guest itself stops submitting draws.**
+
+| | frames | r350_draws |
+|---|---|---|
+| `-display none`, no listener | 45 | 200 |
+| same device args, listener attached | 11429 | 24359 |
+
+`-vnc` with no client attached fails the same way.  With a listener attached,
+the plain HMP `screendump` works again too.
+
+`tools/pedisplay-capture.py` is a stand-in for the app on the
+`poweremu-display` socket: it takes the shm fd over `SCM_RIGHTS`, tracks
+damage, and writes PNGs.  Verified against the 9200, where its frame and a
+simultaneous `screendump` differ in **0 of 1,764,000 pixels**.
+
+**The 9800 composites a correct Tiger desktop** through it -- menu bar, Dock,
+Finder windows, icons, wallpaper, clock advancing.  Every "9800 is broken"
+screenshot above this line was an artefact of how it was captured.
+
+## What Chess actually needs, measured
+
+Chess launches on the 9800 and runs, and the screen then **freezes**: identical
+raw pixels across six snapshots, `damage` stuck at 11343, and the last damage
+rectangle `(0, 14, 1680, 16)` -- the menu-bar clock strip.  Meanwhile the device
+keeps working: `frames=11429`, `r350_draws=24359`, `r350_scanout_draws=11481`.
+
+The draws are being refused.  `r350_rejected` went from 0 before Chess to
+**828** after, and the census says why:
+
+| reason | count |
+|---|---|
+| `r350_reject_primitive_assembly` | **597** |
+| `r350_reject_interpolator_routing` | **229** |
+| `r350_reject_depth_stencil_alpha_logic_cull_fog_state` | 2 |
+
+and names the two interpolator routes it could not handle:
+
+```
+route0=00000007:00000004:00040104:00000001:00d10000:00024008/212
+route1=00000003:00000004:00040084:00000000:00d10000:00024008/17
+```
+
+212 + 17 = 229, exactly the interpolator rejections.  This is the first
+measurement of what Chess asks the 9800 for and does not get, and it is a
+better starting point than any screenshot: two concrete routes, and a larger
+primitive-assembly gap behind them.
+
+## `x-r350-decode-rs=on` is not the quick win
+
+That flag exists to decode interpolator routing instead of matching it against
+a whitelist, so it looks like the answer to the 229.  Turned on, the desktop
+**never composited at all**: `damage=58` after thirteen minutes, no
+WindowServer, the blue backdrop again -- worse than leaving it off, which at
+least gives a working desktop.
+
+Stated carefully: this was one run, and it is not a single-variable comparison
+against the baseline VM (different start time and harness invocation).  It
+needs one controlled repeat before being called a regression.  But it is not
+the free fix it appears to be, and `primitive_assembly` -- the larger count --
+is untouched by it either way.
