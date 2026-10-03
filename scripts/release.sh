@@ -22,6 +22,23 @@ case "$BUILD" in ''|*[!0-9]*) echo "BUILD must be a whole number" >&2; exit 2;; 
 
 command -v gh >/dev/null || { echo "needs the gh command line tool" >&2; exit 1; }
 
+# The appcast is read from main, and it is the only thing that tells a running
+# copy a new build exists.  The last step of this script used to be a bare
+# "git push", which pushes the current branch to its upstream -- a release
+# branch cut for the occasion has no upstream, so it failed, and it failed
+# *after* the GitHub release had been created.  The result was a release
+# nobody could discover, and the appcast had to be pushed by hand afterwards.
+#
+# So prove the push will work before anything is published, and name the
+# branch explicitly rather than relying on an upstream being configured.
+APPCAST_BRANCH="${POWEREMU_APPCAST_BRANCH:-main}"
+if ! git -C "$ROOT" push --dry-run origin "HEAD:$APPCAST_BRANCH" >/dev/null 2>&1; then
+    echo "cannot push the appcast to $APPCAST_BRANCH on origin." >&2
+    echo "Fix that first: publishing before it works leaves a release that" >&2
+    echo "no running copy of PowerEmu can discover." >&2
+    exit 1
+fi
+
 # The build number is what the updater compares, so it must be going up.
 CURRENT=$(curl -fsSL "https://raw.githubusercontent.com/$REPO/main/appcast.json" 2>/dev/null \
           | /usr/bin/python3 -c 'import json,sys; print(json.load(sys.stdin).get("build",0))' 2>/dev/null || echo 0)
@@ -133,7 +150,7 @@ gh release create "v$VERSION" "$ZIP" --repo "$REPO" \
 
 git -C "$ROOT" add appcast.json
 git -C "$ROOT" commit -m "PowerEmu $VERSION ($BUILD)"
-git -C "$ROOT" push
+git -C "$ROOT" push origin "HEAD:$APPCAST_BRANCH"
 
 echo
 echo "Published $VERSION ($BUILD)."
