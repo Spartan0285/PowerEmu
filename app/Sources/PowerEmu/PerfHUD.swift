@@ -24,9 +24,23 @@ final class PerfHUD: CALayer {
         var graph = true
     }
 
+    /// Full: every row, its graph, and the host lines.  Light: the frame
+    /// rate and the processor only, side by side on one line.
+    enum Style: String { case full, light }
+    var hudStyle: Style = .full {
+        didSet { guard hudStyle != oldValue else { return }; setNeedsDisplay() }
+    }
+    static let styleKey = "PerformanceOverlayStyle"
+
     private(set) var rows: [Row] = []
     private var lines: [String] = []
     var lineCount: Int { lines.count }
+
+    /// Which rows the light style shows, by the start of their title.
+    private static let lightTitles = ["Frame", "CPU", "Processor"]
+    private var lightRows: [Row] {
+        rows.filter { r in Self.lightTitles.contains { r.title.hasPrefix($0) } }
+    }
 
     /// Where the reader dragged it, as a fraction of the window, so it
     /// stays put when the window is resized.
@@ -89,6 +103,9 @@ final class PerfHUD: CALayer {
     /// asks for and the height it draws into can never disagree.
     enum Metric {
         static let leastWidth: CGFloat = 340
+        /// Fixed widths, wide enough for the longest reading each style shows.
+        static let fullWidth: CGFloat = 360
+        static let lightWidth: CGFloat = 196
         static let padding: CGFloat = 8
         static let margin: CGFloat = 10     // text inset from the sides
         static let gap: CGFloat = 16        // between a row's label and its reading
@@ -104,27 +121,54 @@ final class PerfHUD: CALayer {
         ceil(NSAttributedString(string: s, attributes: [.font: f]).size().width)
     }
 
-    /// How big it wants to be for what it is showing.  The width follows
-    /// the text: the host line grew past a fixed 340 points and was cut off
-    /// mid-word.
+    /*
+     * How big it is.  The width is fixed by the style, not measured from
+     * what is on screen at this instant.
+     *
+     * It used to be the width of the longest string it happened to be
+     * showing, so every time a reading changed length -- the pointer figures
+     * change as the mouse moves -- the panel changed width underneath the
+     * reader, and anything dragged near an edge shifted with it.  A panel
+     * that resizes while being read is worse than one that is a little wider
+     * than it needs to be, so the width is now a constant per style and the
+     * text is laid out inside it.
+     */
     var wantedSize: CGSize {
-        var text = Metric.leastWidth - Metric.margin * 2
-        for row in rows {
-            text = max(text, Self.width(row.title, Metric.font) + Metric.gap
-                             + Self.width(row.value, Metric.font))
+        switch hudStyle {
+        case .light:
+            // One line of text, whatever it has to say.
+            return CGSize(width: Metric.lightWidth,
+                          height: Metric.padding * 2 + Metric.title)
+        case .full:
+            return CGSize(width: Metric.fullWidth,
+                          height: Metric.padding * 2 + CGFloat(rows.count) * Metric.row
+                                + CGFloat(lines.count) * Metric.line)
         }
-        for line in lines {
-            text = max(text, Self.width(line, Metric.small))
-        }
-        return CGSize(width: text + Metric.margin * 2,
-                      height: Metric.padding * 2 + CGFloat(rows.count) * Metric.row
-                            + CGFloat(lines.count) * Metric.line)
     }
 
     override func draw(in ctx: CGContext) {
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = NSGraphicsContext(cgContext: ctx, flipped: false)
         let font = Metric.font, small = Metric.small
+        if hudStyle == .light {
+            /*
+             * One line, read left to right: the frame rate, then the
+             * processor.  No graphs and no host lines -- the point of this
+             * style is to sit in a corner of a game without being read as a
+             * panel of its own.
+             */
+            let y = bounds.height - Metric.padding - Metric.title
+            var x = Metric.margin
+            for row in lightRows {
+                let text = NSAttributedString(
+                    string: "\(row.title.hasPrefix("Frame") ? "FPS" : "CPU") \(row.value)",
+                    attributes: [.font: font, .foregroundColor: NSColor.white])
+                text.draw(at: CGPoint(x: x, y: y))
+                x += text.size().width + Metric.gap
+            }
+            NSGraphicsContext.restoreGraphicsState()
+            return
+        }
         var y = bounds.height - Metric.padding
 
         for row in rows {

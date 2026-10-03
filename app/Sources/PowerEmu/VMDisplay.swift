@@ -437,6 +437,8 @@ final class VMDisplayView: NSView {
     private var hudLines: [String] = []
     /// Harmony: the overlay's own window, above the guest's proxy windows.
     private var hudWindow: NSWindow?
+    private var hudWindowObserver: Any?
+    private static let hudWindowPositionKey = "PerformanceOverlayHarmonyPosition"
     private var hudTicker: Timer?
     private var debugTimer: Timer?
 
@@ -1121,6 +1123,10 @@ final class VMDisplayView: NSView {
         hint.cornerRadius = 6
         hint.isHidden = true
         layer?.addSublayer(hint)
+        if let raw = UserDefaults.standard.string(forKey: PerfHUD.styleKey),
+           let st = PerfHUD.Style(rawValue: raw) {
+            perf.hudStyle = st
+        }
         if let saved = UserDefaults.standard.dictionary(forKey: PerfHUD.positionKey),
            let x = saved["x"] as? Double, let y = saved["y"] as? Double {
             perfSpot = CGPoint(x: x, y: y)
@@ -1615,6 +1621,18 @@ final class VMDisplayView: NSView {
         perf.frame = CGRect(origin: CGPoint(x: x.rounded(), y: y.rounded()), size: size)
     }
 
+    /// Full readings or just the frame rate and the processor, side by side.
+    var perfStyle: PerfHUD.Style {
+        get { perf.hudStyle }
+        set {
+            guard perf.hudStyle != newValue else { return }
+            perf.hudStyle = newValue
+            UserDefaults.standard.set(newValue.rawValue, forKey: PerfHUD.styleKey)
+            // The panel is a different size now, in the view or in its window.
+            if harmony && showsPerformance { layoutHUDWindow() } else { needsLayout = true }
+        }
+    }
+
     /// Whether a point is on the overlay, which the reader can drag.
     private func onPerf(_ p: CGPoint) -> Bool {
         !perf.isHidden && perf.frame.contains(p)
@@ -2016,7 +2034,16 @@ final class VMDisplayView: NSView {
             w.backgroundColor = .clear
             w.hasShadow = false
             w.level = .floating                 // the proxies are .normal
-            w.ignoresMouseEvents = true
+            /*
+             * Draggable in Harmony too.  It used to ignore the mouse
+             * entirely and sit in a fixed corner, so the one mode where the
+             * guest's windows are spread over the whole screen was the one
+             * mode where the overlay could not be moved out of their way.
+             * Borderless windows drag by their background, which is all this
+             * needs -- there is nothing else in the window to click.
+             */
+            w.ignoresMouseEvents = false
+            w.isMovableByWindowBackground = true
             w.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
             let v = NSView(frame: CGRect(origin: .zero, size: size))
             v.wantsLayer = true
@@ -2029,10 +2056,29 @@ final class VMDisplayView: NSView {
             perf.removeFromSuperlayer()
             hv.layer?.addSublayer(perf)
         }
+        if hudWindowObserver == nil, let hw = hudWindow {
+            hudWindowObserver = NotificationCenter.default.addObserver(
+                forName: NSWindow.didMoveNotification, object: hw, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated {
+                        guard let self, let w = self.hudWindow else { return }
+                        UserDefaults.standard.set(["x": w.frame.minX, "y": w.frame.minY],
+                                                  forKey: Self.hudWindowPositionKey)
+                    }
+                }
+        }
+        // Where it was last dragged to, else the top left of the screen.
+        let origin: CGPoint = {
+            if let d = UserDefaults.standard.dictionary(forKey: Self.hudWindowPositionKey),
+               let x = d["x"] as? CGFloat, let y = d["y"] as? CGFloat,
+               scr.frame.insetBy(dx: -size.width / 2, dy: -size.height / 2)
+                   .contains(CGPoint(x: x, y: y)) {
+                return CGPoint(x: x, y: y)
+            }
+            return CGPoint(x: scr.frame.minX + 12,
+                           y: scr.frame.maxY - harmonyManager.hostMenuBar - 12 - size.height)
+        }()
         CATransaction.begin(); CATransaction.setDisableActions(true)
-        hw.setFrame(CGRect(x: scr.frame.minX + 12,
-                           y: scr.frame.maxY - harmonyManager.hostMenuBar - 12 - size.height,
-                           width: size.width, height: size.height), display: true)
+        hw.setFrame(CGRect(origin: origin, size: size), display: true)
         perf.frame = CGRect(origin: .zero, size: size)
         CATransaction.commit()
         hw.orderFront(nil)
@@ -2044,6 +2090,8 @@ final class VMDisplayView: NSView {
             perf.removeFromSuperlayer()
             layer?.addSublayer(perf)
         }
+        if let o = hudWindowObserver { NotificationCenter.default.removeObserver(o) }
+        hudWindowObserver = nil
         hudWindow?.orderOut(nil)
         hudWindow = nil
         needsLayout = true

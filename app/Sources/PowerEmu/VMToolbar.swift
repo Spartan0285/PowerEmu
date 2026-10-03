@@ -108,11 +108,19 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
             it.tag = Self.tagPanel
             filters.addItem(it)
         }
+        filters.addItem(.separator())
+        header(filters, "Statistics")
+        for (value, title) in [("full", "Full readings"), ("light", "Frame rate and CPU only")] {
+            let it = entry(title, #selector(setPerfStyle(_:)))
+            it.representedObject = value
+            it.tag = Self.tagPerfStyle
+            filters.addItem(it)
+        }
         filters.delegate = self
         build()
     }
 
-    private static let tagScaling = 1, tagFit = 2, tagPanel = 4
+    private static let tagScaling = 1, tagFit = 2, tagPanel = 4, tagPerfStyle = 5
 
     private var vm: VirtualMachine? { controller?.vm }
     private var display: VMDisplayView? { controller?.display }
@@ -235,6 +243,12 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
         vm.config.displayFit = mode
         try? vm.save()
         display?.displayFit = mode
+    }
+
+    @MainActor @objc private func setPerfStyle(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let st = PerfHUD.Style(rawValue: raw) else { return }
+        display?.perfStyle = st
     }
 
     @MainActor @objc private func setPanelFilter(_ sender: NSMenuItem) {
@@ -429,6 +443,9 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
                     it.state = (it.representedObject as? String) == fit ? .on : .off
                 case Self.tagPanel:
                     it.state = (it.representedObject as? Int) == panel ? .on : .off
+                case Self.tagPerfStyle:
+                    it.state = (it.representedObject as? String)
+                        == (display?.perfStyle ?? .full).rawValue ? .on : .off
                 default: break
                 }
             }
