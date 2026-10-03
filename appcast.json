@@ -1,12 +1,18 @@
 {
-  "version": "0.3.4",
-  "build": 7,
-  "published": "2026-10-03T16:23:28Z",
+  "version": "0.3.5",
+  "build": 8,
+  "published": "2026-10-03T18:11:37Z",
   "minimumSystem": "14.0",
-  "notes": "Fixes the four-CPU option, which could not start a virtual Mac in 0.3.3: the emulator it shipped with still allowed only two.",
-  "url": "https://github.com/Spartan0285/PowerEmu/releases/download/v0.3.4/PowerEmu-0.3.4.zip",
-  "sha256": "284f9c3f719be49a8ba2b5cd5a405b3772e38527907df674192ab3ee35cbedc6",
+  "notes": "The guest's picture is drawn at the display's own scale, so it is sharper on Retina screens; Sharp, whole pixels now rounds to whole screen pixels rather than whole points. A new Picture setting beside Scaling in the toolbar fits, fills or stretches the guest's screen. Display filters now apply instead of doing nothing. Going full screen with Harmony on no longer leaves a black window with no way back. A guest application's icon leaves this Mac's Dock as soon as it quits. A virtual Mac lent an external disk that is no longer connected now starts without it, rather than refusing to start because another disk has taken its device name.",
+  "url": "https://github.com/Spartan0285/PowerEmu/releases/download/v0.3.5/PowerEmu-0.3.5.zip",
+  "sha256": "ea1bc8645ecd551450e5ec0ea1a7be882f447b3b3f0d79b885600be37f8e3de5",
   "history": [
+    {
+      "version": "0.3.4",
+      "build": 7,
+      "published": "2026-10-03T16:23:28Z",
+      "notes": "Fixes the four-CPU option, which could not start a virtual Mac in 0.3.3: the emulator it shipped with still allowed only two."
+    },
     {
       "version": "0.3.3",
       "build": 6,
