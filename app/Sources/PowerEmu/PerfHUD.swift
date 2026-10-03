@@ -10,8 +10,8 @@ import AppKit
  * So each row keeps its last couple of minutes and draws them as a small
  * graph, and the frame rate carries its lowest and highest with it.
  *
- * The reader can drag it anywhere in the window; where it was put is
- * remembered for next time.
+ * The reader can drag it anywhere in the window, in Harmony too; where it
+ * was put is remembered for next time.
  */
 final class PerfHUD: CALayer {
     /// One row: a label, the current reading, and its recent history.
@@ -28,7 +28,13 @@ final class PerfHUD: CALayer {
     /// rate and the processor only, side by side on one line.
     enum Style: String { case full, light }
     var hudStyle: Style = .full {
-        didSet { guard hudStyle != oldValue else { return }; setNeedsDisplay() }
+        didSet {
+            guard hudStyle != oldValue else { return }
+            // The two styles have nothing to do with each other's width.
+            widthFloor = 0
+            raiseWidth(for: hudStyle)
+            setNeedsDisplay()
+        }
     }
     static let styleKey = "PerformanceOverlayStyle"
 
@@ -42,9 +48,11 @@ final class PerfHUD: CALayer {
         rows.filter { r in Self.lightTitles.contains { r.title.hasPrefix($0) } }
     }
 
-    /// Where the reader dragged it, as a fraction of the window, so it
-    /// stays put when the window is resized.
-    static let positionKey = "PerformanceOverlayPosition"
+    /// Where it was dragged to, as the point of its top-left corner.  The
+    /// name changed with the meaning: the old key held a fraction of the
+    /// window, and reading one of those as a point would stack it in the
+    /// corner.  A new key simply ignores them.
+    static let positionKey = "PerformanceOverlayTopLeft"
 
     override init() {
         super.init()
@@ -82,6 +90,7 @@ final class PerfHUD: CALayer {
     func update(rows: [Row], lines: [String]) {
         self.rows = rows
         self.lines = lines
+        raiseWidth(for: hudStyle)
         /*
          * Take the size the new contents need straight away, rather than
          * waiting for the window to lay out again.  The overlay gains a
@@ -136,14 +145,47 @@ final class PerfHUD: CALayer {
     var wantedSize: CGSize {
         switch hudStyle {
         case .light:
-            // One line of text, whatever it has to say.
-            return CGSize(width: Metric.lightWidth,
+            return CGSize(width: max(Metric.lightWidth, widthFloor),
                           height: Metric.padding * 2 + Metric.title)
         case .full:
-            return CGSize(width: Metric.fullWidth,
+            return CGSize(width: max(Metric.fullWidth, widthFloor),
                           height: Metric.padding * 2 + CGFloat(rows.count) * Metric.row
                                 + CGFloat(lines.count) * Metric.line)
         }
+    }
+
+    /*
+     * The width only ever grows.
+     *
+     * Measuring it from whatever is on screen this second made the panel
+     * change width as readings changed length -- the pointer figures move
+     * with the mouse -- and a panel that resizes while being read is no good.
+     * A fixed width was worse: the host lines are longer than any sensible
+     * constant and were cut off.  So it is measured, but kept: it rises to
+     * fit the widest thing seen and never falls back, which settles within a
+     * second or two and then stays put.
+     */
+    private var widthFloor: CGFloat = 0
+
+    private func raiseWidth(for style: Style) {
+        var text: CGFloat = 0
+        switch style {
+        case .light:
+            for row in lightRows {
+                let label = row.title.hasPrefix("Frame") ? "FPS" : "CPU"
+                text += Self.width("\(label) \(row.value)", Metric.font) + Metric.gap
+            }
+            text = max(0, text - Metric.gap)
+        case .full:
+            for row in rows {
+                text = max(text, Self.width(row.title, Metric.font) + Metric.gap
+                                 + Self.width(row.value, Metric.font))
+            }
+            for line in lines {
+                text = max(text, Self.width(line, Metric.small))
+            }
+        }
+        widthFloor = max(widthFloor, text + Metric.margin * 2)
     }
 
     override func draw(in ctx: CGContext) {

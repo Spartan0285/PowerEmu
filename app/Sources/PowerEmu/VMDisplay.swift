@@ -430,7 +430,7 @@ final class VMDisplayView: NSView {
     private var cpuHistories: [Int: PerfHistory] = [:]
     private var drawHistory = PerfHistory()
     /// Where the reader dragged the overlay, as a fraction of the view.
-    private var perfSpot: CGPoint?
+    private var perfTopLeft: CGPoint?
     /// The last sampled overlay contents, so the pointer line can be redrawn
     /// between samples without re-measuring everything.
     private var hudRows: [PerfHUD.Row] = []
@@ -1129,7 +1129,7 @@ final class VMDisplayView: NSView {
         }
         if let saved = UserDefaults.standard.dictionary(forKey: PerfHUD.positionKey),
            let x = saved["x"] as? Double, let y = saved["y"] as? Double {
-            perfSpot = CGPoint(x: x, y: y)
+            perfTopLeft = CGPoint(x: x, y: y)
         }
         layer?.addSublayer(perf)
         addSubview(status)
@@ -1610,14 +1610,26 @@ final class VMDisplayView: NSView {
     /// of the window -- below the menu bar in full screen, which is what
     /// the safe area describes.
     private func layoutPerf() {
+        // Never move it out from under a drag in progress.
+        guard perfDragFrom == nil else { return }
         let size = perf.wantedSize
         let i = safeAreaInsets
         let area = CGRect(x: bounds.minX + i.left + 10, y: bounds.minY + i.bottom + 10,
                           width: max(1, bounds.width - i.left - i.right - 20 - size.width),
                           height: max(1, bounds.height - i.top - i.bottom - 20 - size.height))
-        let spot = perfSpot ?? CGPoint(x: 0, y: 1)          // top left by default
-        let x = area.minX + area.width * min(1, max(0, spot.x))
-        let y = area.minY + area.height * min(1, max(0, spot.y))
+        /*
+         * Placed by its top-left corner, at the point it was dragged to.
+         *
+         * It used to be remembered as a fraction of the space it could move
+         * in, which is re-derived on every layout -- so it shifted whenever
+         * the panel's own size changed, and the panel's size changes as the
+         * readings arrive.  That is what made it jump back while being read.
+         * A point does not move when the panel resizes; it is only clamped,
+         * so it stays on screen when the window is made smaller.
+         */
+        let top: CGPoint = perfTopLeft ?? CGPoint(x: area.minX, y: area.maxY + size.height)
+        let x = min(max(top.x, area.minX), area.maxX)
+        let y = min(max(top.y - size.height, area.minY), area.maxY)
         perf.frame = CGRect(origin: CGPoint(x: x.rounded(), y: y.rounded()), size: size)
     }
 
@@ -1641,14 +1653,10 @@ final class VMDisplayView: NSView {
     /// Remember where it was dragged to, as a fraction of the space it can
     /// move in, so it keeps its place when the window changes size.
     private func rememberPerfSpot() {
-        let size = perf.wantedSize
-        let i = safeAreaInsets
-        let w = max(1, bounds.width - i.left - i.right - 20 - size.width)
-        let h = max(1, bounds.height - i.top - i.bottom - 20 - size.height)
-        let spot = CGPoint(x: (perf.frame.minX - (bounds.minX + i.left + 10)) / w,
-                           y: (perf.frame.minY - (bounds.minY + i.bottom + 10)) / h)
-        perfSpot = spot
-        UserDefaults.standard.set(["x": spot.x, "y": spot.y], forKey: PerfHUD.positionKey)
+        // Its top-left corner, which is what the layout places.
+        let top = CGPoint(x: perf.frame.minX, y: perf.frame.maxY)
+        perfTopLeft = top
+        UserDefaults.standard.set(["x": top.x, "y": top.y], forKey: PerfHUD.positionKey)
     }
 
     private func samplePerformance() {
