@@ -339,6 +339,100 @@ final class VMLibrary: ObservableObject {
 
     var installing: [InstallSession] { installs.values.filter { $0.outcome == .running } }
 
+    /*
+     * Duplicate a virtual Mac.
+     *
+     * A linked copy shares the original's disks as qcow2 backing files, so it
+     * costs almost nothing and starts identical; what it writes goes to its
+     * own overlay.  The catch is the one qcow2 always has -- the original must
+     * not change underneath it -- so the original is left alone by the copy,
+     * and anyone who edits the original afterwards will spoil the copy.  A
+     * full copy has no such rule and costs the size of the disks.
+     */
+    func duplicate(_ vm: VirtualMachine, linked: Bool) throws -> VirtualMachine {
+        guard let helper = VMRunner.helperURL else {
+            throw PackageError.missing("The emulator (PowerEmu VM.app)")
+        }
+        let img = helper.appendingPathComponent("Contents/MacOS/qemu-img")
+        let fm = FileManager.default
+
+        var name = vm.config.name + " copy"
+        var dest = vm.url.deletingLastPathComponent()
+            .appendingPathComponent(name + ".poweremu")
+        var n = 2
+        while fm.fileExists(atPath: dest.path) {
+            name = "\(vm.config.name) copy \(n)"
+            dest = vm.url.deletingLastPathComponent().appendingPathComponent(name + ".poweremu")
+            n += 1
+        }
+
+        try fm.createDirectory(at: dest, withIntermediateDirectories: true)
+        try fm.createDirectory(at: dest.appendingPathComponent("Disks"), withIntermediateDirectories: true)
+
+        for disk in vm.config.disks {
+            let from = vm.disksURL.appendingPathComponent(disk.file)
+            let to = dest.appendingPathComponent("Disks").appendingPathComponent(disk.file)
+            guard fm.fileExists(atPath: from.path) else { continue }
+            if linked, disk.file.hasSuffix(".qcow2") {
+                _ = try InstallPlan.run(img.path,
+                        ["create", "-f", "qcow2", "-F", "qcow2", "-b", from.path, to.path])
+            } else {
+                try fm.copyItem(at: from, to: to)
+            }
+        }
+
+        var c = vm.config
+        c.name = name
+        // A copy is its own machine: it must not inherit the original's sleep
+        // state, nor a disc or a lent disk that belongs to the original's run.
+        c.autoStart = false
+        let copy = VirtualMachine(url: dest, config: c)
+        try copy.save()
+        reload()
+        return machines.first { $0.url == dest } ?? copy
+    }
+
+    /*
+     * Reclaim the space a qcow2 disk is holding but no longer using.
+     *
+     * qcow2 files only grow: deleting a file inside the guest leaves the
+     * cluster allocated.  Writing the image out again drops everything
+     * nothing refers to.  The original is replaced only once the new one has
+     * been written in full, so an interrupted compaction loses nothing.
+     */
+    func compact(_ vm: VirtualMachine, disk: DiskConfig,
+                 progress: @escaping (String) -> Void = { _ in }) throws -> (before: Int64, after: Int64) {
+        guard let helper = VMRunner.helperURL else {
+            throw PackageError.missing("The emulator (PowerEmu VM.app)")
+        }
+        let img = helper.appendingPathComponent("Contents/MacOS/qemu-img")
+        let fm = FileManager.default
+        let file = vm.disksURL.appendingPathComponent(disk.file)
+        guard disk.file.hasSuffix(".qcow2") else {
+            throw PackageError.missing("A qcow2 disk (raw disks have nothing to reclaim)")
+        }
+        let before = (try? fm.attributesOfItem(atPath: file.path)[.size] as? Int64) ?? 0
+
+        // A backing file must stay intact: writing the image out whole would
+        // silently flatten it into a full copy.
+        let info = String(decoding: try InstallPlan.run(img.path,
+                            ["info", "--output=json", file.path]), as: UTF8.self)
+        if info.contains("backing-filename") {
+            throw PackageError.missing("A disk of its own (this one is a linked copy)")
+        }
+
+        progress("Writing a fresh copy…")
+        let work = file.deletingLastPathComponent()
+            .appendingPathComponent("." + disk.file + ".compacting")
+        try? fm.removeItem(at: work)
+        _ = try InstallPlan.run(img.path, ["convert", "-O", "qcow2", file.path, work.path])
+
+        progress("Replacing the disk…")
+        _ = try fm.replaceItemAt(file, withItemAt: work)
+        let after = (try? fm.attributesOfItem(atPath: file.path)[.size] as? Int64) ?? 0
+        return (before, after)
+    }
+
     func moveToTrash(_ vm: VirtualMachine) throws {
         installs[vm.url]?.cancel()
         installs[vm.url] = nil

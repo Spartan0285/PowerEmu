@@ -161,7 +161,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
         state = .starting
         do {
             let a = GuestAgent(socketPath: r.agentPath)
-            a.shareClipboard = config.shareClipboard
+            a.shareClipboard = config.clipboardShared
             try? a.start()
             a.onConnect = { [weak self] in
                 self?.mountSharedFolders()
@@ -202,13 +202,13 @@ final class VirtualMachine: ObservableObject, Identifiable {
             a.onFileTransfer = { [weak self] reply in self?.fileTransfer.receive(reply) }
             a.onDisconnect = { [weak self] in self?.fileTransfer.disconnected(); self?.display?.onSheets?([:]); self?.display?.onDragWindows?([]) }
             let d = WebDAVServer(socketPath: r.davPath)
-            d.setShares(config.sharedFolders + [dropShare])
+            d.setShares(config.activeSharedFolders + (config.isolated ? [] : [dropShare]))
             try? d.start()
             dav = d
             let w = SharedFolderWatcher { [weak a] changed in
                 if a?.connected == true { a?.send("CHANGED", changed) }
             }
-            w.watch(config.sharedFolders)
+            w.watch(config.activeSharedFolders)
             shareWatcher = w
             let ck = ClockServer(socketPath: r.clockPath)
             try? ck.start()
@@ -423,6 +423,32 @@ final class VirtualMachine: ObservableObject, Identifiable {
     /// USB devices of this Mac given to the guest (id → name).
     @Published private(set) var attachedUSB: [String: String] = [:]
 
+    // MARK: snapshots
+
+    /// The snapshots on the startup disk, newest last.  Readable whether or
+    /// not the machine is running, because the disk holds them.
+    var snapshots: [(tag: String, date: String, size: String)] {
+        guard let d = startupDiskURL else { return [] }
+        return VMRunner.snapshots(onDisk: d)
+    }
+
+    /// Taking, reverting and deleting all need the machine running: they are
+    /// QEMU's own savevm, and it is the thing holding the disk.
+    func takeSnapshot(named name: String, _ done: @escaping @Sendable (String?) -> Void) {
+        guard let r = runner else { done("Start the virtual Mac first."); return }
+        r.takeSnapshot(named: name, done)
+    }
+
+    func revertToSnapshot(named name: String, _ done: @escaping @Sendable (String?) -> Void) {
+        guard let r = runner else { done("Start the virtual Mac first."); return }
+        r.revertToSnapshot(named: name, done)
+    }
+
+    func deleteSnapshot(named name: String, _ done: @escaping @Sendable (String?) -> Void) {
+        guard let r = runner else { done("Start the virtual Mac first."); return }
+        r.deleteSnapshot(named: name, done)
+    }
+
     func pressPowerKey() { runner?.pressPowerKey() }
 
     func toggleUSB(_ d: HostUSBDevice) {
@@ -564,7 +590,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
     }
 
     private func mountSharedFolders() {
-        for f in config.sharedFolders { agent?.send("MOUNT", "\(Self.guestURL(f))\t\(f.name)") }
+        for f in config.activeSharedFolders { agent?.send("MOUNT", "\(Self.guestURL(f))\t\(f.name)") }
         let d = dropShare
         agent?.send("MOUNT", "\(Self.guestURL(d))\t\(d.name)")
     }

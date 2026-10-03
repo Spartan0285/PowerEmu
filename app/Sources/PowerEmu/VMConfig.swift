@@ -251,6 +251,21 @@ struct VMConfig: Codable, Equatable {
 
     // Sound and network
     var audio = "coreaudio"
+    /*
+     * Isolation: one switch that cuts every path between this Mac and the
+     * guest -- the network, the clipboard, the shared folders and the
+     * services.  The individual settings are left exactly as they were, so
+     * turning it off again restores what the reader had rather than a set of
+     * defaults.
+     */
+    var isolated = false
+    /*
+     * Rollback: run from a throwaway overlay, so everything the guest writes
+     * is discarded when it shuts down and it starts from the same place every
+     * time.  QEMU's own -snapshot does this for every disk at once.
+     */
+    var discardChanges = false
+
     var network = true
     /// Host port forwarded to the guest's ssh (Remote Login); nil = none.
     var sshPort: Int? = 2222
@@ -288,7 +303,7 @@ struct VMConfig: Codable, Equatable {
         case bootChime, chimeSound, chimeFile, bootWidth, bootHeight, autoStart, verboseBoot, safeBoot, singleUser, audio, network, sshPort, shareClipboard, sharedFolders
         case agpBridge, monitorPort, gpuTrace, extraQEMUArgs, gamepad, shareOnNetwork, bridgedInterface
         case externalDisk
-        case classic, scaling, panelFilter, displayFit
+        case classic, scaling, panelFilter, displayFit, isolated, discardChanges
     }
 
     init(from decoder: Decoder) throws {
@@ -314,6 +329,8 @@ struct VMConfig: Codable, Equatable {
         try get(.scaling, &d.scaling)
         try get(.panelFilter, &d.panelFilter)
         try get(.displayFit, &d.displayFit)
+        try get(.isolated, &d.isolated)
+        try get(.discardChanges, &d.discardChanges)
         try get(.hardwareCursor, &d.hardwareCursor); try get(.extraDisplayModes, &d.extraDisplayModes)
         try get(.startFullscreen, &d.startFullscreen); try get(.bootChime, &d.bootChime)
         try get(.chimeSound, &d.chimeSound)
@@ -332,6 +349,11 @@ struct VMConfig: Codable, Equatable {
         d.externalDisk = try c.decodeIfPresent(ExternalDisk.self, forKey: .externalDisk)
         self = d
     }
+
+    /// What the settings mean once isolation has had its say.
+    var networkEnabled: Bool { network && !isolated }
+    var clipboardShared: Bool { shareClipboard && !isolated }
+    var activeSharedFolders: [SharedFolder] { isolated ? [] : sharedFolders }
 
     var hardDisks: [DiskConfig] { disks.filter { $0.kind == .hardDisk } }
 

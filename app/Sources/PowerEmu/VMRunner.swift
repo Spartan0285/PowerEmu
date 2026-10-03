@@ -306,7 +306,7 @@ final class VMRunner {
             a += ["-device", "poweremu-gpu,id=pvgpu0"]
         }
 
-        if c.network {
+        if c.networkEnabled {
             var net = "user,id=net0,ipv6=off"
             sshPort = c.sshPort.map(Self.freePort)
             if let p = sshPort { net += ",hostfwd=tcp:127.0.0.1:\(p)-:22" }
@@ -382,6 +382,14 @@ final class VMRunner {
         // present, so discs can be inserted while running) keeps ide.1/0; the
         // internal disks and a lent external disk fill the other three slots,
         // the startup disk first on ide.0/0.
+        /*
+         * Rollback.  -snapshot puts every disk behind a temporary overlay
+         * that QEMU throws away when it exits, so the machine starts from the
+         * same place every time and nothing it writes survives.  It applies
+         * to the whole machine rather than per drive, which is exactly the
+         * promise the setting makes.
+         */
+        if c.discardChanges { a += ["-snapshot"] }
         let cdSlot = "bus=ide.1,unit=0"
         var freeSlots = ["bus=ide.0,unit=0", "bus=ide.0,unit=1", "bus=ide.1,unit=1"]
         let hdOrder: [DiskConfig] = boot.map { b in [b] + c.hardDisks.filter { $0.id != b.id } } ?? []
@@ -794,6 +802,66 @@ final class VMRunner {
             let text = (r?["return"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             done(text.isEmpty ? nil : text)
         }
+    }
+
+    /*
+     * Snapshots: the same machinery as Sleep, by name and as many as wanted.
+     *
+     * Sleep is one snapshot under a reserved tag that is consumed when the
+     * machine wakes.  A snapshot is the same write of memory, processor and
+     * devices into the disk, kept until it is thrown away, so a reader can
+     * try something and come back from it.  The reserved tag is kept out of
+     * the list, since it is not one of these and reverting to it would strand
+     * the sleep.
+     */
+    func takeSnapshot(named name: String, _ done: @escaping @Sendable (String?) -> Void) {
+        monitor("savevm \(Self.snapshotTag(name))", done)
+    }
+
+    func revertToSnapshot(named name: String, _ done: @escaping @Sendable (String?) -> Void) {
+        monitor("loadvm \(Self.snapshotTag(name))", done)
+    }
+
+    func deleteSnapshot(named name: String, _ done: @escaping @Sendable (String?) -> Void) {
+        monitor("delvm \(Self.snapshotTag(name))", done)
+    }
+
+    /// Spaces and the like would be read as further arguments by the monitor.
+    static func snapshotTag(_ name: String) -> String {
+        let keep = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_."))
+        let t = name.unicodeScalars.map { keep.contains($0) ? Character($0) : "_" }
+        let s = String(t).trimmingCharacters(in: CharacterSet(charactersIn: "_"))
+        return s.isEmpty ? "snapshot" : String(s.prefix(60))
+    }
+
+    private func monitor(_ command: String, _ done: @escaping @Sendable (String?) -> Void) {
+        QMP.shared.send(qmpPath, ["execute": "human-monitor-command",
+                                  "arguments": ["command-line": command]]) { r in
+            if let err = QMP.errorText(r) { done(err); return }
+            let text = (r?["return"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            done(text.isEmpty ? nil : text)
+        }
+    }
+
+    /*
+     * What snapshots a disk holds, read with qemu-img while the machine is
+     * off.  Asking the running machine would mean parsing the monitor's
+     * table; the disk is the thing that actually holds them.
+     */
+    static func snapshots(onDisk disk: URL) -> [(tag: String, date: String, size: String)] {
+        guard let helper = helperURL else { return [] }
+        let img = helper.appendingPathComponent("Contents/MacOS/qemu-img")
+        guard let out = try? InstallPlan.run(img.path, ["snapshot", "-l", disk.path]) else { return [] }
+        var rows: [(String, String, String)] = []
+        for line in String(decoding: out, as: UTF8.self).split(separator: "\n").dropFirst() {
+            let f = line.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
+            // ID, TAG, VM SIZE, DATE, TIME, CLOCK
+            guard f.count >= 5, Int(f[0]) != nil else { continue }
+            let tag = f[1]
+            guard tag != sleepTag else { continue }
+            rows.append((tag, "\(f[3]) \(f[4])", f[2]))
+        }
+        return rows
     }
 
     /// Throw away the saved machine while the emulator is running it: a

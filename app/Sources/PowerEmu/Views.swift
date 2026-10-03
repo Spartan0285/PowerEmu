@@ -185,6 +185,25 @@ struct MachineDetail: View {
     @State private var confirmDiscardSleep = false
     @State private var confirmTrash = false
     @State private var error: String?
+    @State private var snapshotName = ""
+    @State private var snapshots: [(tag: String, date: String, size: String)] = []
+    @State private var busy: String?
+    @State private var duplicating = false
+
+    /// Snapshots are QEMU's, so they need the emulator to be the thing
+    /// holding the disk.
+    private var machineRunning: Bool { vm.state != .stopped }
+
+    private func duplicate(linked: Bool) {
+        busy = "Copying…"
+        do {
+            _ = try library.duplicate(vm, linked: linked)
+            busy = nil
+        } catch {
+            busy = nil
+            self.error = error.localizedDescription
+        }
+    }
 
     private var locked: Bool { vm.state != .stopped || installing }
 
@@ -412,6 +431,8 @@ struct MachineDetail: View {
                     }
                 }
                 Toggle("Start in fullscreen", isOn: binding(\.startFullscreen))
+                Toggle("Discard changes on shutdown", isOn: binding(\.discardChanges))
+                Toggle("Isolate from this Mac", isOn: binding(\.isolated))
                 Toggle("Offer resolutions shaped like this Mac’s screen", isOn: binding(\.extraDisplayModes))
                 Picker("Scaling", selection: displayBinding(\.scaling, { $0.scaling = $1 })) {
                     ForEach(VMConfig.scalingChoices, id: \.0) { Text($0.1).tag($0.0) }
@@ -447,6 +468,93 @@ struct MachineDetail: View {
 
     private var sharingTab: some View {
         Form {
+            Section("Snapshots") {
+                /*
+                 * A snapshot is the whole machine -- memory, processor,
+                 * devices -- written into its disk, so it can be returned to
+                 * exactly.  QEMU can only do that while it is the thing
+                 * holding the disk, which is why these need the machine
+                 * running; the list itself is read from the disk and is
+                 * readable either way.
+                 */
+                HStack {
+                    TextField("Name", text: $snapshotName)
+                    Button("Take") {
+                        let n = snapshotName.isEmpty ? "Snapshot" : snapshotName
+                        busy = "Saving the machine…"
+                        vm.takeSnapshot(named: n) { err in
+                            Task { @MainActor in
+                                busy = nil
+                                if let err { self.error = err } else { snapshotName = "" }
+                                snapshots = vm.snapshots
+                            }
+                        }
+                    }
+                    .disabled(!machineRunning || busy != nil)
+                }
+                if !machineRunning {
+                    Text("Start the virtual Mac to take or return to a snapshot.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                ForEach(snapshots, id: \.tag) { snap in
+                    HStack {
+                        VStack(alignment: .leading) {
+                            Text(snap.tag)
+                            Text("\(snap.date) · \(snap.size)")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button("Return To") {
+                            busy = "Returning…"
+                            vm.revertToSnapshot(named: snap.tag) { err in
+                                Task { @MainActor in busy = nil; if let err { self.error = err } }
+                            }
+                        }.disabled(!machineRunning || busy != nil)
+                        Button("Delete") {
+                            vm.deleteSnapshot(named: snap.tag) { err in
+                                Task { @MainActor in
+                                    if let err { self.error = err }
+                                    snapshots = vm.snapshots
+                                }
+                            }
+                        }.disabled(!machineRunning || busy != nil)
+                    }
+                }
+                if snapshots.isEmpty {
+                    Text("None yet.").font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            .onAppear { snapshots = vm.snapshots }
+
+            Section("This Virtual Mac") {
+                Button("Duplicate…") { duplicating = true }
+                    .disabled(machineRunning || busy != nil)
+                Button("Reclaim Disk Space") {
+                    guard let d = vm.config.startupDiskConfig else { return }
+                    busy = "Reclaiming…"
+                    do {
+                        let r = try library.compact(vm, disk: d)
+                        busy = nil
+                        let saved = max(0, r.before - r.after)
+                        self.error = saved > 0
+                            ? "Reclaimed \(ByteCountFormatter.string(fromByteCount: saved, countStyle: .file))."
+                            : "Nothing to reclaim."
+                    } catch {
+                        busy = nil
+                        self.error = error.localizedDescription
+                    }
+                }
+                .disabled(machineRunning || busy != nil)
+                if let busy { Text(busy).font(.caption).foregroundStyle(.secondary) }
+            }
+            .confirmationDialog("Duplicate this virtual Mac?", isPresented: $duplicating) {
+                Button("Linked Copy (fast, shares disks)") { duplicate(linked: true) }
+                Button("Full Copy") { duplicate(linked: false) }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("A linked copy starts out sharing this machine's disks, so it is quick and small, but this machine must not be changed afterwards or the copy will be spoiled. A full copy is independent and takes as much room as the disks.")
+            }
+
             Section("Connectivity") {
                 Toggle("Network", isOn: binding(\.network))
                 Toggle("Reach the guest’s Remote Login (ssh) at localhost:\(String(vm.sshPortInUse ?? vm.config.sshPort ?? 2222))", isOn: Binding(
