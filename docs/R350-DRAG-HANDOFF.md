@@ -65,10 +65,59 @@
 > -- there is no OpenBIOS source tree on this Mac, and both images came from the
 > Studio handoff hash-checked rather than rebuilt.
 >
-> Next step for whoever picks this up: get the panic reason out.  Boot Leopard
-> on the 9800 with `-prom-env 'boot-args=-v debug=0x144 serial=1'` so the panic
-> goes to the serial console, or read `/Library/Logs/PanicReporter` off the
-> overlay afterwards.
+> ### The panic, read out of guest memory
+>
+> `ATIRadeon9700` faults on a write to a near-null address.  From the panic
+> buffer, recovered with `pmemsave` and a string search:
+>
+> ```
+> panic(cpu 0 caller 0xFFFF0003): 0x300 - Data access
+> PC=0x450C55F0; MSR=0x00009030; DAR=0x00004018; DSISR=0x42000000;
+> LR=0x450C4630; R1=0x45077C30; XCP=0x0000000C (0x300 - Data access)
+> Backtrace: 0x450C4630 0x00348ED8 0x0034A02C 0x0034BEDC 0x0034AFFC 0x000B1DD4
+> com.apple.ATIRadeon9700(5.4.8)@0x4509f000->0x450fbfff
+>   dependency: IONDRVSupport(1.7.3), IOPCIFamily(2.6), IOGraphicsFamily(1.7.3)
+> ```
+>
+> * `0x300` is the PowerPC Data Storage Interrupt, and `DSISR=0x42000000` is
+>   page-not-present (0x40000000) on a **store** (0x02000000).
+> * `DAR=0x00004018` is the address written.  That is not a pointer; it is a
+>   **register offset added to a base of zero** -- 0x4018 sits inside the 64 KB
+>   MMIO aperture.  The driver is writing a register through a mapping it never
+>   got.
+> * `PC - kext base = 0x450C55F0 - 0x4509F000 =` **`+0x265F0` inside
+>   `ATIRadeon9700` 5.4.8**, which is the exact offset to disassemble.
+>
+> The device presents (`info pci`, PCI id `1002:4e48`):
+>
+> | BAR | | |
+> |---|---|---|
+> | BAR0 | 0x88000000 | 128 MB, 32-bit prefetchable -- the framebuffer |
+> | BAR1 | 0x1000 | 256 bytes I/O |
+> | BAR2 | 0x90000000 | 64 KB 32-bit memory -- MMIO |
+>
+> which is the layout a real 9800 Pro presents, so no BAR is simply missing.
+> Something the driver needs in order to *establish* the MMIO mapping is what
+> comes back empty; no video BIOS is supplied to the device in the shipped
+> configuration (`romfile` is not set on `ppc-mac-r350-probe`), which is the
+> first thing to rule in or out.
+>
+> Tiger is unaffected: it runs an older `ATIRadeon9700` that reaches the desktop
+> on the same device.  So this is specific to the 5.4.8 kext in Leopard.
+>
+> Next step: disassemble `ATIRadeon9700` 5.4.8 at `+0x265F0`, find which mapping
+> the base register comes from, and see what the emulated device returns for it.
+> `docs/RADEON-9200-RETROSPECTIVE.md` says disassembling Apple's kexts is what
+> produced the breakthroughs both previous times; this gives it an exact offset
+> to start from.
+>
+> How this was recovered, since none of the ordinary routes worked: Leopard does
+> not route panics to the serial console (`serial=1` produced nothing), and the
+> non-verbose boot shows only the multilingual restart screen.  Booting with
+> `-prom-env 'boot-args=-v debug=0x144'` leaves the machine spinning at `b .`
+> with the vCPU at 99%, which looks like a hang and is really the post-panic
+> halt.  The text is still in memory: `pmemsave 0x0 0x6000000 "<file>"` through
+> the HMP monitor, then search the dump for `panic(cpu`.
 
 ---
 
