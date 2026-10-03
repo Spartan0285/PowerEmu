@@ -131,3 +131,53 @@ against the baseline VM (different start time and harness invocation).  It
 needs one controlled repeat before being called a regression.  But it is not
 the free fix it appears to be, and `primitive_assembly` -- the larger count --
 is untouched by it either way.
+
+---
+
+# The census, and what it pointed at
+
+Measured twice, on independent VMs, with Chess confirmed rendering on a
+composited desktop.  Identical both times:
+
+| counter | run A | run B |
+|---|---|---|
+| `r350_rejected` | 829 | 828 |
+| `r350_reject_prim_1` | 1 | 1 |
+| `r350_reject_prim_14` | **596** | **596** |
+| `r350_reject_primitive_assembly` | 597 | 597 |
+| `r350_reject_interpolator_routing` | 229 | 229 |
+| `r350_reject_depth_stencil_alpha_logic_cull_fog_state` | 2 | 2 |
+
+596 + 1 = 597, so the census accounts for every primitive-assembly rejection
+and nothing is hiding.  **Only two primitive types are refused at all**: 14 and
+1.  No lines, no rect-list, no polygon -- the speculation about those was
+wrong, which is exactly why it was measured instead of guessed.
+
+Read on the composited desktop *before* Chess launched: `r350_rejected=1` and
+**no `reject_prim_*` at all**.  So all 597 belong to Chess.
+
+Type 14 is QUAD_STRIP (`R200_PRIM_QUAD_STRIP 0xE`), and at 596 it is 72% of
+everything the device throws away.  `r300_triangle_indices()` handled 4, 5, 6
+and 13 and refused it.  It now assembles it, with the winding
+`ppc_mac_gpu.c`'s other index builder already uses, so the two agree.
+
+Type 1 is left alone: one rejection in 828, and points are not triangles.
+
+**Not yet verified:** whether assembling QUAD_STRIP makes Chess's board
+actually render.  The draws stop being discarded; whether what they draw is
+correct is a separate question, and the answer is not in these numbers.
+
+## The wedge that was corrupting all of this
+
+Several runs produced a flat blue backdrop with scanline slivers, Finder never
+starting, `damage` stuck near 54-58 and `draws` near 200, while the guest
+stayed ssh-responsive.  It reads as a renderer fault.  It was the capture
+client: it encoded each PNG inline in its receive loop, and QEMU's `pe_send()`
+is a blocking write-all, so QEMU's main loop blocked and the VM stalled hard
+enough to wedge Tiger's session permanently.  Host CPU contention from
+concurrent TCG VMs does the same thing.
+
+The client now encodes on a writer thread.  The rule that still holds: **one
+VM on an otherwise idle host**, and judge "is the session up" from a captured
+frame, never from `ps` -- `grep -c "[W]indowServer"` reports 0 while Finder is
+plainly running, because `ps` truncates the path.
