@@ -9,6 +9,9 @@ struct HostDrive: Identifiable, Hashable {
     let kind: Kind
     /// Bytes of the whole medium, as DiskArbitration reports it; 0 when unknown.
     var sizeBytes: Int64 = 0
+    /// The medium's UUID where it has one -- a name that survives replugging,
+    /// unlike bsdName.
+    var mediaUUID: String? = nil
     var id: String { bsdName }
 
     enum Kind { case optical, floppy, image, hardDisk }
@@ -169,7 +172,16 @@ final class HostDriveMonitor: ObservableObject {
         }
         var label = model.isEmpty ? name : model
         if let volume, !volume.isEmpty { label += " (\(volume))" }
-        let d = HostDrive(bsdName: name, name: label, kind: kind, sizeBytes: size)
+        var uuid: String? = nil
+        if let raw = desc[kDADiskDescriptionMediaUUIDKey as String] {
+            let cf = raw as CFTypeRef
+            if CFGetTypeID(cf) == CFUUIDGetTypeID(),
+               let str = CFUUIDCreateString(kCFAllocatorDefault, (cf as! CFUUID)) {
+                uuid = str as String
+            }
+        }
+        let d = HostDrive(bsdName: name, name: label, kind: kind, sizeBytes: size,
+                          mediaUUID: uuid)
         if !drives.contains(d) { drives.append(d) }
     }
 }

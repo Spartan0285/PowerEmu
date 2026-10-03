@@ -26,6 +26,16 @@ struct DiskConfig: Codable, Hashable, Identifiable {
 struct ExternalDisk: Codable, Hashable {
     var bsdName: String            // "disk14"
     var label: String?             // "HM2T80A0 (Macintosh HD)"
+    /*
+     * How the disk is actually recognised again.  bsdName is only a hint:
+     * macOS reuses disk numbers, so it routinely names a different device
+     * later.  The media UUID is stable where the disk has one; the size is a
+     * weaker check that still separates a lent drive from whatever disk image
+     * has inherited its number.  Both are optional so packages written before
+     * this keep loading -- they fall back to matching on the label alone.
+     */
+    var mediaUUID: String?
+    var sizeBytes: Int64?
     /// Boot the virtual Mac from this disk instead of the internal startup disk.
     var bootFrom = false
 

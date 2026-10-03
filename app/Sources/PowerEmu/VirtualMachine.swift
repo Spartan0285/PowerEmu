@@ -830,7 +830,9 @@ final class VirtualMachine: ObservableObject, Identifiable {
     /// hot-plug -- so it is recorded in the config and applied on the next
     /// start.  A running machine must be restarted for it to appear.
     func attachExternalDisk(_ drive: HostDrive) {
-        config.externalDisk = ExternalDisk(bsdName: drive.bsdName, label: drive.name)
+        config.externalDisk = ExternalDisk(bsdName: drive.bsdName, label: drive.name,
+                                           mediaUUID: drive.mediaUUID,
+                                           sizeBytes: drive.sizeBytes)
         try? save()
         objectWillChange.send()
     }

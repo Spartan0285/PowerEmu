@@ -267,7 +267,9 @@ final class VMLibrary: ObservableObject {
             config.insertedDisc = installDisc.path
             config.bootFromDisc = true
         }
-        config.externalDisk = ExternalDisk(bsdName: external.bsdName, label: external.name)
+        config.externalDisk = ExternalDisk(bsdName: external.bsdName, label: external.name,
+                                          mediaUUID: external.mediaUUID,
+                                          sizeBytes: external.sizeBytes)
         do {
             let vm = VirtualMachine(url: pkg, config: config)
             try vm.save()

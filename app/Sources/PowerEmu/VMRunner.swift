@@ -663,6 +663,23 @@ final class VMRunner {
         guard desc[kDADiskDescriptionMediaWholeKey as String] as? Bool == true,
               desc[kDADiskDescriptionDeviceInternalKey as String] as? Bool != true
         else { return false }
+        // A UUID settles it on its own where the disk has one and the machine
+        // recorded it; nothing else needs to agree, and a renamed volume stops
+        // mattering.
+        if let want = ext.mediaUUID, let raw = desc[kDADiskDescriptionMediaUUIDKey as String] {
+            let cf = raw as CFTypeRef
+            guard CFGetTypeID(cf) == CFUUIDGetTypeID(),
+                  let got = CFUUIDCreateString(kCFAllocatorDefault, (cf as! CFUUID))
+            else { return false }
+            return (got as String) == want
+        }
+        // Otherwise fall back to the label, as packages written before the
+        // UUID was recorded must.  Size, when known, makes that much harder to
+        // satisfy by accident.
+        if let want = ext.sizeBytes, want > 0 {
+            let got = (desc[kDADiskDescriptionMediaSizeKey as String] as? NSNumber)?.int64Value ?? 0
+            if got != want { return false }
+        }
         let model = (desc[kDADiskDescriptionDeviceModelKey as String] as? String ?? "")
             .trimmingCharacters(in: .whitespaces)
         let volume = desc[kDADiskDescriptionVolumeNameKey as String] as? String
