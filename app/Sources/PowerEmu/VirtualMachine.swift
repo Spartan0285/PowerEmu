@@ -48,6 +48,9 @@ final class VirtualMachine: ObservableObject, Identifiable {
     var qemuPID: pid_t? { runner?.qemuPID }
     /// PowerEmu Tools in the guest, while running.
     @Published private(set) var agent: GuestAgent?
+    /// Every application installed in the guest, as the guest's Finder names
+    /// them.  Empty until the tools connect and answer APPS.
+    @Published private(set) var guestApps: [(path: String, name: String)] = []
     private var dav: WebDAVServer?
     private var shareWatcher: SharedFolderWatcher?
     /// This Mac's game controller, given to the guest as a USB gamepad.
@@ -179,6 +182,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
                 // The tools have just said which version they are: the Devices
                 // badge depends on it.
                 self?.onToolsChanged?()
+                self?.agent?.send("APPS", "")
                 self?.runOnConnectCommandIfAsked()
             }
             a.onWindows = { [weak self] rects in self?.display?.deliverWindows(rects) }
@@ -186,6 +190,10 @@ final class VirtualMachine: ObservableObject, Identifiable {
             a.onSheets = { [weak self] parents in self?.display?.onSheets?(parents) }
             a.onWindowApps = { [weak self] apps in self?.display?.deliverWindowApps(apps) }
             a.onDockApps = { [weak self] items in self?.display?.deliverDockApps(items) }
+            a.onApps = { [weak self] items in
+                self?.guestApps = items
+                self?.onToolsChanged?()
+            }
             a.onMinimized = { [weak self] m in self?.display?.deliverMinimized(m) }
             a.onFocused = { [weak self] id in self?.display?.deliverFocused(id) }
             a.onOcclusion = { [weak self] o in self?.display?.deliverOcclusion(o) }
@@ -651,6 +659,75 @@ final class VirtualMachine: ObservableObject, Identifiable {
     }()
 
     lazy var fileTransfer = GuestFileTransfer(root: URL(fileURLWithPath: dropShare.path))
+
+    /*
+     * Open a file from this Mac in the virtual Mac.
+     *
+     * The guest can only see a host file through a share, so the file has to
+     * be somewhere shared before the guest is asked to open it.  If it is
+     * already inside one of this machine's shared folders, that share is used
+     * and the file is opened where it lives -- edits land back on the real
+     * file, which is the point of sharing it in the first place.  Otherwise it
+     * is copied into the drop share, which is mounted for the whole life of
+     * the machine, and the guest opens the copy.
+     *
+     * `app` is a guest application's path, from `guestApps`; nil lets the
+     * guest's Launch Services choose, as a double-click would.
+     */
+    func openInGuest(_ url: URL, with app: String? = nil) {
+        guard state == .running, let agent else { return }
+        guard !config.isolated else {
+            lastError = "“\(config.name)” is isolated, so it has no shared folders to "
+                + "pass a file through. Turn isolation off to open host files in it."
+            return
+        }
+        let file = url.resolvingSymlinksInPath().path
+
+        // Inside a share already?  Longest match wins, so a share nested
+        // inside another share is preferred over its parent.
+        var best: (share: String, rel: String)?
+        for f in config.activeSharedFolders {
+            let root = URL(fileURLWithPath: f.path).resolvingSymlinksInPath().path
+            let prefix = root.hasSuffix("/") ? root : root + "/"
+            guard file.hasPrefix(prefix) else { continue }
+            let rel = String(file.dropFirst(prefix.count))
+            if best == nil || rel.count < best!.rel.count { best = (f.name, rel) }
+        }
+
+        if let b = best {
+            agent.send("OPENWITH", "\(b.share)\t\(b.rel)\t\(app ?? "")")
+            return
+        }
+
+        // Not shared: stage a copy.  Each file gets its own folder so two
+        // files of the same name do not collide, and so the guest's own
+        // .DS_Store does not end up beside somebody's documents.
+        let stage = URL(fileURLWithPath: dropShare.path)
+            .appendingPathComponent("Opened/\(UUID().uuidString)", isDirectory: true)
+        let dest = stage.appendingPathComponent(url.lastPathComponent)
+        do {
+            try FileManager.default.createDirectory(at: stage, withIntermediateDirectories: true)
+            try FileManager.default.copyItem(at: url, to: dest)
+        } catch {
+            lastError = "Could not give “\(url.lastPathComponent)” to the virtual Mac: "
+                + error.localizedDescription
+            return
+        }
+        let rel = "Opened/\(stage.lastPathComponent)/\(url.lastPathComponent)"
+        // webdavfs answers a folder's modification date from a cache that
+        // lasts about half a minute, so the guest has to be told the share
+        // changed or it will not see the file for that long.
+        // CHANGED wants "share<tab>path" lines: the staging folder is new, so
+        // the share's root listing is stale too.
+        agent.send("CHANGED", "\(dropShare.name)\tOpened\n"
+                   + "\(dropShare.name)\tOpened/\(stage.lastPathComponent)")
+        let a = app
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+            MainActor.assumeIsolated {
+                self?.agent?.send("OPENWITH", "\(self?.dropShare.name ?? "")\t\(rel)\t\(a ?? "")")
+            }
+        }
+    }
 
     func addSharedFolder(_ url: URL) {
         var name = url.lastPathComponent.replacingOccurrences(of: "/", with: "-")

@@ -97,6 +97,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     weak var configurationWindow: NSWindow?
     var openConfiguration: (() -> Void)?
 
+    /*
+     * A file sent here from this Mac's Finder -- "Open With > PowerEmu", or
+     * dropped on PowerEmu's Dock tile.
+     *
+     * PowerEmu opens nothing itself; the running virtual Mac does, with one of
+     * its own applications.  Which virtual Mac is only a question when more
+     * than one is running, so ask then and not otherwise.
+     */
+    func application(_ sender: NSApplication, openFiles filenames: [String]) {
+        let urls = filenames.map { URL(fileURLWithPath: $0) }
+        let running = MainActor.assumeIsolated {
+            (library?.machines ?? []).filter { $0.state == .running && $0.agent?.connected == true }
+        }
+        guard !running.isEmpty else {
+            let a = NSAlert()
+            a.messageText = urls.count == 1
+                ? "No virtual Mac is ready to open “\(urls[0].lastPathComponent)”"
+                : "No virtual Mac is ready to open these files"
+            a.informativeText = "Start a virtual Mac with PowerEmu Tools installed, then try again."
+            a.runModal()
+            sender.reply(toOpenOrPrint: .failure)
+            return
+        }
+        let target: VirtualMachine
+        if running.count == 1 {
+            target = running[0]
+        } else {
+            let a = NSAlert()
+            a.messageText = "Which virtual Mac should open this?"
+            for m in running.prefix(3) { a.addButton(withTitle: m.config.name) }
+            a.addButton(withTitle: "Cancel")
+            let picked = a.runModal().rawValue - NSApplication.ModalResponse.alertFirstButtonReturn.rawValue
+            guard picked >= 0, picked < min(running.count, 3) else {
+                sender.reply(toOpenOrPrint: .failure); return
+            }
+            target = running[picked]
+        }
+        MainActor.assumeIsolated {
+            for url in urls { target.openInGuest(url) }
+        }
+        sender.reply(toOpenOrPrint: .success)
+    }
+
     /// The Dock menu.  In Harmony the guest's windows have no shared title bar
     /// or toolbar to reach, so offer a way out here.
     func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {

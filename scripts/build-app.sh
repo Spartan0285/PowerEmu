@@ -119,6 +119,27 @@ cat > "$OUT/Contents/Info.plist" <<EOF
 	<string>14.0</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
+	<!-- So "Open With > PowerEmu" exists in this Mac's Finder, and so a file
+	     can be dropped on PowerEmu's Dock tile: the file is handed to the
+	     running virtual Mac and opened by one of its applications.  Viewer
+	     rather than Editor, and no claim to any type, so PowerEmu never
+	     becomes the default for anything -- it is somewhere to send a file
+	     on purpose, not something that takes files over. -->
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Any File</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>None</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.item</string>
+			</array>
+		</dict>
+	</array>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>

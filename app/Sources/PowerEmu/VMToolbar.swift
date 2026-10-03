@@ -544,6 +544,37 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
             }
             menu.addItem(entry("Insert PowerEmu Tools Disc", #selector(insertTools)))
         }
+        /*
+         * Open a file from this Mac in the virtual Mac.
+         *
+         * The guest's own applications do the opening, so the list comes from
+         * the guest and is empty until the tools connect -- which is also why
+         * this sits under the same button as the tools themselves.
+         */
+        menu.addItem(.separator())
+        header(menu, "Files")
+        let openIt = entry("Open File in “\(vm.config.name)”…", #selector(openFileInGuest))
+        openIt.isEnabled = running && vm.agent?.connected == true && !vm.config.isolated
+        menu.addItem(openIt)
+        let withIt = NSMenuItem(title: "Open File With", action: nil, keyEquivalent: "")
+        let apps = vm.guestApps
+        if apps.isEmpty {
+            withIt.isEnabled = false
+        } else {
+            let sub = NSMenu()
+            for (i, a) in apps.enumerated() {
+                let it = NSMenuItem(title: a.name, action: #selector(openFileInGuestWith(_:)),
+                                    keyEquivalent: "")
+                it.target = self
+                it.tag = i
+                it.representedObject = a.path
+                sub.addItem(it)
+            }
+            withIt.submenu = sub
+            withIt.isEnabled = openIt.isEnabled
+        }
+        menu.addItem(withIt)
+
         let drives = HostDriveMonitor.shared.drives
         let discDrives = drives.filter { $0.kind != .hardDisk }
         if !discDrives.isEmpty {
@@ -664,6 +695,27 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
            let d = HostDriveMonitor.shared.drives.first(where: { $0.bsdName == bsd }) {
             vm?.insertHostDrive(d)
         }
+        refocus()
+    }
+
+    @objc private func openFileInGuest() { pickAndOpenInGuest(nil) }
+
+    @objc private func openFileInGuestWith(_ item: NSMenuItem) {
+        pickAndOpenInGuest(item.representedObject as? String)
+    }
+
+    private func pickAndOpenInGuest(_ app: String?) {
+        guard let vm else { return }
+        let p = NSOpenPanel()
+        p.canChooseFiles = true
+        p.canChooseDirectories = false
+        p.allowsMultipleSelection = true
+        p.prompt = "Open"
+        p.message = app == nil
+            ? "This file is opened in “\(vm.config.name)” by whichever of its applications claims it."
+            : "This file is opened in “\(vm.config.name)”."
+        guard p.runModal() == .OK else { refocus(); return }
+        for url in p.urls { vm.openInGuest(url, with: app) }
         refocus()
     }
 

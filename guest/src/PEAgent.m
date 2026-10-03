@@ -90,7 +90,7 @@ extern CGError CGSConnectionGetPID(CGSConnectionID cid, pid_t *pid, CGSConnectio
 
 #include "PETransferZip.h"
 
-#define PE_AGENT_VERSION "2.21"
+#define PE_AGENT_VERSION "2.22"
 
 extern CGError CGSGetConnectionIDForPSN(CGSConnectionID cid, ProcessSerialNumber *psn,
                                         CGSConnectionID *out);
@@ -210,6 +210,8 @@ static int AgentPort(void)
 - (void)handle:(NSString *)verb payload:(NSData *)payload;
 - (void)mount:(NSString *)spec;
 - (void)unmount:(NSString *)name;
+- (void)openWith:(NSString *)spec;
+- (void)sendApps;
 - (void)changed:(NSString *)list;
 - (void)harmony:(BOOL)on;
 - (void)reportWindows:(NSTimer *)t;
@@ -1091,6 +1093,10 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
         if ([text length]) {
             [[NSWorkspace sharedWorkspace] launchApplication:text];
         }
+    } else if ([verb isEqualToString:@"OPENWITH"]) {
+        [self openWith:text];
+    } else if ([verb isEqualToString:@"APPS"]) {
+        [self sendApps];
     } else if ([verb isEqualToString:@"DOCKAPPS"]) {
         [self sendDockApps];
     } else if ([verb isEqualToString:@"PING"]) {
@@ -2392,6 +2398,91 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
     if (![[NSWorkspace sharedWorkspace] unmountAndEjectDeviceAtPath:path] &&
         unmount([path fileSystemRepresentation], 0) != 0)
         [self send:@"LOG" text:[NSString stringWithFormat:@"unmount %@ failed: %s", path, strerror(errno)]];
+}
+
+/*
+ * Open a file in this Mac with one of this Mac's applications.
+ *
+ * The host names a share, a path inside it, and optionally an application
+ * here; a host file is only visible on this side through a share, so the
+ * host stages it into one first -- usually the drop share, which is mounted
+ * for the whole life of the machine.
+ *
+ * The share is named rather than its mount point given, because the host
+ * does not know the mount point: webdavfs names the volume after the URL,
+ * and renames it if a volume of that name is already mounted, so
+ * /Volumes/<share> is a guess.  MountPointFor asks the kernel instead.
+ *
+ * The specification is "share\trelative path", with an application path as
+ * a third field.  With no application Launch Services picks, exactly as a
+ * double-click in the Finder would.
+ */
+- (void)openWith:(NSString *)spec
+{
+    NSArray *f = [spec componentsSeparatedByString:@"\t"];
+    if ([f count] < 2) return;
+    NSString *share = [f objectAtIndex:0];
+    NSString *rel = [f objectAtIndex:1];
+    NSString *app = [f count] > 2 ? [f objectAtIndex:2] : nil;
+    NSString *url = [NSString stringWithFormat:@"http://10.0.2.100/%@/", share];
+    NSString *mount = MountPointFor(url);
+    NSString *path;
+    NSWorkspace *ws = [NSWorkspace sharedWorkspace];
+    BOOL ok;
+
+    if (!mount) {
+        [self send:@"LOG" text:[NSString stringWithFormat:@"openwith: %@ is not mounted", share]];
+        return;
+    }
+    path = [mount stringByAppendingPathComponent:rel];
+    if (![[NSFileManager defaultManager] fileExistsAtPath:path]) {
+        [self send:@"LOG" text:[NSString stringWithFormat:@"openwith: %@ is not here", path]];
+        return;
+    }
+    ok = [app length] ? [ws openFile:path withApplication:app] : [ws openFile:path];
+    /* Fall back to the default application rather than doing nothing: a
+     * stale application path is the host's list being out of date, which
+     * should not cost the user the open. */
+    if (!ok && [app length]) ok = [ws openFile:path];
+    if (!ok)
+        [self send:@"LOG" text:[NSString stringWithFormat:@"openwith: %@ declined", path]];
+}
+
+/*
+ * Every application this Mac has, for the host's "Open With" menu.
+ *
+ * DOCKAPPS reports what is in the Dock, which is what somebody uses; this
+ * reports what is installed, which is what somebody might choose.  One line
+ * per application, "path\tname", with the name as the Finder shows it.
+ */
+- (void)sendApps
+{
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSArray *roots = [NSArray arrayWithObjects:@"/Applications",
+                      @"/Applications/Utilities",
+                      [@"~/Applications" stringByExpandingTildeInPath], nil];
+    NSMutableString *out = [NSMutableString string];
+    NSMutableSet *listed = [NSMutableSet set];
+    unsigned r;
+
+    for (r = 0; r < [roots count]; r++) {
+        NSString *root = [roots objectAtIndex:r];
+        NSArray *kids = [fm directoryContentsAtPath:root];
+        NSEnumerator *e = [kids objectEnumerator];
+        NSString *kid;
+        while ((kid = [e nextObject])) {
+            NSString *path, *name;
+            if (![[kid pathExtension] isEqualToString:@"app"]) continue;
+            path = [root stringByAppendingPathComponent:kid];
+            name = [fm displayNameAtPath:path];
+            if (![name length]) name = [kid stringByDeletingPathExtension];
+            if ([name isEqualToString:@"PowerEmu Agent"]) continue;
+            if ([listed containsObject:path]) continue;
+            [listed addObject:path];
+            [out appendFormat:@"%@\t%@\n", path, name];
+        }
+    }
+    [self send:@"APPSLIST" text:out];
 }
 
 /* Folders changed on the host.  Finder learns about changes on a WebDAV

@@ -7,7 +7,7 @@ enum GuestTools {
     /// The version on the Tools disc inside this app.  Kept in step with
     /// PE_AGENT_VERSION in guest/src/PEAgent.m -- scripts/build-app.sh refuses
     /// to build if the two ever drift apart.
-    static let shippedVersion = "2.21"
+    static let shippedVersion = "2.22"
 
     /// How the guest's tools compare with the ones this app carries.
     enum State: Equatable {

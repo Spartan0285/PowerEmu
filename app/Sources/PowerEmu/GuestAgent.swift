@@ -25,6 +25,9 @@ final class GuestAgent: ObservableObject {
     /// What is in the guest's own Dock: where each application lives, what the
     /// Dock calls it, and its pid when it happens to be running.
     var onDockApps: (([(path: String, name: String, pid: Int)]) -> Void)?
+    /// Every application installed in the guest, for the host's "Open With"
+    /// menu: where it lives and what the guest's Finder calls it.
+    var onApps: (([(path: String, name: String)]) -> Void)?
     /// Harmony: the guest's windows that have been put in its Dock.
     var onMinimized: (([(pid: Int, index: Int, title: String)]) -> Void)?
     /// One of the guest's applications' icons, as a PNG.
@@ -255,6 +258,14 @@ final class GuestAgent: ObservableObject {
                 items.append((path: f[0], name: f[1], pid: Int(f[2]) ?? 0))
             }
             onDockApps?(items)
+        case "APPSLIST":
+            var items: [(path: String, name: String)] = []
+            for line in text.split(separator: "\n") {
+                let f = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
+                guard f.count >= 2, !f[0].isEmpty else { continue }
+                items.append((path: f[0], name: f[1]))
+            }
+            onApps?(items.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending })
         case "MINWINDOWS":
             var mins: [(pid: Int, index: Int, title: String)] = []
             for line in text.split(separator: "\n") {
