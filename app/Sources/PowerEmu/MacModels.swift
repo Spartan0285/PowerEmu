@@ -17,7 +17,8 @@ import AppKit
 /// A processor configuration: speed, and how many G4s.
 struct CPUConfig: Hashable, Identifiable {
     let mhz: Int
-    /// 1 or 2.  Apple sold Power Macs as "Dual".
+    /// 1, 2 or 4.  Apple sold Power Macs as "Dual"; no G4 had four, but the
+    /// Power Mac G5 Quad did, and this follows how that machine named it.
     var count = 1
     var id: String { "\(count)x\(mhz)" }
 
@@ -39,11 +40,26 @@ struct CPUConfig: Hashable, Identifiable {
         if g.hasSuffix(".") { g.removeLast() }
         return "\(g) GHz"
     }
-    /// How Apple sold it: "Dual 1.42 GHz".
-    var label: String { count == 2 ? "Dual " + speed : speed }
+    /// How Apple sold it: "Dual 1.42 GHz", "Quad 1.42 GHz".
+    var label: String {
+        switch count {
+        case 2: return "Dual " + speed
+        case 4: return "Quad " + speed
+        default: return speed
+        }
+    }
     /// How Tiger's About This Mac shows it.
+    ///
+    /// Apple wrote separate processors as a count ("2 x 2 GHz PowerPC G5")
+    /// and cores as a word: the Power Mac G5 Quad -- two dual-core 970MPs --
+    /// read "2.5 GHz Quad-Core PowerPC G5".  Four emulated CPUs are nearer
+    /// the latter to a reader, so they take that form.
     var aboutText: String {
-        (count == 2 ? "2 x " : "") + speed + " PowerPC G4"
+        switch count {
+        case 2: return "2 x " + speed + " PowerPC G4"
+        case 4: return speed + " Quad-Core PowerPC G4"
+        default: return speed + " PowerPC G4"
+        }
     }
 }
 

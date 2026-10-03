@@ -284,6 +284,7 @@ struct MachineDetail: View {
                     if !vm.config.classic,
                        SMPCapabilities.load(helper: VMRunner.helperURL) != nil || vm.config.cpuCount > 1 {
                         Text("2 CPUs (experimental)").tag(2)
+                        Text("4 CPUs (experimental)").tag(4)
                     }
                 }
                 .disabled(vm.asleep || vm.config.classic)
