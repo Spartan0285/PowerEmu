@@ -329,24 +329,9 @@ final class VMRunner {
              * a native size the guest then does not pick leaves the EDID
              * and the mode disagreeing for no gain.
              */
-            /*
-             * The second card scans out at the pitch its picture is drawn
-             * at, not the 256-byte-aligned one.
-             *
-             * Mac OS X binds its accelerated driver to the first card and
-             * draws there at the rounded pitch every Radeon-era Mac driver
-             * uses.  Nothing binds to the second, so it keeps the plain
-             * linear frame buffer Open Firmware describes, whose row length
-             * is width x bytes exactly.  Measured at 1680x1050: the guest
-             * wrote 1050 rows of 6720 bytes and the card read them back as
-             * 6912, so each row drifted 48 pixels and the picture ran out
-             * after 1021 of them -- 29 black rows at the foot of the screen
-             * and everything above sheared.
-             */
             var gpu2 = r350Experiment
                 ? "ppc-mac-r350-probe,id=gpu1,vgamem_mb=\(vram)"
                 : "ppc-mac-gpu,id=gpu1,vgamem_mb=\(vram)"
-            gpu2 += ",exact-scanout-pitch=on"
             a += ["-device", gpu2]
         }
         /*
