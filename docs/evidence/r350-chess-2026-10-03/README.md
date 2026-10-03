@@ -185,3 +185,85 @@ The client now encodes on a writer thread.  The rule that still holds: **one
 VM on an otherwise idle host**, and judge "is the session up" from a captured
 frame, never from `ps` -- `grep -c "[W]indowServer"` reports 0 while Finder is
 plainly running, because `ps` truncates the path.
+
+---
+
+# Walking the gates: where Chess actually stops
+
+Each fix admits the draws one gate further and exposes the next.  Measured, in
+order, all with Chess running on a composited desktop:
+
+| gate | baseline | +QUAD_STRIP | +decode-rs |
+|---|---|---|---|
+| `primitive_assembly` | 597 | 1 | 1 |
+| `interpolator_routing` | 229 | 825 | **0** |
+| `blend_equation_or_factors` | -- | -- | **824** |
+| **`r350_rejected`** | **828** | **828** | **828** |
+
+The total does not move, because nothing is being drawn differently yet -- the
+same draws are failing later each time.  That is progress, but it is worth
+being plain that no pixel changed at any step.
+
+`x-r350-decode-rs=on` works.  It takes interpolator routing to zero.  An
+earlier note in this file said otherwise and has been withdrawn: that run had
+wedged before Chess drew anything.
+
+## The blend gate, and what Chess asks for
+
+The gate accepts exactly one configuration:
+
+```c
+if (RG(0x4e04)&1) {
+    REQUIRE(RG(0x4e04)==0x27210007 && RG(0x4e08)==0x27210000,
+            "blend equation or factors");
+    draw.premultiplied_over=true;
+}
+```
+
+The census says Chess sends one state, 824 times:
+
+```
+blend0=2726000f:27260000/824
+```
+
+Decoded with the shifts in `ppc_mac_gpu_3d_regs.h` (SRC at [21:16], DST at
+[29:24]):
+
+| | SRC factor | DST factor |
+|---|---|---|
+| accepted `0x27210007` | `0x21` ONE | `0x27` ONE_MINUS_SRC_ALPHA |
+| Chess `0x2726000f` | `0x26` **SRC_ALPHA** | `0x27` ONE_MINUS_SRC_ALPHA |
+
+So the accepted state is **premultiplied** over and Chess is doing **ordinary,
+non-premultiplied** alpha blending.  The alpha register differs the same way
+(`0x27260000` against `0x27210000`), and the low nibble differs, `0xf` against
+`0x7`, which is not yet decoded.
+
+## What a fix has to touch, and why it was not done tonight
+
+It is not a one-line widening of the whitelist.  The source factor is
+hard-coded all the way down:
+
+```objc
+if (d->premultiplied_over && !d->guest_target) {
+    pd.colorAttachments[0].sourceRGBBlendFactor = MTLBlendFactorOne;
+    pd.colorAttachments[0].sourceAlphaBlendFactor = MTLBlendFactorOne;
+```
+
+and there is a second, separate mechanism: when `guest_target` is set the
+blend is done *inside the fragment shader* by framebuffer fetch
+(`ppc_mac_gpu_r300_fp.c:302`, `:413`), also assuming premultiplied.  Both
+paths need the real factors, which means carrying them on `R300MetalDraw`
+rather than a single bool.
+
+That is a real renderer change, and tonight it could not be verified at a
+reasonable cost: healthy boots are roughly one in seven (see the wedge note
+below), so a wrong guess costs a long retry loop to discover.  Adding one more
+accepted literal would be the wrong shape anyway -- it is exactly the
+whitelist pattern `decode-rs` exists to undo, and this file already records
+what that costs.
+
+**Next step, concretely:** carry SRC/DST blend factors through
+`R300MetalDraw` and the fragment path instead of `premultiplied_over`, map
+them onto `MTLBlendFactor`, and check Chess's board against
+`control-9200-chess.png`.
