@@ -147,7 +147,21 @@ final class VMRunner {
 
         // OpenBIOS: fake AGP properties on the PCI path (only used when the
         // AGP bridge is off) and the VRAM size for the QEMU VGA node.
-        let vram = c.bootFromDisc ? min(c.vramMB, 64) : c.vramMB
+        /*
+         * Two cards have to fit in one aperture.
+         *
+         * The UniNorth window this machine exposes is 1 GB at 0x80000000,
+         * and a card's video memory is mapped there in one naturally
+         * aligned piece with its registers after it.  Two cards of 256 MB
+         * push the second card's registers to 0xc0000000 -- past the end of
+         * the window -- and Mac OS X panics the moment it reads them.
+         * Measured: 64 and 128 MB a card both land inside, 256 does not.
+         */
+        let twoCardCap = 128
+        var vram = c.bootFromDisc ? min(c.vramMB, 64) : c.vramMB
+        if c.displays > 1 && !c.classic && !headless {
+            vram = min(vram, twoCardCap)
+        }
         let vramHex = String(vram * 1024 * 1024, radix: 16)
         // Match the emulator's 1 GB UniNorth PCI aperture. The SMP firmware
         // still advertises only 256 MB; with >=128 MB VRAM, GPU registers and

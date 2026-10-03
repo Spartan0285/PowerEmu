@@ -465,6 +465,13 @@ struct MachineDetail: View {
                     ForEach(vm.config.classic ? VMConfig.classicVRAMChoices
                                               : VMConfig.vramChoices, id: \.self) { Text("\($0) MB").tag($0) }
                 }
+                if vm.config.displays > 1 && vm.config.vramMB > 128 {
+                    Text("With two screens each card is held at 128 MB: two "
+                         + "cards of 256 MB do not fit in this Mac\u{2019}s PCI "
+                         + "window, and Mac OS X stops when it cannot reach "
+                         + "the second card.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
                 LabeledContent("Graphics acceleration") {
                     // Quartz Extreme and the OpenGL renderer are Mac OS X's,
                     // driven by its own ATI driver.  Classic Mac OS has
