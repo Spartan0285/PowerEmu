@@ -681,6 +681,9 @@ final class VMDisplayView: NSView {
     /// The guest's Dock, as its tools report it.
     func setGuestDockApps(_ items: [(path: String, name: String, pid: Int)]) {
         guestDockApps = items
+        // A pid of 0 means the application is in the guest's Dock but not
+        // running, so only the non-zero ones say what is actually alive.
+        guestDock.setRunningApplications(Set(items.filter { $0.pid > 0 }.map { $0.pid }))
         refreshGuestAppsPanel()
     }
     func closeGuestAppsPanel() { appsPanel?.close(); appsPanel = nil }
@@ -2521,6 +2524,26 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func windowDidResignKey(_ n: Notification) { display.releaseAll() }
+    /*
+     * Harmony and full screen cannot both own the screen.
+     *
+     * requestHarmony() already refuses to start Harmony while the window is
+     * full screen -- it leaves full screen, waits, and tries again.  The
+     * reverse was not guarded at all, so going full screen with Harmony on
+     * gave a black screen: in Harmony the guest's desktop is masked and its
+     * windows are drawn as windows of this Mac, so the view itself has
+     * nothing left to show, and with the ordinary guest window gone there was
+     * no way back to it.
+     *
+     * Drop Harmony first, the mirror of what starting it does.  This is on
+     * the window delegate rather than the toolbar's handler so it covers
+     * every route in: the F key, the green button, and View > Enter Full
+     * Screen.
+     */
+    func windowWillEnterFullScreen(_ n: Notification) {
+        if display.harmony { display.requestHarmony(false) }
+    }
+
     func windowDidEnterFullScreen(_ n: Notification) { display.needsLayout = true }
 
     /*

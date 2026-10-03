@@ -413,10 +413,10 @@ struct MachineDetail: View {
                 }
                 Toggle("Start in fullscreen", isOn: binding(\.startFullscreen))
                 Toggle("Offer resolutions shaped like this Mac’s screen", isOn: binding(\.extraDisplayModes))
-                Picker("Scaling", selection: binding(\.scaling)) {
+                Picker("Scaling", selection: displayBinding(\.scaling, { $0.scaling = $1 })) {
                     ForEach(VMConfig.scalingChoices, id: \.0) { Text($0.1).tag($0.0) }
                 }
-                Picker("Display filter", selection: binding(\.panelFilter)) {
+                Picker("Display filter", selection: displayBinding(\.panelFilter, { $0.panelFilter = $1 })) {
                     ForEach(PanelFilters.choices, id: \.0) { Text($0.1).tag($0.0) }
                 }
                 Toggle("Hardware cursor", isOn: binding(\.hardwareCursor))
@@ -576,6 +576,29 @@ struct MachineDetail: View {
 
     /// A binding into the config that saves on every change; read-only while
     /// the machine runs.
+    /*
+     * Settings writes the stored value and nothing else, which is right for
+     * most things -- they are read when the machine next starts.  The display
+     * settings are not like that: the machine is usually on screen while they
+     * are being changed, and the whole point of choosing a filter or a scaling
+     * mode is to see it.  Scaling worked from the toolbar, which sets the live
+     * view as well as the config, and did nothing from here; the display
+     * filter had no toolbar control at all, so it appeared to do nothing
+     * anywhere until the machine was restarted.
+     *
+     * So tell the open window too, if there is one.
+     */
+    private func displayBinding<T>(_ kp: WritableKeyPath<VMConfig, T>,
+                                   _ apply: @escaping (VMDisplayView, T) -> Void) -> Binding<T> {
+        Binding(get: { vm.config[keyPath: kp] },
+                set: { v in
+                    guard !locked else { return }
+                    vm.config[keyPath: kp] = v
+                    do { try vm.save() } catch { self.error = error.localizedDescription }
+                    if let d = VMWindowController.open[vm.url]?.display { apply(d, v) }
+                })
+    }
+
     private func binding<T>(_ kp: WritableKeyPath<VMConfig, T>) -> Binding<T> {
         Binding(get: { vm.config[keyPath: kp] },
                 set: { v in

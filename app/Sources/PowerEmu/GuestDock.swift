@@ -185,6 +185,28 @@ final class GuestDock {
         }
     }
 
+    /*
+     * The guest's actual process list, which is a stronger statement than the
+     * window report above.
+     *
+     * setApps() is fed from the guest's *windows*, so it cannot tell an
+     * application that quit from one that merely closed its last window, and
+     * has to wait out graceBeforeRemoval before believing either.  DOCKAPPS is
+     * built from the running processes themselves, so a tile missing from it
+     * has genuinely gone and the icon can come off the Dock at once rather
+     * than lingering for twenty seconds after the application quit.
+     *
+     * An empty report is ignored, the same as above: it is what arrives before
+     * the first real one, and it is never a reason to tear every tile down.
+     */
+    func setRunningApplications(_ pids: Set<Int>) {
+        guard running, !pids.isEmpty else { return }
+        for pid in tiles.keys where !pids.contains(pid) {
+            harmonyDebug("PEDOCK \(pid) is no longer running in the guest; removing its tile")
+            remove(pid)
+        }
+    }
+
     /// The icon came back from the guest.
     func setIcon(pid: Int, png: Data) {
         harmonyDebug("PEDOCK icon for \(pid): \(png.count) bytes")
