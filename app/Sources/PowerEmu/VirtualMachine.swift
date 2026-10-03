@@ -63,6 +63,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
     private var pendingBridgeMAC: String?
     private var clock: ClockServer?
     private var display: DisplayChannel?
+    private var display2: DisplayChannel?
     private var agentWatch: AnyCancellable?
 
     init(url: URL) throws {
@@ -248,6 +249,18 @@ final class VirtualMachine: ObservableObject, Identifiable {
                     MainActor.assumeIsolated { w.display.showPerformanceForTesting() }
                 }
                 if config.startFullscreen { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { w.window?.toggleFullScreen(nil) } }
+                /*
+                 * The second screen, when there is one: its own card, its
+                 * own socket, its own window.  QEMU connects to both sockets
+                 * at startup, so this has to be listening by then -- the
+                 * runner has not been told to go yet at this point.
+                 */
+                if config.displays > 1 && !config.classic {
+                    let ch2 = DisplayChannel(socketPath: r.displayPath2)
+                    try ch2.start()
+                    display2 = ch2
+                    SecondScreenController.show(self, channel: ch2)
+                }
             }
             // Views watch the machine; pass the agent's changes on.
             agentWatch = a.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
@@ -310,11 +323,14 @@ final class VirtualMachine: ObservableObject, Identifiable {
             clock = nil
             display?.stop()
             display = nil
+            display2?.stop()
+            display2 = nil
             // The guest's Dock tiles stand for applications in a machine
             // that has just stopped; nothing else would clear them while
             // PowerEmu keeps running.
             VMDisplayView.harmonized?.stopGuestDock()
             VMWindowController.close(self)
+            SecondScreenController.close(self)
             state = .stopped
             runner = nil
             physicalBurn?.abort(); physicalBurn = nil
@@ -1073,8 +1089,11 @@ final class VirtualMachine: ObservableObject, Identifiable {
         clock = nil
         display?.stop()
         display = nil
+        display2?.stop()
+        display2 = nil
         VMDisplayView.harmonized?.stopGuestDock()
         VMWindowController.close(self)
+        SecondScreenController.close(self)
         attachedUSB = [:]
         hostDiscName = nil
         sshPortInUse = nil

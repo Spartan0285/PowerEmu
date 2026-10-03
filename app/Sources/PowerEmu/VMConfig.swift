@@ -138,6 +138,39 @@ struct VMConfig: Codable, Equatable {
     /// Show the guest in PowerEmu's own window (poweremu-display); false
     /// uses QEMU's Cocoa window, a separate app in the Dock.
     var embeddedDisplay = true
+    /*
+     * How many screens the virtual Mac has: 1 or 2.
+     *
+     * A second screen is a second graphics card, which is how a Power Mac
+     * did it.  Mac OS X binds its driver to both and extends the desktop
+     * across them with no help from here.  Each card costs its own video
+     * memory, so two is not free.
+     */
+    var displays = 1
+    /*
+     * Give the virtual Mac a sound input -- this Mac's microphone, or
+     * whatever it is listening to.
+     *
+     * Off unless it is asked for.  Switching it on opens a capture stream
+     * on this Mac, which is what lights the microphone indicator in the
+     * menu bar, and that should never happen merely because a virtual Mac
+     * was started.
+     */
+    var microphone = false
+    /// The second screen's size.  The first takes this Mac's screen size, so
+    /// Harmony can map one guest pixel to one host point; the second is an
+    /// ordinary window and picks a plain size.
+    var display2Width = 1280
+    var display2Height = 1024
+    /// Sizes offered for the second screen: width, height, and what to call
+    /// it.  The card can do others; these are the ones worth a menu.
+    static let secondScreenSizes: [(Int, Int, String)] = [
+        (1024, 768, "1024 \u{00d7} 768"),
+        (1280, 1024, "1280 \u{00d7} 1024"),
+        (1440, 900, "1440 \u{00d7} 900"),
+        (1680, 1050, "1680 \u{00d7} 1050"),
+        (1920, 1200, "1920 \u{00d7} 1200"),
+    ]
     /// Video memory of the emulated Radeon, in MB: 64, 128 or 256 (the
     /// driver sees 4 MB less).  More than 64 needs poweremu-qemu's wider
     /// uni-north PCI window and matching Open Firmware ranges.
@@ -312,6 +345,7 @@ struct VMConfig: Codable, Equatable {
         case agpBridge, monitorPort, gpuTrace, extraQEMUArgs, gamepad, shareOnNetwork, bridgedInterface
         case externalDisk
         case classic, scaling, panelFilter, displayFit, isolated, discardChanges, autoConnectUSB
+        case displays, display2Width, display2Height, microphone
     }
 
     init(from decoder: Decoder) throws {
@@ -340,6 +374,8 @@ struct VMConfig: Codable, Equatable {
         try get(.isolated, &d.isolated)
         try get(.discardChanges, &d.discardChanges)
         try get(.autoConnectUSB, &d.autoConnectUSB)
+        try get(.displays, &d.displays); try get(.display2Width, &d.display2Width)
+        try get(.display2Height, &d.display2Height); try get(.microphone, &d.microphone)
         try get(.hardwareCursor, &d.hardwareCursor); try get(.extraDisplayModes, &d.extraDisplayModes)
         try get(.startFullscreen, &d.startFullscreen); try get(.bootChime, &d.bootChime)
         try get(.chimeSound, &d.chimeSound)

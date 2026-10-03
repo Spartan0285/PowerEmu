@@ -2611,7 +2611,15 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
             guard let w, let vm else { return }
             w.title = on ? "\(vm.config.name) \u{2014} Harmony (in testing)" : vm.config.name
         }
-        display.mouseMode = VMDisplayView.MouseMode(rawValue: vm.config.mouseMode) ?? .seamless
+        /*
+         * Two screens means the relative mouse, whatever the setting says.
+         * The virtual Mac's pointer is a USB tablet -- it reports where it
+         * is, and Mac OS X maps that onto its main display -- so while the
+         * tablet is driving it the pointer cannot reach the second screen
+         * at all.  See SecondScreen.swift.
+         */
+        display.mouseMode = vm.config.displays > 1 ? .captured
+            : (VMDisplayView.MouseMode(rawValue: vm.config.mouseMode) ?? .seamless)
         display.scaling = vm.config.scaling
         display.panelFilter = vm.config.panelFilter
         display.displayFit = vm.config.displayFit

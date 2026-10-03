@@ -37,6 +37,8 @@ final class VMRunner {
     private(set) var clockPath: String
     /// The screen's socket (DisplayChannel listens on it) when shown in PowerEmu.
     private(set) var displayPath: String
+    /// The second screen's socket, when the machine has two.
+    private(set) var displayPath2: String
     /// The game controller's socket (GamepadServer listens on it).
     private(set) var gamepadPath: String
     /// Services of the guest offered to the network: guest service to the
@@ -77,6 +79,7 @@ final class VMRunner {
         davPath = NSTemporaryDirectory() + tag + ".dav"
         clockPath = NSTemporaryDirectory() + tag + ".clock"
         displayPath = NSTemporaryDirectory() + tag + ".display"
+        displayPath2 = NSTemporaryDirectory() + tag + ".display2"
         gamepadPath = NSTemporaryDirectory() + tag + ".pad"
         bridgeHelperPath = NSTemporaryDirectory() + tag + ".net-helper"
         bridgeEmulatorPath = NSTemporaryDirectory() + tag + ".net-guest"
@@ -244,6 +247,12 @@ final class VMRunner {
         } else if c.embeddedDisplay {
             // No window of QEMU's own (and so no second app in the Dock).
             a += ["-display", "none", "-object", "poweremu-display,id=pd0,path=\(displayPath)"]
+            // A second screen is a second card, and each card's screen needs
+            // its own listener: index picks which one this object shows.
+            if c.displays > 1 {
+                a += ["-object",
+                      "poweremu-display,id=pd1,index=1,path=\(displayPath2)"]
+            }
         } else {
             a += ["-display", "cocoa"]
             if c.startFullscreen { a.append("-full-screen") }
@@ -285,6 +294,28 @@ final class VMRunner {
         }
         a += ["-device", gpu]
         /*
+         * A second screen is a second graphics card.
+         *
+         * Mac OS X does the rest by itself: it binds its ATI driver to both
+         * cards and extends the desktop across them, menu bar on the first
+         * and the second standing to its right -- which is what a Power Mac
+         * with two cards in it did.  Nothing here drives a second head on
+         * one card, because nothing has to.
+         *
+         * The second card is plainer than the first: no host-native EDID
+         * (Harmony is a one-screen idea and runs on the first), and no
+         * exact-scanout-pitch, which exists for classic Mac OS and classic
+         * Mac OS does not get a second screen.
+         */
+        if c.displays > 1 && !c.classic && !headless {
+            var gpu2 = r350Experiment
+                ? "ppc-mac-r350-probe,id=gpu1,vgamem_mb=\(vram)"
+                : "ppc-mac-gpu,id=gpu1,vgamem_mb=\(vram)"
+            gpu2 += ",host-native-width=\(c.display2Width)"
+            gpu2 += ",host-native-height=\(c.display2Height)"
+            a += ["-device", gpu2]
+        }
+        /*
          * The paravirtual sound device, for classic guests only.
          *
          * Mac OS X drives the AWACS screamer perfectly well and has no
@@ -295,6 +326,16 @@ final class VMRunner {
          * ppc-peaudio-loader installs.
          */
         if c.classic { a += ["-device", "poweremu-audio"] }
+        /*
+         * The virtual Mac's sound input.
+         *
+         * The emulated sound chip has always had an input channel; what it
+         * did with it was stop the channel, because nothing fed it.  With
+         * this on it is fed from this Mac's microphone -- but only once the
+         * guest selects an input and starts recording, which is also when
+         * this Mac asks whether it may listen.
+         */
+        if c.microphone && !c.classic { a += ["-global", "screamer.input=on"] }
 
         // The paravirtual GPU, alongside the emulated R200 rather than in
         // place of it: the guest keeps booting and displaying through the
@@ -733,6 +774,7 @@ final class VMRunner {
         davPath = value(".dav") ?? davPath
         clockPath = value(".clock") ?? clockPath
         displayPath = value(".display") ?? displayPath
+        displayPath2 = value(".display2") ?? displayPath2
         return true
     }
 

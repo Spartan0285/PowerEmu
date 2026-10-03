@@ -444,6 +444,23 @@ struct MachineDetail: View {
                     ForEach(VMConfig.displayFitChoices, id: \.0) { Text($0.1).tag($0.0) }
                 }
                 Toggle("Hardware cursor", isOn: binding(\.hardwareCursor))
+                Picker("Screens", selection: binding(\.displays)) {
+                    Text("One").tag(1)
+                    Text("Two").tag(2)
+                }.disabled(vm.config.classic)
+                if vm.config.displays > 1 && !vm.config.classic {
+                    Picker("Second screen", selection: binding(\.display2Width)) {
+                        ForEach(VMConfig.secondScreenSizes, id: \.0) {
+                            Text($0.2).tag($0.0)
+                        }
+                    }
+                    .onChange(of: vm.config.display2Width) { _, w in
+                        if let m = VMConfig.secondScreenSizes.first(where: { $0.0 == w }) {
+                            vm.config.display2Height = m.1
+                            try? vm.save()
+                        }
+                    }
+                }
                 Picker("Video memory", selection: binding(\.vramMB)) {
                     ForEach(vm.config.classic ? VMConfig.classicVRAMChoices
                                               : VMConfig.vramChoices, id: \.self) { Text("\($0) MB").tag($0) }
@@ -459,7 +476,7 @@ struct MachineDetail: View {
             } header: {
                 Text("Display")
             } footer: {
-                Text("Mac OS X drives the emulated Radeon with its own ATI driver, so Quartz Extreme and OpenGL are available; more video memory lets games and the desktop keep more textures on the card. No ROM files are needed.\n\nWhile starting from an install disc the card is held at 64 MB, because the Mac OS X installer will not start with more. Your choice applies once Mac OS X is installed.\n\nPick the resolution inside Mac OS X, in System Preferences → Displays. \(Self.screenAdvice). Fullscreen: Control-Option-F; Control-Option-G releases the mouse.")
+                Text("Mac OS X drives the emulated Radeon with its own ATI driver, so Quartz Extreme and OpenGL are available; more video memory lets games and the desktop keep more textures on the card. No ROM files are needed.\n\nA second screen is a second graphics card, the way a Power Mac did it: Mac OS X extends its desktop across the two and arranges them in System Preferences \u{2192} Displays. It costs a second card\u{2019}s worth of video memory, and the pointer moves between the screens by relative motion, so a two-screen machine captures the mouse \u{2014} Control-Option-G gives it back.\n\nWhile starting from an install disc the card is held at 64 MB, because the Mac OS X installer will not start with more. Your choice applies once Mac OS X is installed.\n\nPick the resolution inside Mac OS X, in System Preferences → Displays. \(Self.screenAdvice). Fullscreen: Control-Option-F; Control-Option-G releases the mouse.")
                     .font(.caption).foregroundStyle(.secondary)
             }
 
@@ -580,6 +597,8 @@ struct MachineDetail: View {
                     Text("Off").tag("none")
                 }
                 .disabled(vm.config.classic)
+                Toggle("Microphone", isOn: binding(\.microphone))
+                    .disabled(vm.config.classic || vm.config.audio == "none")
                     } header: {
                         Text("Sound")
                     } footer: {
@@ -593,6 +612,9 @@ struct MachineDetail: View {
                          */
                         if vm.config.classic {
                             Text("Sound is not available in \(vm.config.osName) yet. The emulated audio hardware answers Mac OS X's driver, and \(vm.config.osName) crashes on it at startup, so PowerEmu leaves it out.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        } else {
+                            Text("The microphone gives the virtual Mac a sound input, which it shows in System Preferences \u{2192} Sound. Nothing is recorded until something inside the virtual Mac starts recording, and this Mac asks your permission the first time that happens.")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     }.disabled(locked)

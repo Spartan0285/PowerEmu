@@ -18,5 +18,15 @@
 	-->
 	<key>com.apple.security.hypervisor</key>
 	<true/>
+	<!--
+	    The virtual Mac's sound input.  Under the hardened runtime this Mac
+	    refuses a process the microphone without it, whatever the owner has
+	    agreed to, and the emulator is the process that opens the capture
+	    stream.  Nothing is recorded unless a machine is given an input:
+	    the device is off by default and the guest has to start its own
+	    input DMA before a single frame is read.
+	-->
+	<key>com.apple.security.device.audio-input</key>
+	<true/>
 </dict>
 </plist>

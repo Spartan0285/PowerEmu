@@ -106,7 +106,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
      * than one is running, so ask then and not otherwise.
      */
     func application(_ sender: NSApplication, openFiles filenames: [String]) {
-        let urls = filenames.map { URL(fileURLWithPath: $0) }
+        var urls = filenames.map { URL(fileURLWithPath: $0) }
+        /*
+         * A virtual Mac is not a file to hand to a virtual Mac.  Opening one
+         * opens that machine here, which is what dropping it on PowerEmu
+         * plainly means.
+         */
+        let machines = urls.filter { $0.pathExtension == "poweremu" }
+        urls.removeAll { $0.pathExtension == "poweremu" }
+        if !machines.isEmpty {
+            MainActor.assumeIsolated { library?.reload() }
+            openConfiguration?()
+            if urls.isEmpty { sender.reply(toOpenOrPrint: .success); return }
+        }
         let running = MainActor.assumeIsolated {
             (library?.machines ?? []).filter { $0.state == .running && $0.agent?.connected == true }
         }
