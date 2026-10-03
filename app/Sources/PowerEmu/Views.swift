@@ -419,6 +419,20 @@ struct MachineDetail: View {
                 Picker("Display filter", selection: displayBinding(\.panelFilter, { $0.panelFilter = $1 })) {
                     ForEach(PanelFilters.choices, id: \.0) { Text($0.1).tag($0.0) }
                 }
+                Picker("Picture", selection: displayBinding(\.displayFit, { $0.displayFit = $1 })) {
+                    ForEach(VMConfig.displayFitChoices, id: \.0) { Text($0.1).tag($0.0) }
+                }
+                LabeledContent("Overscan") {
+                    HStack {
+                        Slider(value: displayBinding(\.overscan, { $0.overscan = $1 }),
+                               in: VMConfig.overscanRange, step: 0.5)
+                        Text(vm.config.overscan == 0 ? "None"
+                             : String(format: "%+.1f%%", vm.config.overscan))
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                            .frame(width: 60, alignment: .trailing)
+                    }
+                }
                 Toggle("Hardware cursor", isOn: binding(\.hardwareCursor))
                 Picker("Video memory", selection: binding(\.vramMB)) {
                     ForEach(vm.config.classic ? VMConfig.classicVRAMChoices

@@ -1414,22 +1414,47 @@ final class VMDisplayView: NSView {
         let area = CGRect(x: bounds.minX + i.left, y: bounds.minY + i.bottom,
                           width: bounds.width - i.left - i.right, height: bounds.height - i.top - i.bottom)
         guard guestSize.width > 0, guestSize.height > 0 else { return area }
-        var scale = min(area.width / guestSize.width, area.height / guestSize.height)
-        if scaling == "integer" {
-            // Whole multiples only, so every guest pixel is the same size
-            // square.  Below 1:1 there is nothing to round to -- the guest's
-            // screen is larger than the window -- so fit as usual.
-            if scale >= 1 { scale = scale.rounded(.down) }
-        } else if scale > 1 && scale < 1.1 {
-            scale = 1                                   // a little border beats a blurry screen
+        let fitX = area.width / guestSize.width, fitY = area.height / guestSize.height
+        var sx: CGFloat, sy: CGFloat
+        switch displayFit {
+        case "stretch":
+            // Each axis fills independently: the shape is not kept.
+            sx = fitX; sy = fitY
+        case "fill":
+            // Keep the shape and lose the border; the overflow is cropped by
+            // the view, which clips.
+            sx = max(fitX, fitY); sy = sx
+        default:
+            sx = min(fitX, fitY); sy = sx
         }
-        let w = (guestSize.width * scale).rounded(), h = (guestSize.height * scale).rounded()
+        if displayFit != "stretch" {
+            // These two only make sense while both axes share a scale.
+            if scaling == "integer" {
+                // Whole multiples only, so every guest pixel is the same size
+                // square.  Below 1:1 there is nothing to round to -- the
+                // guest's screen is larger than the window -- so fit as usual.
+                if sx >= 1 { sx = sx.rounded(.down); sy = sx }
+            } else if sx > 1 && sx < 1.1 {
+                sx = 1; sy = 1                          // a little border beats a blurry screen
+            }
+        }
+        // Overscan last, so it is a deliberate push past whatever was chosen
+        // rather than something the integer rounding above can swallow.
+        if overscan != 0 {
+            let zoom = 1 + CGFloat(overscan) / 100
+            sx *= zoom; sy *= zoom
+        }
+        let w = (guestSize.width * sx).rounded(), h = (guestSize.height * sy).rounded()
         return CGRect(x: area.midX - w / 2, y: area.midY - h / 2, width: w, height: h).integral
     }
 
     override func layout() {
         super.layout()
         CATransaction.begin(); CATransaction.setDisableActions(true)
+        // Fill and positive overscan put the picture past the view's edges on
+        // purpose; without clipping it would be drawn over the rest of the
+        // window instead of being cropped by it.
+        layer?.masksToBounds = true
         screen.frame = screenRect
         updateDesktopMask()          // its geometry follows this layer's
         if harmony, let scr = window?.screen ?? NSScreen.main {
@@ -2035,6 +2060,16 @@ final class VMDisplayView: NSView {
         didSet { guard scaling != oldValue else { return }; needsLayout = true }
     }
 
+    /// VMConfig.displayFit: "fit", "fill" or "stretch".  See the note there.
+    var displayFit: String = "fit" {
+        didSet { guard displayFit != oldValue else { return }; needsLayout = true }
+    }
+
+    /// VMConfig.overscan: percent past the fit; positive crops, negative insets.
+    var overscan: Double = 0 {
+        didSet { guard overscan != oldValue else { return }; needsLayout = true }
+    }
+
     var mouseMode: MouseMode = .seamless {
         didSet {
             ungrab()
@@ -2436,6 +2471,8 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
         display.mouseMode = VMDisplayView.MouseMode(rawValue: vm.config.mouseMode) ?? .seamless
         display.scaling = vm.config.scaling
         display.panelFilter = vm.config.panelFilter
+        display.displayFit = vm.config.displayFit
+        display.overscan = vm.config.overscan
         toolbar = VMToolbarController(self)
         display.controls = toolbar
         display.addSubview(toolbar!.bar)

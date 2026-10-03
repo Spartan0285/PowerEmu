@@ -157,6 +157,32 @@ struct VMConfig: Codable, Equatable {
      */
     var scaling = "smooth"
 
+    /*
+     * How the guest's picture is fitted to the window.
+     *
+     *   "fit"      the whole picture, its shape kept, letterboxed where the
+     *              window is a different shape.  What PowerEmu has always done.
+     *   "fill"     scaled until no border is left, its shape kept, so the
+     *              overflowing edges are cropped.
+     *   "stretch"  pulled to the window's shape.  A 4:3 guest on a 16:10
+     *              screen fills it at the cost of round things being oval --
+     *              which is what a period CRT's horizontal size control did,
+     *              and is sometimes exactly what is wanted at low resolutions.
+     */
+    var displayFit = "fit"
+    static let displayFitChoices: [(String, String)] = [
+        ("fit",     "Fit"),
+        ("fill",    "Fill (crop)"),
+        ("stretch", "Stretch"),
+    ]
+    /*
+     * Overscan, as a percentage past the fit.  Positive pushes the picture
+     * off the edges the way a television did; negative pulls it in, which is
+     * what a monitor's underscan control was for.  0 leaves it alone.
+     */
+    var overscan = 0.0
+    static let overscanRange = -10.0 ... 10.0
+
     /// Period display emulation over the guest's screen; 0 is off.  The
     /// numbering is PocketShaver's -- see PanelFilters.
     var panelFilter = 0
@@ -269,7 +295,7 @@ struct VMConfig: Codable, Equatable {
         case bootChime, chimeSound, chimeFile, bootWidth, bootHeight, autoStart, verboseBoot, safeBoot, singleUser, audio, network, sshPort, shareClipboard, sharedFolders
         case agpBridge, monitorPort, gpuTrace, extraQEMUArgs, gamepad, shareOnNetwork, bridgedInterface
         case externalDisk
-        case classic, scaling, panelFilter
+        case classic, scaling, panelFilter, displayFit, overscan
     }
 
     init(from decoder: Decoder) throws {
@@ -294,6 +320,8 @@ struct VMConfig: Codable, Equatable {
         try get(.classic, &d.classic)
         try get(.scaling, &d.scaling)
         try get(.panelFilter, &d.panelFilter)
+        try get(.displayFit, &d.displayFit)
+        try get(.overscan, &d.overscan)
         try get(.hardwareCursor, &d.hardwareCursor); try get(.extraDisplayModes, &d.extraDisplayModes)
         try get(.startFullscreen, &d.startFullscreen); try get(.bootChime, &d.bootChime)
         try get(.chimeSound, &d.chimeSound)
