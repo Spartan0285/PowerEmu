@@ -126,11 +126,15 @@ a whitelist, so it looks like the answer to the 229.  Turned on, the desktop
 WindowServer, the blue backdrop again -- worse than leaving it off, which at
 least gives a working desktop.
 
-Stated carefully: this was one run, and it is not a single-variable comparison
-against the baseline VM (different start time and harness invocation).  It
-needs one controlled repeat before being called a regression.  But it is not
-the free fix it appears to be, and `primitive_assembly` -- the larger count --
-is untouched by it either way.
+**That reading was wrong, and is withdrawn.**  `damage=58`, no WindowServer,
+flat blue backdrop: that is the exact signature of the session wedge described
+at the end of this file, which was not understood at the time.  The run proved
+nothing about `decode-rs`; it proved the VM had wedged before Chess could draw.
+The flag is still an open candidate and deserves a clean test, which matters
+rather more now that interpolator routing is the gate everything fails at.
+
+The caution stands for a different reason: `primitive_assembly` was the larger
+count, and no interpolator change addresses it.
 
 ---
 
