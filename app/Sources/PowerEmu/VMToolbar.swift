@@ -108,17 +108,28 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
             it.tag = Self.tagPanel
             filters.addItem(it)
         }
-        filters.addItem(.separator())
-        header(filters, "Statistics")
+        filters.delegate = self
+        /*
+         * Statistics has its own menu, under its own button.  The style of
+         * the overlay is a statistics setting, and putting it beside the
+         * picture settings was simply the wrong place to look for it.
+         */
+        stats.addItem(entry("Show Statistics", #selector(togglePerf)))
+        statsShowItem = stats.items.last
+        stats.addItem(.separator())
+        header(stats, "Style")
         for (value, title) in [("full", "Full readings"), ("light", "Frame rate and CPU only")] {
             let it = entry(title, #selector(setPerfStyle(_:)))
             it.representedObject = value
             it.tag = Self.tagPerfStyle
-            filters.addItem(it)
+            stats.addItem(it)
         }
-        filters.delegate = self
+        stats.delegate = self
         build()
     }
+
+    private let stats = NSMenu()
+    private var statsShowItem: NSMenuItem?
 
     private static let tagScaling = 1, tagFit = 2, tagPanel = 4, tagPerfStyle = 5
 
@@ -168,7 +179,9 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
                            #selector(toggleHarmony)))
         }
         items += [
-            labeledButton("speedometer", "Stats", "Show what the virtual Mac and this Mac are doing (Control-Option-P)", #selector(togglePerf)),
+            menuButton("speedometer", "Stats",
+                       "What the virtual Mac and this Mac are doing, and how much of it to show (Control-Option-P)",
+                       stats),
             labeledButton("arrow.up.left.and.arrow.down.right", "Full Screen", "Fill the screen (Control-Option-F)", #selector(fullScreen)),
         ]
         bar.setContent(items)
@@ -443,11 +456,16 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
                     it.state = (it.representedObject as? String) == fit ? .on : .off
                 case Self.tagPanel:
                     it.state = (it.representedObject as? Int) == panel ? .on : .off
-                case Self.tagPerfStyle:
-                    it.state = (it.representedObject as? String)
-                        == (display?.perfStyle ?? .full).rawValue ? .on : .off
                 default: break
                 }
+            }
+            return
+        }
+        if menu === stats {
+            statsShowItem?.state = (display?.showsPerformance ?? false) ? .on : .off
+            let style = (display?.perfStyle ?? .full).rawValue
+            for it in menu.items where it.tag == Self.tagPerfStyle {
+                it.state = (it.representedObject as? String) == style ? .on : .off
             }
             return
         }
