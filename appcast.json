@@ -1,12 +1,18 @@
 {
-  "version": "0.3.2",
-  "build": 5,
-  "published": "2026-10-02T18:29:51Z",
+  "version": "0.3.3",
+  "build": 6,
+  "published": "2026-10-03T16:11:58Z",
   "minimumSystem": "14.0",
-  "notes": "Harmony's \"could not match the display\" notice can be dismissed now \u2014 it goes on the first click or key, and says whether the tools need installing or the virtual Mac ended up at a different size. Display filters and scaling choices for the guest's screen, in the window's toolbar. US English throughout. Set up a virtual Mac from a Mac OS 8 or 9 install disc. A dual-processor Power Mac now really has two processors, as About This Mac already claimed.",
-  "url": "https://github.com/Spartan0285/PowerEmu/releases/download/v0.3.2/PowerEmu-0.3.2.zip",
-  "sha256": "f25772a42f978210a72b634bdbe83a731a160da68946e9025454f9539813f124",
+  "notes": "The Apple logo no longer shears at startup on displays whose width is not a multiple of 64. A virtual Mac can now be given four CPUs, which is experimental, and 32-bit guests run them in parallel. A virtual Mac whose inserted disc has since been deleted now starts with an empty drive instead of refusing to start.",
+  "url": "https://github.com/Spartan0285/PowerEmu/releases/download/v0.3.3/PowerEmu-0.3.3.zip",
+  "sha256": "2c7ec207547e55814cb994eaa9b2fa073b4fb35da81ba2662b627d4ada2aeeb4",
   "history": [
+    {
+      "version": "0.3.2",
+      "build": 5,
+      "published": "2026-10-02T18:29:51Z",
+      "notes": "Harmony's \"could not match the display\" notice can be dismissed now \u2014 it goes on the first click or key, and says whether the tools need installing or the virtual Mac ended up at a different size. Display filters and scaling choices for the guest's screen, in the window's toolbar. US English throughout. Set up a virtual Mac from a Mac OS 8 or 9 install disc. A dual-processor Power Mac now really has two processors, as About This Mac already claimed."
+    },
     {
       "version": "0.3.1",
       "build": 4,
