@@ -2044,15 +2044,26 @@ final class VMDisplayView: NSView {
      * phosphor mask belong on the guest's pixels, not on this Mac's.
      */
     private func applyPanelFilter() {
-        guard panelFilter > 0, PanelFilters.kernel != nil else {
-            screen.filters = nil
-            return
+        /*
+         * Not yet.  The guest's screen layer is backed by an IOSurface
+         * (screen.contents), and CALayer.filters does not composite that: the
+         * layer renders nothing at all, so choosing a filter blanks the
+         * machine.  In Harmony the same layer is masked and the guest's
+         * windows are drawn separately, which is why only the ordinary window
+         * went black and the symptom looked like a rendering bug elsewhere.
+         *
+         * This went unnoticed because the setting never reached a running
+         * machine -- Settings wrote it, nothing applied it, and the filter was
+         * inert.  Fixing that plumbing turned a setting that did nothing into
+         * one that blanked the screen, which is worse, so the filter stays off
+         * until it is applied somewhere that works: at the point the surface
+         * is composed, rather than as a layer filter over it.
+         */
+        screen.filters = nil
+        if panelFilter > 0 {
+            harmonyDebug("PEFILTER display filters are not applied yet; "
+                + "see the note in applyPanelFilter()")
         }
-        let f = PanelFilter()
-        f.inputMode = NSNumber(value: panelFilter)
-        f.inputWidth = NSNumber(value: Double(guestSize.width))
-        f.inputHeight = NSNumber(value: Double(guestSize.height))
-        screen.filters = [f]
     }
 
     /// VMConfig.scaling: "smooth", "sharp" or "integer".  See the note there.

@@ -64,7 +64,23 @@ final class PanelFilter: CIFilter {
         // are meant to sit on the guest's pixels.
         let w = inputWidth.doubleValue > 0 ? inputWidth.doubleValue : Double(extent.width)
         let h = inputHeight.doubleValue > 0 ? inputHeight.doubleValue : Double(extent.height)
-        return kernel.apply(extent: extent, roiCallback: { _, r in r },
-                            arguments: [inputImage, Double(inputMode.intValue), w, h])
+        let args: [Any] = [inputImage, Double(inputMode.intValue), w, h]
+        /*
+         * panelFilter takes a sample_t, which makes it a CIColorKernel, and a
+         * colour kernel is applied without a region-of-interest callback --
+         * it only ever reads the pixel it is writing.  Calling CIKernel's
+         * apply(extent:roiCallback:arguments:) on it returned nothing, so the
+         * layer had a filter that produced no image and the guest's screen
+         * rendered blank.  That went unnoticed for as long as the setting
+         * never reached the live view.
+         */
+        let out = (kernel as? CIColorKernel)?.apply(extent: extent, arguments: args)
+            ?? kernel.apply(extent: extent, roiCallback: { _, r in r }, arguments: args)
+        /*
+         * And if it still produces nothing, show the guest unfiltered.  A
+         * display filter is decoration; it must never be the reason the
+         * machine cannot be seen.
+         */
+        return out ?? inputImage
     }
 }
