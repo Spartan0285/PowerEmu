@@ -329,9 +329,22 @@ final class VMRunner {
              * a native size the guest then does not pick leaves the EDID
              * and the mode disagreeing for no gain.
              */
-            var gpu2 = r350Experiment
+            /*
+             * The second card does not learn its row length from blits.
+             *
+             * The card Mac OS X accelerates adopts the pitch of the
+             * compositor's blits, which is right there -- those blits are
+             * the frame.  Nothing accelerates the second card: its picture
+             * is painted at the row length its frame buffer really has, and
+             * one stray blit was enough to latch a different one onto the
+             * scan-out and shear everything after it.  Measured on the
+             * second screen: pitch register and content agreed at 6720, and
+             * the override alone forced 6912.
+             */
+            let gpu2 = (r350Experiment
                 ? "ppc-mac-r350-probe,id=gpu1,vgamem_mb=\(vram)"
-                : "ppc-mac-gpu,id=gpu1,vgamem_mb=\(vram)"
+                : "ppc-mac-gpu,id=gpu1,vgamem_mb=\(vram)")
+                + ",present-pitch-override=off"
             a += ["-device", gpu2]
         }
         /*
