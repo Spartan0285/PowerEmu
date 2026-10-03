@@ -1430,31 +1430,56 @@ final class VMDisplayView: NSView {
         if displayFit != "stretch" {
             // These two only make sense while both axes share a scale.
             if scaling == "integer" {
-                // Whole multiples only, so every guest pixel is the same size
-                // square.  Below 1:1 there is nothing to round to -- the
-                // guest's screen is larger than the window -- so fit as usual.
-                if sx >= 1 { sx = sx.rounded(.down); sy = sx }
+                /*
+                 * Whole multiples only, so every guest pixel is the same size
+                 * square.  The multiple that matters is of *device* pixels,
+                 * not points: on a 2x screen, rounding in points throws away
+                 * every half-step, so a fit of 1.8 collapses to 1.0 where
+                 * 1.5 would have been both even and much larger.  On a 1x
+                 * screen the two are the same thing.
+                 *
+                 * Below 1:1 there is nothing to round to -- the guest's screen
+                 * is larger than the window -- so fit as usual.
+                 */
+                let backing = window?.backingScaleFactor ?? 2
+                if sx >= 1 {
+                    sx = max(1, (sx * backing).rounded(.down)) / backing
+                    sy = sx
+                }
             } else if sx > 1 && sx < 1.1 {
                 sx = 1; sy = 1                          // a little border beats a blurry screen
             }
-        }
-        // Overscan last, so it is a deliberate push past whatever was chosen
-        // rather than something the integer rounding above can swallow.
-        if overscan != 0 {
-            let zoom = 1 + CGFloat(overscan) / 100
-            sx *= zoom; sy *= zoom
         }
         let w = (guestSize.width * sx).rounded(), h = (guestSize.height * sy).rounded()
         return CGRect(x: area.midX - w / 2, y: area.midY - h / 2, width: w, height: h).integral
     }
 
+    override func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+        // A different screen means a different backing scale, and both the
+        // contentsScale above and the whole-device-pixel rounding depend on it.
+        needsLayout = true
+    }
+
     override func layout() {
         super.layout()
         CATransaction.begin(); CATransaction.setDisableActions(true)
-        // Fill and positive overscan put the picture past the view's edges on
-        // purpose; without clipping it would be drawn over the rest of the
-        // window instead of being cropped by it.
+        // Fill puts the picture past the view's edges on purpose; without
+        // clipping it would be drawn over the rest of the window instead of
+        // being cropped by it.
         layer?.masksToBounds = true
+        /*
+         * A sublayer added by hand keeps contentsScale 1 however Retina the
+         * screen is -- AppKit sets it on the view's own layer and no further.
+         * At 1 the guest is scaled to points and the compositor scales that
+         * again to device pixels, which is a second resampling and the reason
+         * the picture looks softer than the guest's own pixels deserve.
+         */
+        let backing = window?.backingScaleFactor ?? 2
+        if screen.contentsScale != backing {
+            screen.contentsScale = backing
+            cursor.contentsScale = backing
+        }
         screen.frame = screenRect
         updateDesktopMask()          // its geometry follows this layer's
         if harmony, let scr = window?.screen ?? NSScreen.main {
@@ -2109,10 +2134,6 @@ final class VMDisplayView: NSView {
         didSet { guard displayFit != oldValue else { return }; needsLayout = true }
     }
 
-    /// VMConfig.overscan: percent past the fit; positive crops, negative insets.
-    var overscan: Double = 0 {
-        didSet { guard overscan != oldValue else { return }; needsLayout = true }
-    }
 
     var mouseMode: MouseMode = .seamless {
         didSet {
@@ -2516,7 +2537,6 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
         display.scaling = vm.config.scaling
         display.panelFilter = vm.config.panelFilter
         display.displayFit = vm.config.displayFit
-        display.overscan = vm.config.overscan
         toolbar = VMToolbarController(self)
         display.controls = toolbar
         display.addSubview(toolbar!.bar)

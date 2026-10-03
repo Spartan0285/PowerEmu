@@ -175,13 +175,6 @@ struct VMConfig: Codable, Equatable {
         ("fill",    "Fill (crop)"),
         ("stretch", "Stretch"),
     ]
-    /*
-     * Overscan, as a percentage past the fit.  Positive pushes the picture
-     * off the edges the way a television did; negative pulls it in, which is
-     * what a monitor's underscan control was for.  0 leaves it alone.
-     */
-    var overscan = 0.0
-    static let overscanRange = -10.0 ... 10.0
 
     /// Period display emulation over the guest's screen; 0 is off.  The
     /// numbering is PocketShaver's -- see PanelFilters.
@@ -295,7 +288,7 @@ struct VMConfig: Codable, Equatable {
         case bootChime, chimeSound, chimeFile, bootWidth, bootHeight, autoStart, verboseBoot, safeBoot, singleUser, audio, network, sshPort, shareClipboard, sharedFolders
         case agpBridge, monitorPort, gpuTrace, extraQEMUArgs, gamepad, shareOnNetwork, bridgedInterface
         case externalDisk
-        case classic, scaling, panelFilter, displayFit, overscan
+        case classic, scaling, panelFilter, displayFit
     }
 
     init(from decoder: Decoder) throws {
@@ -321,7 +314,6 @@ struct VMConfig: Codable, Equatable {
         try get(.scaling, &d.scaling)
         try get(.panelFilter, &d.panelFilter)
         try get(.displayFit, &d.displayFit)
-        try get(.overscan, &d.overscan)
         try get(.hardwareCursor, &d.hardwareCursor); try get(.extraDisplayModes, &d.extraDisplayModes)
         try get(.startFullscreen, &d.startFullscreen); try get(.bootChime, &d.bootChime)
         try get(.chimeSound, &d.chimeSound)
