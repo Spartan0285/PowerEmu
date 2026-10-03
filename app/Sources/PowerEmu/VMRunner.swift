@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import DiskArbitration
 
 /// Starts the bundled QEMU for one virtual Mac and talks to it over QMP.
 ///
@@ -397,7 +398,11 @@ final class VMRunner {
             return nil
         }()
         let bootCD = c.bootFromDisc && insertedDisc != nil
-        let bootExternal = (c.externalDisk?.bootFrom ?? false) && !bootCD
+        // Presence matters here too: a machine told to boot from a lent disk
+        // that is not there must fall back to its own startup disk, not leave
+        // bootindex 0 assigned to a drive that was never added.
+        let bootExternal = (c.externalDisk.map { $0.bootFrom && Self.externalDiskPresent($0) }
+                            ?? false) && !bootCD
         // startup disk (a booting installer disc or external disk takes priority)
         if !hdOrder.isEmpty {
             a += hdDrive(hdOrder[0], index: 0, slot: freeSlots.removeFirst(),
@@ -432,7 +437,7 @@ final class VMRunner {
         // fd \(Self.externalChildFD) (see launch()); QEMU never opens the
         // device node itself.  The IDE bus cannot hot-plug, so it is here at
         // launch.
-        if let ext = c.externalDisk, Self.externalNodePresent(ext.bsdName), usedExtra < freeSlots.count {
+        if let ext = c.externalDisk, Self.externalDiskPresent(ext), usedExtra < freeSlots.count {
             // With no internal disk and no booting installer, the external is
             // the only bootable disk, so it boots even without the toggle set.
             let extBoots = bootExternal || (hdOrder.isEmpty && !bootCD)
@@ -513,12 +518,18 @@ final class VMRunner {
         // attached but has since been unplugged is simply left out, with a
         // note, rather than stopping the machine from starting at all.
         if let ext = vm.config.externalDisk {
-            if Self.externalNodePresent(ext.bsdName) {
+            if Self.externalDiskPresent(ext) {
                 try launchWithExternalDisk(ext, qbin: qbin.path, args: args, env: env, log: h, onExit: onExit)
                 return
             }
             vm.note("“\(ext.displayName)” is not connected, so “\(vm.config.name)” "
                 + "started without it. Reconnect the disk and attach it again from Devices.")
+            if Self.externalNodePresent(ext.bsdName) {
+                // The node exists but is something else now: say so, or the
+                // note above reads as a lie to anyone who can see a disk there.
+                vm.note("Another disk is using the name “\(ext.bsdName)” now, "
+                    + "so “\(ext.displayName)” could not be identified.")
+            }
         }
 
         let p = Process()
@@ -623,6 +634,42 @@ final class VMRunner {
     /// from starting -- it is left out instead.
     nonisolated static func externalNodePresent(_ bsd: String) -> Bool {
         return access("/dev/" + bsd, F_OK) == 0
+    }
+
+    /*
+     * Is the disk we were lent still the disk sitting at that device node?
+     *
+     * A BSD name is not an identity.  macOS hands out disk numbers in order
+     * of attachment and reuses them freely, so the disk14 a machine was given
+     * last week is routinely a different device today -- a mounted disk image,
+     * most often.  Testing only that /dev/disk14 exists therefore passes for
+     * the wrong disk, and the machine goes on to claim it: in practice the
+     * authorization fails and the machine will not start at all, reported as
+     * "Access to <the drive> was not granted", which sends the reader looking
+     * for a permission problem that is not there.  Worse in principle, it is
+     * an invitation to hand a guest a disk nobody meant to lend it.
+     *
+     * So compare what is actually there now against the label the disk was
+     * remembered under, built the same way HostDrives builds it.
+     */
+    nonisolated static func externalDiskPresent(_ ext: ExternalDisk) -> Bool {
+        guard externalNodePresent(ext.bsdName) else { return false }
+        guard let session = DASessionCreate(kCFAllocatorDefault),
+              let disk = DADiskCreateFromBSDName(kCFAllocatorDefault, session,
+                                                 "/dev/" + ext.bsdName),
+              let desc = DADiskCopyDescription(disk) as? [String: Any]
+        else { return false }
+        // Only a whole external disk can have been lent in the first place.
+        guard desc[kDADiskDescriptionMediaWholeKey as String] as? Bool == true,
+              desc[kDADiskDescriptionDeviceInternalKey as String] as? Bool != true
+        else { return false }
+        let model = (desc[kDADiskDescriptionDeviceModelKey as String] as? String ?? "")
+            .trimmingCharacters(in: .whitespaces)
+        let volume = desc[kDADiskDescriptionVolumeNameKey as String] as? String
+            ?? desc[kDADiskDescriptionMediaNameKey as String] as? String
+        var label = model.isEmpty ? ext.bsdName : model
+        if let volume, !volume.isEmpty { label += " (\(volume))" }
+        return label == ext.label
     }
     nonisolated static func hostUnmount(_ bsd: String) {
         run("/usr/sbin/diskutil", ["unmountDisk", "force", "/dev/" + bsd])
