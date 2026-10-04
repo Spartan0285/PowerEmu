@@ -686,10 +686,18 @@ final class VMDisplayView: NSView {
      * window, where "the screen you asked from" means nothing.
      */
     static func togglePerformanceEverywhere() {
-        let all = [showing, secondScreen].compactMap { $0 }
-        guard let anchor = all.first else { return }
+        guard let anchor = showing else { return }
+        /*
+         * The second screen belongs to a machine, and these are one static
+         * each: with two machines running, the one that opened its second
+         * screen last owns secondScreen.  Toggling the overlay on one machine
+         * must not reach into another's window.
+         */
+        let second = secondScreen.flatMap {
+            $0.machineName == anchor.machineName ? $0 : nil
+        }
         let want = !anchor.showsPerformance
-        for d in all where d.showsPerformance != want {
+        for d in [anchor, second].compactMap({ $0 }) where d.showsPerformance != want {
             d.togglePerformance()
         }
     }
