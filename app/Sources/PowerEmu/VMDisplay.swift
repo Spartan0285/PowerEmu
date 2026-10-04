@@ -2605,8 +2605,8 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
         display.onHarmonySecondScreen = { [weak vm] on in
             guard let vm else { return }
             MainActor.assumeIsolated {
-                guard let w = SecondScreenController.open[vm.url]?.window else { return }
-                if on { w.orderOut(nil) } else { w.orderFront(nil) }
+                guard let c = SecondScreenController.open[vm.url] else { return }
+                if on { c.hideForHarmony() } else { c.showAfterHarmony() }
             }
         }
         /*

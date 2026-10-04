@@ -116,6 +116,46 @@ final class SecondScreenController: NSWindowController, NSWindowDelegate {
                                     height: max(480, vm.config.display2Height)))
     }
 
+    /*
+     * Take this window away while harmony is on, and put it back after.
+     *
+     * Ordering a full-screen window out leaves its Space behind: the window
+     * is hidden but macOS keeps the full-screen desktop it was living on, so
+     * what the reader gets is a black screen sitting next to their work.  It
+     * has to leave full screen first, and the hide has to wait for that
+     * animation to finish -- hence the flag and the delegate callback rather
+     * than an orderOut() straight after toggleFullScreen().
+     */
+    private var hideOnLeavingFullScreen = false
+    private var wasFullScreenForHarmony = false
+
+    func hideForHarmony() {
+        guard let w = window else { return }
+        if w.styleMask.contains(.fullScreen) {
+            wasFullScreenForHarmony = true
+            hideOnLeavingFullScreen = true
+            w.toggleFullScreen(nil)
+        } else {
+            w.orderOut(nil)
+        }
+    }
+
+    func showAfterHarmony() {
+        guard let w = window else { return }
+        hideOnLeavingFullScreen = false
+        w.orderFront(nil)
+        if wasFullScreenForHarmony {
+            wasFullScreenForHarmony = false
+            w.toggleFullScreen(nil)      // back to the screen it was filling
+        }
+    }
+
+    func windowDidExitFullScreen(_ notification: Notification) {
+        guard hideOnLeavingFullScreen else { return }
+        hideOnLeavingFullScreen = false
+        window?.orderOut(nil)
+    }
+
     @discardableResult
     static func show(_ vm: VirtualMachine, channel: DisplayChannel) -> SecondScreenController {
         let c = open[vm.url] ?? SecondScreenController(vm: vm, channel: channel)
