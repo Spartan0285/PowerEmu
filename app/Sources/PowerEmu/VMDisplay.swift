@@ -592,6 +592,25 @@ final class VMDisplayView: NSView {
     private var harmonyPreparationTimeout: DispatchWorkItem?
 
     func requestHarmony(_ on: Bool) {
+        /*
+         * Harmony belongs to the first guest screen.
+         *
+         * It replaces a desktop with this Mac's own windows, and there is one
+         * of those: while it is on, the second screen's windows are folded
+         * onto the first and the second screen itself is hidden.  But the
+         * shortcut works in any guest window, so asking from the second
+         * screen's window prepared Harmony on the second card -- which put
+         * "Preparing Harmony…" on a screen that then hid itself, and timed
+         * out.  Hand the request to screen 1, and bring its window forward,
+         * since the reader is looking at the other one.
+         */
+        if self === VMDisplayView.secondScreen {
+            guard let first = VMDisplayView.showing,
+                  first.machineName == machineName else { return }
+            if on { first.window?.makeKeyAndOrderFront(nil) }
+            first.requestHarmony(on)
+            return
+        }
         if !on {
             harmonyPreparation = nil
             harmonyPreparationTimeout?.cancel()
