@@ -289,7 +289,16 @@ final class VMRunner {
         // while booting from the install disc and the machine keeps whatever
         // the reader chose for afterwards.
         var gpu = r350Experiment
-            ? "ppc-mac-r350-probe,id=gpu0,vgamem_mb=\(vram),x-r350-bridge-aic=on,x-r350-linear-render=on"
+            /*
+             * x-r350-decode-rs: decode the rasterizer routing instead of
+             * matching the handful of literal register patterns the
+             * validation falls back on.  Measured on Chess, it takes
+             * interpolator-routing rejections from 825 to zero; the literal
+             * patterns are a subset of what it handles.  It defaults off in
+             * the device because, until the guest could be driven to launch
+             * an application at all, there was no way to find that out.
+             */
+            ? "ppc-mac-r350-probe,id=gpu0,vgamem_mb=\(vram),x-r350-bridge-aic=on,x-r350-linear-render=on,x-r350-decode-rs=on"
             : "ppc-mac-gpu,id=gpu0,vgamem_mb=\(vram)"
         /*
          * Classic Mac OS draws through qemu_vga.ndrv, which reports an
