@@ -143,3 +143,49 @@ out-of-range request, it aborts the process. The 16bpp path had always carried
 this check; the 32bpp one had not. Both the assignment and the dirty-bitmap
 call are now bounded. Three of three two-card boots reach the desktop with it
 in.
+
+## Harmony across both of this Mac's screens (4 Oct 2026)
+
+Harmony was one screen's worth. The guest's second screen was folded onto the
+first (`foldIntoPrimary`), which kept its windows in the refresh list but read
+their pixels out of the *first* card's picture, and a drag was always converted
+against the screen Harmony started on -- so a window dropped on the other
+display was handed a guest coordinate past the end of that guest screen, the
+guest put it back where it would fit, and the window sprang home.
+
+With a second host screen the two guest screens get one each: a window is
+placed on the host screen its guest screen maps to (by its centre), read from
+that card's own surface (held at the same moment as the first card's), and a
+drop is converted against whichever host screen it landed on. Gated on
+`spansTwoScreens` -- two guest screens *and* a host screen to spare -- so one
+of either behaves exactly as before.
+
+### Pixels, points, and why 1:1 was wrong
+
+Harmony resizes the guest's *first* screen to the point size of the screen it
+runs on (`HarmonyDisplayMode` takes `screen.frame`). The second screen was left
+at the configured resolution and fitted, and the configurator offered the host
+display's **pixel** size -- so on a Retina display one guest pixel became one
+host *pixel*: sharp, and every window half the size it should be. Mac OS X has
+no notion of a Retina screen; it draws one pixel per pixel whatever the panel.
+
+Two changes followed. The second screen's menu now offers the point size as
+well, labelled; and Harmony asks the guest to put that screen at the point size
+of the display showing it, and puts it back on exit.
+
+### The guest reports its screens (Tools 2.23)
+
+    SCREENS                     -> "x,y,w,h;..." per screen, main display
+                                   first, at hello and after any mode change
+    DISPLAYMODE <i> <w> <h>     -> set one screen's mode, then the list
+
+The list is what makes the rest honest: a guest mode list is a fixed set and
+`CGDisplayBestModeForParameters` answers with the nearest it has rather than
+refusing, so what the guest *did* is the only thing worth mapping from. It also
+replaced two guesses -- which side the second screen is on (learned from window
+positions, which never worked for a screen arranged above or below) and which
+screen is the second one (the main display is the one at the origin, so the
+other is whichever is not there, not whichever is listed second).
+
+Nothing is version-gated: an older agent ignores the verbs and reports no
+screens, and Harmony falls back to fitting the configured size.
