@@ -90,17 +90,7 @@ extern CGError CGSConnectionGetPID(CGSConnectionID cid, pid_t *pid, CGSConnectio
 
 #include "PETransferZip.h"
 
-/*
- * Stays at 2.22 until these sources are built on a PowerPC Mac
- * (guest/scripts/build.sh) and the Tools disc is remade.  The version is what
- * the app offers an update against, so raising it here while the disc still
- * holds the old binary would have PowerEmu offer an update that installs the
- * version it just replaced, for ever.  SCREENS and DISPLAYMODE below need no
- * version gate: an agent that does not have them ignores the verb, and the
- * app falls back when no screen list comes back.  Raise this with the
- * rebuild.
- */
-#define PE_AGENT_VERSION "2.22"
+#define PE_AGENT_VERSION "2.23"
 
 extern CGError CGSGetConnectionIDForPSN(CGSConnectionID cid, ProcessSerialNumber *psn,
                                         CGSConnectionID *out);
