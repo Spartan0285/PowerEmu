@@ -824,7 +824,19 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
         refocus()
     }
     @objc private func sleepMachine() { vm?.sleep(); refocus() }
-    @objc private func fullScreen() { controller?.window?.toggleFullScreen(nil) }
+    @objc private func fullScreen() {
+        /*
+         * With a second guest screen, full screen is a two-window move: each
+         * guest screen goes to its own screen on this Mac.  See
+         * DualScreenLayout.  One screen, or one window, and this is the
+         * ordinary toggle.
+         */
+        if let vm, vm.config.displays > 1 {
+            DualScreenLayout.toggle(for: vm)
+        } else {
+            controller?.window?.toggleFullScreen(nil)
+        }
+    }
     @objc private func shutDown() { vm?.requestShutDown() }
     @objc private func restart() {
         guard let vm else { return }

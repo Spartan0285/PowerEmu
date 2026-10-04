@@ -37,7 +37,15 @@ struct PowerEmuApp: App {
             }
             CommandMenu("Machine") {
                 Button("Release Mouse  (⌃⌥G)") { VMWindowController.key?.display.ungrab() }
-                Button("Full Screen  (⌃⌥F)") { VMWindowController.key?.window?.toggleFullScreen(nil) }
+                Button("Full Screen  (⌃⌥F)") {
+                    /* Two guest screens go full screen together, one per
+                     * screen on this Mac.  See DualScreenLayout. */
+                    if let c = VMWindowController.key, c.vm.config.displays > 1 {
+                        DualScreenLayout.toggle(for: c.vm)
+                    } else {
+                        VMWindowController.key?.window?.toggleFullScreen(nil)
+                    }
+                }
                 Button("Show Performance  (⌃⌥P)") { VMWindowController.key?.display.togglePerformance() }
                 Divider()
                 Button("Pause") { VMWindowController.key?.vm.pause() }

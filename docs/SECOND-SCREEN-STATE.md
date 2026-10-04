@@ -1,112 +1,101 @@
 # The second screen: where it stands
 
-A machine can be given two screens, and Mac OS X genuinely believes it has
-two: System Preferences -> Displays shows the Arrangement tab with both,
-and Mirror Displays works.  The first screen renders correctly.  **The
-second does not**, and the machine sometimes does not finish booting at
-all.  It is off by default and should stay off until the work below lands.
+A machine can be given two screens, and as of 4 October 2026 both of them
+render a correct desktop at 1680x1050.  Evidence, with screenshots and the
+measurements behind each step, is in
+`docs/evidence/dual-display-2026-10-04/`.
 
 ## How it is built
 
 A second screen is a **second `ppc-mac-gpu` PCI card**, the way a Power Mac
-did it -- one AGP card and graphics cards in the PCI slots.  Mac OS X binds
-its drivers to both and extends the desktop across them with no help from
-us.  Each card gets its own QEMU console and its own socket, picked by
-`poweremu-display`'s `index`, and the app shows it in a second window
-(`SecondScreen.swift`).
+did it.  Mac OS X extends the desktop across the two by itself.  Each card
+gets its own QEMU console and its own socket, picked by `poweremu-display`'s
+`index`, and the app shows it in a second window (`SecondScreen.swift`).
 
-This was chosen over a second head on one card (CRTC2).  Mac OS X decides
-how many screens a card has from its Open Firmware *children*, not from
-CRTC2, and nothing in the guest reads CRTC2 on this device today.  A second
-head would need the full CRTC2 block, a second console, and -- the part
-that kills it -- an NDRV that publishes two framebuffers.  Two cards needed
-none of that and produced an extended desktop the same afternoon.
+This was chosen over a second head on one card (CRTC2): Mac OS X decides how
+many screens a card has from its Open Firmware *children*, not from CRTC2.
 
-## What is wrong
+## The three things that had to be true
 
-### The shear
+Each was found by its own measurement, and all three are needed.
 
-The second screen's picture slants.  Measured: with the card scanning
-6912 bytes a row, the desktop occupied 1021 rows with 29 black rows under
-it, and `1050 x 6720 / 6912 = 1020.8`.  The content is laid out at 6720
-(1680 x 4, exactly) and read back at 6912 (1728 x 4, rounded up to a
-256-byte boundary, which is what every Radeon-era Mac driver rounds to).
+### 1. Both cards scan out the exact row length
 
-Where 6912 comes from, per card, from `PPCGPU_PITCHLOG=1`:
+`exact-scanout-pitch=on` on **both** cards.
 
-- **The first card**: Mac OS X's accelerated driver owns it and draws at
-  the rounded length.  Our VBE handler also synthesises the rounded length
-  into CRTC_PITCH.  They agree.  Correct.
-- **The second card**: nothing accelerates it, so its picture is painted at
-  the length its frame buffer really has, and its pitch register agrees.
-  Then `r200_set_present_pitch()` adopts the pitch of *any* 2D blit of at
-  least 256x256 to the visible frame buffer and keeps it until the mode
-  changes -- and one stray blit at 6912 is enough to force the scan-out
-  there for good.  `present-pitch-override=off` is now passed for the
-  second card for exactly this reason.
+Mac OS X's ATI driver rounds rowBytes up to 256 bytes -- that is not folklore,
+it is `GETPITCH` in the shipping `ATIDriver.bundle`, `addi r0,r4,255` followed
+by `rlwinm r31,r0,0,0,23`.  With one card that driver owns the screen, paints
+at 6912 bytes a row at 1680 wide, and programs `CRTC_PITCH` to match, so the
+card and the content agree.
 
-**Mirroring looks right because mirroring hands the second card to the
-accelerated driver**, which draws at the rounded length like the first.
-Any explanation that does not account for that is wrong.
+With two cards neither screen is painted that way: both are driven by
+`qemu_vga.ndrv`, which paints at the unrounded row length, 6720.  Meanwhile
+the device still seeds and re-seeds `CRTC_PITCH` to the aligned value, so the
+scan-out is 192 bytes a row wider than the picture and the screen shears into
+diagonal bands.  1050 x 6720 / 6912 = 1020.8, which is why the measurement
+was "1021 good rows and 29 black ones".
 
-### The instability
+The write that does it is in the VBE `ENABLE` handler and assigns
+`s->regs.crtc_pitch` directly rather than going through the MMIO case, which
+is why instrumentation on the MMIO path saw nothing and an earlier session
+concluded the guest never programmed the register.  `pitchlog(s, "vbe", ...)`
+now covers it; `PPCGPU_PITCHLOG=1` prints it.
 
-Two cards boots to the desktop *sometimes*.  Otherwise it stops at the grey
-Apple logo or at the blue screen before the desktop, and older builds
-panicked outright with `com.apple.ATIRadeon8500` and
-`com.apple.driver.AppleMacRiscPCI` on the stack.  A one-card control on the
-same disk and the same command line reaches the desktop.
+Note the trap: exact and 256-aligned pitches are **equal** whenever the width
+is a multiple of 64.  At 1024, 1280 and 1920 this bug cannot appear.  Test at
+1680 or 1440.
 
-### The root cause they probably share
+### 2. The second card reports a PCI id no ATI kext claims
 
-`ATIRadeon8500.kext` matches on **vendor and device id** with
-`IOMatchCategory = IOAccelerator`, so it instantiates on *both* cards and
-half-attaches to the one whose frame buffer is not what it expects.  That
-accounts for the panics, for About This Mac hanging on Graphics/Displays,
-and -- because no accelerator then owns the second card -- for the painter
-being the unaccelerated path.  One fault, three faces.
+`x-pci-device-id=0x5964` (Radeon 9200 SE).
 
-**The fix** is to give the second card a PCI id no ATI kext lists.  It is
-prepared in `scripts/smp/openbios-poweremu.patch` (0x5964, a real Radeon
-9200 SE id, checked against both kexts' `IOPCIMatch`) together with the
-device's `x-pci-device-id` property.  It is **untested**: the firmware is
-built on the Studio, not on this Mac.
+`ATIRadeon8500` matches on vendor and device alone, and IOKit scopes
+`IOMatchCategory` per provider -- so with two identical cards it attaches an
+accelerator to both, which is legal and which it does.  On the second card it
+panics the guest.  A verbose boot caught it: `com.apple.ATIRadeon8500` in the
+backtrace, a data-access fault, and `IOKitWaitQuiet() timed out`
+(`two-card-panic-ATIRadeon8500.png`).
 
-## Things that cost a day, so that they do not cost another one
+With an id the accelerator does not claim, the card is left to
+`IONDRVFramebuffer`, which is all a second screen needs.  It is unaccelerated,
+and that is correct rather than a shortfall: nothing accelerates a second card
+under Mac OS X here anyway.
 
-- **Test at a width that can show the fault.** Exact and rounded pitch are
-  identical whenever the width is a multiple of 64 -- 1024, 1280, 1920.
-  The shear is invisible at those.  Test at **1680** or 1440.  Several
-  early "two cards works" results were taken at 1024x768 and could not
-  have failed.
-- **The GPU is only driven when something is listening.** With no display
-  listener attached the model does nothing and the guest appears to stall.
-  Headless tests need a listener on *each* console.
-- **Do not infer the row length from a screenshot.** It was read backwards
-  twice, in opposite directions, and two fixes were built on it.  Log both
-  ends instead (`PPCGPU_PITCHLOG=1`), or dump video memory with
-  `pmemsave <base> <size> "<file>"` -- the filename must be quoted -- and
-  find the length that minimises row-to-row difference.
-- **A capture is raw memory order only when the scan-out stride equals
-  width x 4.** When it does, the pixel stream can be re-wrapped at another
-  length to see which one makes the picture coherent.  When it does not,
-  that trick silently lies.
-- **Both cards write to the same logs.** Mode sets, stride changes and the
-  rate-limit counters were all shared and unattributed; they are tagged per
-  card now, and several of them are capped by counters that one card can
-  exhaust before the other prints once.
+### 3. The firmware has to know that id
 
-## What was tried and did not work
+OpenBIOS's `vga_devices[]` decides whether a display card is configured at
+all.  An id that is not in the table returns NULL from `pci_find_device`, so
+`vga_config_cb` never runs and the node gets no `device_type`, no
+`linebytes`, no mode and no driver -- the card simply is not a display.
 
-| Attempt | Why it failed |
-|---|---|
-| Publish an aligned `linebytes` for the second card | At boot the card is deliberately seeded with the *exact* pitch so the Apple logo does not shear; a longer row sheared the boot screen |
-| Pin the card to PCI slot 0x12 for a stable node name | Brought back the ATIRadeon8500 panic |
-| Make `exact-scanout-pitch` apply on the CRTC path, then after the override | Flipped the shear to the other direction |
-| Seed the second card with the aligned pitch (`boot-display=off`) | Tiger hung at the blue screen instead of reaching the desktop |
-| Give the card PCI id 0x5961 | 0x5961 is itself in ATIRadeon8500's match list, and an id absent from OpenBIOS's `vga_devices[]` gets no mode, no properties and no driver -- black screen |
+So `0x5964` had to be added and the firmware rebuilt.  That had been
+impossible on this Mac; the reason, and the fix, are in
+`docs/BUILDING-OPENBIOS.md`.
 
-The pattern worth remembering: **every change that made the second card
-look more like a real accelerated card made things worse.**  The
-unaligned pitch it starts with is not the bug; it appears to be what keeps
-the accelerator from attaching far enough to hang.
+## Testing traps, kept because each one cost a day
+
+- **1024x768 cannot fail.** Nor can 1280 or 1920. Exact and aligned pitch
+  coincide at every width that is a multiple of 64.
+- **The capture client can wedge the guest.** A client that encodes frames
+  inline in its receive loop blocks QEMU's `pe_send()`, stalls the main loop
+  and wedges Tiger's session permanently -- wallpaper up, no Dock, `damage`
+  frozen.  That reads exactly like a renderer fault and is not one.  Use
+  `tools/pedisplay-capture.py`, which encodes on a writer thread.
+- **`-display none` with no listener is not a neutral observer.** With no
+  DisplayChangeListener nothing drives `graphic_hw_update()`, and the guest
+  stops submitting draws.
+- **One VM on an otherwise idle host.** Host CPU contention produces the same
+  wedge.
+
+## Still open
+
+- `About This Mac` -> Graphics/Displays has not been re-checked since any of
+  this landed.
+- Only 1680x1050 at 64 MB a card has been verified end to end.
+- The Metal submit layer is still a process-wide singleton bound to the first
+  card that attaches (`g_vram`, the hazard tables, the render-pass encoder).
+  A non-owner card is now turned away from it and renders in software, which
+  is correct but untested -- the two-card run never reached a 3D draw on the
+  second card, so the refusal never fired.  The right end state is a per-card
+  submit layer.

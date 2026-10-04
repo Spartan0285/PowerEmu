@@ -4,7 +4,13 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 QEMU_SRC="${POWEREMU_QEMU:-$HOME/Developer/poweremu-qemu}"
 FIRMWARE="${POWEREMU_OPENBIOS:-$ROOT/build/smp/openbios-smp.elf}"
-EXPECTED=8f01bb0c217d692f1ae228f57508417cdbd100f422d626a2cfe6a422cdbe747b
+# Rebuilt 4 Oct 2026 to add the second screen's PCI id (0x5964) and the
+# 9800's (0x4e48) to OpenBIOS's
+# vga_devices[].  Without that entry the second card gets no display node at
+# all.  See docs/BUILDING-OPENBIOS.md for the recipe and for the arm64 host
+# detection bug that made this unbuildable until now.  The previous validated
+# firmware is kept beside it as openbios-smp.pre-5964.elf.
+EXPECTED=ef674543f363cf36c06ccf4580682d9f3fce98274ef72e575b314176ec469705
 [ -f "$FIRMWARE" ] || { echo "Missing SMP firmware: $FIRMWARE (see docs/HARMONY-SMP-INTEGRATION.md)" >&2; exit 1; }
 [ "$(shasum -a 256 "$FIRMWARE" | cut -d ' ' -f1)" = "$EXPECTED" ] || {
     echo "Firmware does not match the validated SMP handoff" >&2; exit 1;

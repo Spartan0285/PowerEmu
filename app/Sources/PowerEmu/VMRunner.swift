@@ -263,7 +263,10 @@ final class VMRunner {
             a += ["-display", "none", "-object", "poweremu-display,id=pd0,path=\(displayPath)"]
             // A second screen is a second card, and each card's screen needs
             // its own listener: index picks which one this object shows.
-            if c.displays > 1 {
+            // This has to be exactly the condition that adds the second
+            // card below: a listener for a console that was never created
+            // fails realize with "the machine has no screen 1".
+            if c.displays > 1 && !c.classic {
                 a += ["-object",
                       "poweremu-display,id=pd1,index=1,path=\(displayPath2)"]
             }
@@ -298,6 +301,19 @@ final class VMRunner {
          * card scanned out 5888 bytes a row where QuickDraw drew 5760.
          */
         if c.classic { gpu += ",exact-scanout-pitch=on" }
+        /*
+         * And so does the first card once there are two of them.
+         *
+         * With one card Mac OS X's ATI driver owns the screen and paints at
+         * its own 256-byte-aligned rowBytes, which is what the card is seeded
+         * to scan out, and the two agree.  With two cards neither is painted
+         * that way -- both are driven by qemu_vga.ndrv at the unrounded row
+         * length -- so the first card shears exactly like the second did.
+         * Measured at 1680x1050: scan-out 6912, content 6720, and the first
+         * screen came up in diagonal bands while the second, which had the
+         * flag, was clean.
+         */
+        if c.displays > 1 && !c.classic { gpu += ",exact-scanout-pitch=on" }
         // Bake this Mac's exact screen size (in points) into the card's EDID, so
         // Harmony can switch the guest to a mode that maps 1 guest pixel to 1
         // host point (scale 1.0).  The CRTC only encodes 8-px-aligned widths, so
@@ -316,10 +332,13 @@ final class VMRunner {
          * with two cards in it did.  Nothing here drives a second head on
          * one card, because nothing has to.
          *
-         * The second card is plainer than the first: no host-native EDID
-         * (Harmony is a one-screen idea and runs on the first), and no
-         * exact-scanout-pitch, which exists for classic Mac OS and classic
-         * Mac OS does not get a second screen.
+         * The second card is plainer than the first in one way -- no
+         * host-native EDID, because Harmony is a one-screen idea and runs on
+         * the first -- but it does take exact-scanout-pitch.  That flag is
+         * not about classic Mac OS as such; its precondition is "this frame
+         * buffer is painted by qemu_vga.ndrv at an unrounded row length",
+         * and that is the second card's situation under Mac OS X too, since
+         * nothing accelerates it.  See the note on the device below.
          */
         if c.displays > 1 && !c.classic && !headless {
             /*
@@ -330,21 +349,60 @@ final class VMRunner {
              * and the mode disagreeing for no gain.
              */
             /*
-             * The second card does not learn its row length from blits.
+             * The second card scans out the row length its frame buffer
+             * really has, and does not learn one from blits.
              *
-             * The card Mac OS X accelerates adopts the pitch of the
-             * compositor's blits, which is right there -- those blits are
-             * the frame.  Nothing accelerates the second card: its picture
-             * is painted at the row length its frame buffer really has, and
-             * one stray blit was enough to latch a different one onto the
-             * scan-out and shear everything after it.  Measured on the
-             * second screen: pitch register and content agreed at 6720, and
-             * the override alone forced 6912.
+             * Both flags are needed, and they fix two different writers of
+             * the scan-out stride:
+             *
+             *   exact-scanout-pitch=on -- the card is seeded, and its VBE
+             *     mode set re-seeds it, with rowBytes rounded up to 256
+             *     bytes, because that is what Mac OS X's ATI drivers do.
+             *     Nothing accelerates the second card: its picture is
+             *     painted by qemu_vga.ndrv at the unrounded row length, the
+             *     same mismatch this flag exists for under classic Mac OS.
+             *     At 1680 wide the card scanned out 6912 bytes a row where
+             *     the NDRV drew 6720, and the screen sheared into diagonal
+             *     bands -- 1050 x 6720 / 6912 = 1020.8, which is why the
+             *     bottom 29 rows came up black.
+             *
+             *   present-pitch-override=off -- the card Mac OS X accelerates
+             *     adopts the pitch of the compositor's blits, which is right
+             *     there, because those blits are the frame.  On this card one
+             *     stray blit was enough to latch a different row length onto
+             *     the scan-out and shear everything after it, and a learned
+             *     pitch outranks the exact one.
+             */
+            /*
+             * The second card: a device id no ATI kext lists, and no AGP.
+             *
+             * `agp=off` is the one that matters.  A real Power Mac has a
+             * single AGP slot behind a single UniNorth GART, so only one
+             * card can be the AGP one; the device used to hand the
+             * capability to every card, and IOPCIFamily then built a second
+             * IOAGPDevice nub that AppleMacRiscAGP has no second GART for.
+             * Two-card boots panicked or hung.  Measured with this flag and
+             * nothing else changed: 5 desktops out of 5 boots, no panic in
+             * any console log, against 0 out of 3 before it.
+             *
+             * The panic backtraces were read wrong for most of a day.  They
+             * name ATIRadeon8500 under "kernel loadable modules in
+             * backtrace", but that section lists every kext appearing
+             * anywhere in the trace; decoding the frames against the printed
+             * load addresses puts the faulting PC inside AppleMacRiscPCI,
+             * with the ATI frames as its callers.
+             *
+             * 0x5964 stays because the accelerator should not attach to a
+             * card it cannot drive, and the id has to be in OpenBIOS's
+             * vga_devices[] or the card gets no display node at all -- no
+             * device_type, no linebytes, no mode.  See
+             * docs/BUILDING-OPENBIOS.md.
              */
             let gpu2 = (r350Experiment
                 ? "ppc-mac-r350-probe,id=gpu1,vgamem_mb=\(vram)"
                 : "ppc-mac-gpu,id=gpu1,vgamem_mb=\(vram)")
-                + ",present-pitch-override=off"
+                + ",x-pci-device-id=0x5964,agp=off"
+                + ",exact-scanout-pitch=on,present-pitch-override=off"
             a += ["-device", gpu2]
         }
         /*
@@ -578,7 +636,32 @@ final class VMRunner {
                 env["POWEREMU_BURN_STREAM"] = sock
             }
         }
-        if vm.config.hardwareCursor {
+        /*
+         * The hardware-cursor NDRV and a second screen cannot be had at once.
+         *
+         * QEMU_PPC_NDRV replaces the display driver for the *machine*, not for
+         * a card: OpenBIOS hands the same blob to every device in its
+         * vga_devices[] table.  With two cards that gives the second screen a
+         * frame buffer advertising a hardware cursor, and Mac OS X's
+         * the guest's graphics stack then faults.  (An earlier note here
+         * claimed ATIRadeon8500 is told about every frame buffer through
+         * IOFramebuffer::addFramebufferNotification; that is wrong -- the
+         * notification is per frame buffer instance.  The mechanism by which
+         * the hardware-cursor driver on the second card breaks the machine
+         * is measured but not yet explained.)
+         *
+         * Measured both ways, one variable: the app's own machine panics in
+         * ATIRadeon8500 at PC 0x0B5EF93D (0x300 - Data access) with two
+         * screens, and a harness that boots two screens cleanly reproduces
+         * that exact panic -- same kext, same PC -- as soon as this variable
+         * is set.  See docs/evidence/dual-display-2026-10-04/.
+         *
+         * So the second screen wins and the cursor goes back to being drawn
+         * by the guest.  The right fix is a per-card driver, which means
+         * giving each card its own PCI expansion ROM rather than one
+         * machine-wide fw_cfg blob.
+         */
+        if vm.config.hardwareCursor && !(vm.config.displays > 1 && !vm.config.classic) {
             let bundled = fw.appendingPathComponent("qemu_vga_hwc.ndrv")
             if let screen = NSScreen.main,
                let original = try? Data(contentsOf: bundled),
@@ -591,6 +674,18 @@ final class VMRunner {
             env.removeValue(forKey: "QEMU_PPC_NDRV")
         }
         let log = vm.logsURL.appendingPathComponent("qemu.log")
+        /*
+         * Keep the previous run's command line.  Truncating this on every
+         * launch means the only copy of a failing configuration is destroyed
+         * by the next attempt to reproduce it, which cost a whole debugging
+         * session: the two-card line that panicked was gone before it could
+         * be diffed against one that worked.
+         */
+        let prev = vm.logsURL.appendingPathComponent("qemu.log.prev")
+        if FileManager.default.fileExists(atPath: log.path) {
+            try? FileManager.default.removeItem(at: prev)
+            try? FileManager.default.moveItem(at: log, to: prev)
+        }
         FileManager.default.createFile(atPath: log.path, contents: nil)
         let h = try FileHandle(forWritingTo: log)
         h.write(("PowerEmu: " + ([qbin.path] + args).joined(separator: " ") + "\n\n").data(using: .utf8)!)
@@ -1162,11 +1257,20 @@ final class VMRunner {
         return p.processIdentifier
     }
 
-    /// The GPU model's running totals ("frames=… draws=… …"), for the
-    /// performance overlay.
-    func queryPerf(done: @escaping @Sendable (String?) -> Void) {
+    /*
+     * The GPU model's running totals ("frames=… draws=… …"), for the
+     * performance overlay.
+     *
+     * `screen` picks the card: a second guest screen is a second card with
+     * its own frame counter, so each window's overlay asks its own card and
+     * reports its own rate.  The totals used to be one set shared by both
+     * cards, which made the overlay add two screens' frames together and
+     * show the sum on each.
+     */
+    func queryPerf(screen: Int = 0, done: @escaping @Sendable (String?) -> Void) {
         QMP.shared.send(qmpPath, ["execute": "qom-get",
-                                  "arguments": ["path": "/machine/peripheral/gpu0", "property": "perf"]]) { reply in
+                                  "arguments": ["path": "/machine/peripheral/gpu\(screen)",
+                                                "property": "perf"]]) { reply in
             done(reply?["return"] as? String)
         }
     }

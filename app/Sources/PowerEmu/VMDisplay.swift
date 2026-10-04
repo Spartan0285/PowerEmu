@@ -2548,6 +2548,11 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
     let vm: VirtualMachine
     let display: VMDisplayView
     private var sizedOnce = false
+    /*
+     * Set when this Mac has one screen and the machine has two: both guest
+     * screens then share this window, side by side.  See CombinedScreens.
+     */
+    private(set) var combined: CombinedScreensView?
     private var toolbar: VMToolbarController?
 
     init(vm: VirtualMachine, channel: DisplayChannel) {
@@ -2563,7 +2568,13 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
         w.setFrameAutosaveName("PowerEmu VM \(vm.config.name)")
         super.init(window: w)
         w.delegate = self
-        display.onToggleFullScreen = { [weak w] in w?.toggleFullScreen(nil) }
+        display.onToggleFullScreen = { [weak w, weak vm] in
+            if let vm, vm.config.displays > 1 {
+                DualScreenLayout.toggle(for: vm)
+            } else {
+                w?.toggleFullScreen(nil)
+            }
+        }
         display.onHarmonyGuest = { [weak vm] on in vm?.harmony(on) }
         /*
          * A way in for the test rig.  Harmony is a toolbar button and a warning
@@ -2631,7 +2642,7 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
         toolbar?.refreshToolsBadge()
         display.queryPerf = { [weak vm] done in
             guard let vm else { done(nil); return }
-            MainActor.assumeIsolated { vm.queryPerf(done: done) }
+            MainActor.assumeIsolated { vm.queryPerf(screen: 0, done: done) }
         }
         display.qemuPID = { [weak vm] in
             MainActor.assumeIsolated { vm?.qemuPID }
@@ -2691,6 +2702,40 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
             try? vm.save()
         }
         fitWindow(size)
+    }
+
+    /*
+     * Put the machine's second guest screen in this window, to the right of
+     * the first, rather than in a window of its own.  Used when this Mac has
+     * a single screen, where a second window would simply cover the first.
+     */
+    func attachSecondScreen(_ channel: DisplayChannel) {
+        guard let w = window, combined == nil else { return }
+        let second = VMDisplayView(channel: channel)
+        SecondScreenController.configure(second, for: vm)
+        second.onToggleFullScreen = { [weak w] in w?.toggleFullScreen(nil) }
+        /*
+         * Two guest screens mean the relative mouse on both panes, for the
+         * reason in SecondScreenController: an absolute tablet cannot reach
+         * past the guest's main display.
+         */
+        display.mouseMode = .captured
+        let box = CombinedScreensView(first: display, second: second)
+        box.frame = w.contentLayoutRect
+        w.contentView = box
+        combined = box
+        w.makeFirstResponder(display)
+        fitWindow(box.combinedAspect)
+    }
+
+    /// Give the second screen's view back, so the machine can release it.
+    func detachSecondScreen() {
+        guard let w = window, let box = combined else { return }
+        box.second.releaseAll()
+        display.removeFromSuperview()
+        w.contentView = display
+        combined = nil
+        w.makeFirstResponder(display)
     }
 
     private func fitWindow(_ size: CGSize) {

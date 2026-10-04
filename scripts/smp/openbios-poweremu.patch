@@ -49,7 +49,7 @@ index 253394c..82e9040 100644
      node_methods_init(buf);
  
 diff --git a/config/scripts/switch-arch b/config/scripts/switch-arch
-index 013116b..472bf2e 100755
+index 013116b..cd30e3a 100755
 --- a/config/scripts/switch-arch
 +++ b/config/scripts/switch-arch
 @@ -37,6 +37,7 @@ longbits()
@@ -60,6 +60,15 @@ index 013116b..472bf2e 100755
          -o "$cpu" = "powerpc64" -o "$cpu" = "ppc64" \
          -o "$cpu" = "ppc64le" -o "$cpu" = "alpha" ; then
          echo 64
+@@ -102,7 +103,7 @@ archname()
+ {
+     HOSTARCH=`uname -m | sed -e s/i.86/x86/ -e s/i86pc/x86/ \
+ 	-e s/sun4u/sparc64/ -e s/sparc$/sparc32/ \
+-	-e s/arm.*/arm/ -e s/sa110/arm/ -e s/x86_64/amd64/ \
++	-e s/aarch64/arm64/ -e s/armv[0-9].*/arm/ -e s/sa110/arm/ -e s/x86_64/amd64/ \
+ 	-e "s/Power Macintosh/ppc/"`
+ }
+ 
 diff --git a/drivers/macio.c b/drivers/macio.c
 index 496bab1..8e26f76 100644
 --- a/drivers/macio.c
@@ -246,14 +255,15 @@ index f30e427..c7ae0aa 100644
          /* On a new world Mac these are not numbered but named by the
           * ATA version they support. Thus we have: ata-3, ata-3, ata-4
 diff --git a/drivers/pci_database.c b/drivers/pci_database.c
-index 1cb0727..d910ecd 100644
+index 1cb0727..33e86a5 100644
 --- a/drivers/pci_database.c
 +++ b/drivers/pci_database.c
-@@ -246,7 +246,20 @@ static const pci_dev_t vga_devices[] = {
+@@ -246,8 +246,38 @@ static const pci_dev_t vga_devices[] = {
          NULL, NULL,
      },
      {
 -        PCI_VENDOR_ID_QEMU, PCI_DEVICE_ID_QEMU_VGA,
+-        NULL, "QEMU,VGA", "QEMU VGA",    "VGA\0",
 +        PCI_VENDOR_ID_ATI, 0x5960, /* PowerEmu RV280: match the bundled firmware. */
 +        NULL, "QEMU,VGA", "QEMU VGA",    "VGA\0",
 +        0, 0, 0,
@@ -261,15 +271,31 @@ index 1cb0727..d910ecd 100644
 +    },
 +    {
 +        /*
-+         * The second screen's card.  Same model, a different PCI id, so
-+         * that Mac OS X's ATIRadeon8500 -- which matches on vendor and
-+         * device and would otherwise attach its accelerator to both cards
-+         * and fault on the one with no accelerated frame buffer -- leaves
-+         * it alone.  It has to be here as well, because this table is what
-+         * decides whether a display card is configured at all: an id that
-+         * is not in it gets no mode, no properties and no driver.
++         * The second screen's card: the same model at a different PCI id,
++         * so that Mac OS X's ATIRadeon8500 -- which matches on vendor and
++         * device, and would otherwise bind its accelerator to both cards
++         * and fault on the one it cannot drive -- leaves it alone.
++         *
++         * It has to be named here as well as recognised: this table is what
++         * decides whether a display card is configured at all.  An id that
++         * is missing from it gets no mode, no width/height/linebytes, no
++         * driver property and no console -- a bare PCI node and a black
++         * screen.  Measured, by trying exactly that.
 +         */
 +        PCI_VENDOR_ID_ATI, 0x5964, /* Radeon 9200 SE: in no ATI kext's list. */
-         NULL, "QEMU,VGA", "QEMU VGA",    "VGA\0",
++        NULL, "QEMU,VGA", "QEMU VGA",    "VGA\0",
++        0, 0, 0,
++        NULL, NULL,
++    },
++    {
++        /*
++         * The 9800 (R350).  One firmware that knows every card this project
++         * emulates: a card whose id is absent from this table gets no
++         * display node at all, which is what "Output device screen not
++         * found" on the console means.
++         */
++        PCI_VENDOR_ID_ATI, 0x4e48, /* Radeon 9800 PRO: the R350 probe. */
++        NULL, "QEMU,VGA", "QEMU VGA",    "VGA\0",
          0, 0, 0,
          NULL, NULL,
+     },

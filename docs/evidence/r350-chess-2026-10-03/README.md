@@ -267,3 +267,100 @@ what that costs.
 `R300MetalDraw` and the fragment path instead of `premultiplied_over`, map
 them onto `MTLBlendFactor`, and check Chess's board against
 `control-9200-chess.png`.
+
+
+---
+
+# 4 October: the firmware, and the blend gate
+
+## The 9800 had no display node at all
+
+Every "the 9800 renders nothing" reading before this had a simpler cause than
+the renderer: the console said
+
+```
+Output device screen not found.
+```
+
+OpenBIOS's `vga_devices[]` did not list `0x1002:0x4e48`, so the card got no
+`device_type`, no `linebytes` and no mode -- not a frame buffer with the wrong
+contents, but no frame buffer.  `damage` stuck at 1 and a flat screen follow
+from that and say nothing about 3D.
+
+The note above that "each firmware only knows its own card" described how the
+builds happened to be made, not a constraint.  One table holds them all, and
+the firmware now lists four: `0x5046`, `0x5960`, `0x5964` and `0x4e48`.  With
+the id present the 9800 composites a complete Tiger desktop -- menu bar, Dock,
+Finder windows, desktop icons.
+
+This was only fixable once OpenBIOS could be built at all; see
+`docs/BUILDING-OPENBIOS.md`.
+
+## The blend gate now decodes instead of matching a literal
+
+`RB3D_CBLEND`/`ABLEND` are decoded into SRC/DST factors carried on the draw,
+mapped to `MTLBlendFactor` for the pipeline path and emitted as an MSL
+expression for the guest-order path, replacing a `premultiplied_over` bool
+that hard-coded ONE / ONE_MINUS_SRC_ALPHA.  A census records every blend state
+asked for, accepted or refused.
+
+**Validated, as far as it goes:** the 9800's desktop composites through the
+rewritten path -- `blend0=27210007:27210000` is the premultiplied state, and
+it now reaches Metal as decoded factors rather than as a matched literal.  The
+desktop is correct, so the ONE / ONE_MINUS_SRC_ALPHA case is right.
+
+**Not yet validated:** Chess's own state, `2726000f:27260000` (ordinary
+non-premultiplied alpha), never appeared in the census.  Its draws are still
+refused earlier, at primitive assembly (597) and interpolator routing (229),
+so they never reach the blend gate.  Both of those have fixes available --
+QUAD_STRIP assembly and `x-r350-decode-rs=on` -- and with both on the census
+showed `r350_rejected=0`, but the guest session wedged before Chess drew
+enough to prove anything.  The blend work is therefore a gate that has been
+opened, not a gate that has been shown to matter yet.
+
+
+## The Warcraft III control
+
+`control-9200-warcraft3-mainmenu.png` -- Warcraft III: Reign of Chaos, main
+menu, on the **9200**, launched from the No-CD build on the guest's desktop
+(`~/Desktop/Warcraft III ROC [NoCD].app`) and captured after the opening
+cinematic.
+
+It is correct in every respect worth comparing: the logo, the lit 3D scene
+behind the menu (banner, grass, water, falling rain, the wrecked siege
+engine), and the whole menu panel with its six buttons.  That is the picture
+the 9800 has to match.
+
+Method, so the comparison is a comparison and not two different experiments:
+`/tmp/wc3.sh 9200|9800` on the Studio takes the same disk, the same firmware
+(`/tmp/fwall`, the one that knows every card), the same 1024x768x32 mode, one
+CPU, and the same `poweremu-display` capture client.  Only the `-device`
+differs.
+
+
+## The 9800 with Warcraft III: where it actually stops
+
+`9800-warcraft3-wedged-on-launch.png`, same harness, only the card changed.
+
+The game does not reach its menu.  The screen is a blue field with horizontal
+banding and a smeared dialog strip, and it stops there.  What the counters say
+at that moment matters more than the picture:
+
+```
+r350_draws=173   r350_rejected=0   blend0=27210007:27210000/54
+```
+
+**Nothing is being refused.**  173 draws is barely more than the desktop had
+before the game started, so the game has hardly drawn at all -- this is not a
+case of draws being thrown away by a gate.
+
+The launch itself hangs: `open ~/Desktop/Warcraft III ROC [NoCD].app` over ssh
+never returns on the 9800, and the same command on the 9200 returns at once
+and the game runs to its menu.  Chess behaved identically -- the desktop
+composites, then `open -a Chess` hangs and the session stops updating.
+
+So the next thing to find is not a missing 3D feature.  It is why launching an
+accelerated application wedges the guest session on this card, while the same
+guest, disk and firmware are fine on the 9200.  Until that is understood, a
+Chess or Warcraft frame from the 9800 cannot be compared with the control,
+because the application never gets to draw one.

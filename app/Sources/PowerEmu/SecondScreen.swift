@@ -43,16 +43,16 @@ final class SecondScreenController: NSWindowController, NSWindowDelegate {
         w.setFrameAutosaveName("PowerEmu VM \(vm.config.name) Screen 2")
         super.init(window: w)
         w.delegate = self
-        display.onToggleFullScreen = { [weak w] in w?.toggleFullScreen(nil) }
-        display.machineName = vm.config.name
-        // Relative only: see the note above.
-        display.mouseMode = .captured
-        display.scaling = vm.config.scaling
-        display.panelFilter = vm.config.panelFilter
-        display.displayFit = vm.config.displayFit
-        let size = CGSize(width: max(640, vm.config.display2Width),
-                          height: max(480, vm.config.display2Height))
-        display.setGuestSize(size)
+        display.onToggleFullScreen = { [weak w, weak vm] in
+            if let vm, vm.config.displays > 1 {
+                DualScreenLayout.toggle(for: vm)
+            } else {
+                w?.toggleFullScreen(nil)
+            }
+        }
+        Self.configure(display, for: vm)
+        /* The guest screen's shape, for sizing and placing this window. */
+        let size = display.guestSize
         w.contentAspectRatio = size
         if w.frameAutosaveName.isEmpty || !w.setFrameUsingName(w.frameAutosaveName) {
             /*
@@ -81,6 +81,40 @@ final class SecondScreenController: NSWindowController, NSWindowDelegate {
     }
 
     required init?(coder: NSCoder) { fatalError() }
+
+    /*
+     * The wiring a second guest screen's view needs, wherever it is shown:
+     * its own window on a Mac with two screens, or the right-hand pane of the
+     * machine's own window on a Mac with one.  Both presentations drive the
+     * same second card, so they want the same view, and having one place to
+     * set it up stops the two drifting apart.
+     */
+    static func configure(_ display: VMDisplayView, for vm: VirtualMachine) {
+        display.machineName = vm.config.name
+        /*
+         * Relative only.  The guest's pointer is a USB tablet, which reports
+         * where it is rather than how far it moved, and Mac OS X maps those
+         * absolute positions onto its main display alone -- so with the tablet
+         * driving it the pointer could never leave the first screen.
+         */
+        display.mouseMode = .captured
+        /*
+         * The second screen's own figures.  It is a second card with its own
+         * frame counter, so its overlay asks card 1 rather than card 0.
+         */
+        display.queryPerf = { [weak vm] done in
+            guard let vm else { done(nil); return }
+            MainActor.assumeIsolated { vm.queryPerf(screen: 1, done: done) }
+        }
+        display.qemuPID = { [weak vm] in
+            MainActor.assumeIsolated { vm?.qemuPID }
+        }
+        display.scaling = vm.config.scaling
+        display.panelFilter = vm.config.panelFilter
+        display.displayFit = vm.config.displayFit
+        display.setGuestSize(CGSize(width: max(640, vm.config.display2Width),
+                                    height: max(480, vm.config.display2Height)))
+    }
 
     @discardableResult
     static func show(_ vm: VirtualMachine, channel: DisplayChannel) -> SecondScreenController {

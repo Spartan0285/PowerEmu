@@ -181,6 +181,7 @@ struct MachineIcon: View {
 struct MachineDetail: View {
     @EnvironmentObject var library: VMLibrary
     @ObservedObject var vm: VirtualMachine
+    @ObservedObject private var hostScreens = HostScreens.shared
     @State private var confirmForce = false
     @State private var confirmDiscardSleep = false
     @State private var confirmTrash = false
@@ -444,10 +445,23 @@ struct MachineDetail: View {
                     ForEach(VMConfig.displayFitChoices, id: \.0) { Text($0.1).tag($0.0) }
                 }
                 Toggle("Hardware cursor", isOn: binding(\.hardwareCursor))
+                /*
+                 * "Two" is offered only when this Mac has somewhere to put
+                 * the second window.  A machine already set to two screens
+                 * keeps the choice visible even on one screen, so the reader
+                 * can see what it is set to and switch it back -- hiding it
+                 * would strand the setting.
+                 */
                 Picker("Screens", selection: binding(\.displays)) {
                     Text("One").tag(1)
                     Text("Two").tag(2)
                 }.disabled(vm.config.classic)
+                if !hostScreens.canUseTwo && !vm.config.classic
+                    && vm.config.displays > 1 {
+                    Text("This Mac has one screen, so both guest screens share "
+                         + "the machine\u{2019}s window, side by side.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
                 if vm.config.displays > 1 && !vm.config.classic {
                     Picker("Second screen", selection: binding(\.display2Width)) {
                         ForEach(VMConfig.secondScreenSizes, id: \.0) {

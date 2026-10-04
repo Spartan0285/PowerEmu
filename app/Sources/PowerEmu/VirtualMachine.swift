@@ -259,7 +259,18 @@ final class VirtualMachine: ObservableObject, Identifiable {
                     let ch2 = DisplayChannel(socketPath: r.displayPath2)
                     try ch2.start()
                     display2 = ch2
-                    SecondScreenController.show(self, channel: ch2)
+                    /*
+                     * Where the second guest screen goes depends on how much
+                     * room this Mac has.  With two screens it gets a window of
+                     * its own, one per host screen.  With one it shares the
+                     * machine's window, side by side -- a second window there
+                     * would only cover the first.
+                     */
+                    if HostScreens.shared.canUseTwo {
+                        SecondScreenController.show(self, channel: ch2)
+                    } else {
+                        VMWindowController.open[url]?.attachSecondScreen(ch2)
+                    }
                 }
             }
             // Views watch the machine; pass the agent's changes on.
@@ -329,6 +340,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
             // that has just stopped; nothing else would clear them while
             // PowerEmu keeps running.
             VMDisplayView.harmonized?.stopGuestDock()
+            VMWindowController.open[url]?.detachSecondScreen()
             VMWindowController.close(self)
             SecondScreenController.close(self)
             state = .stopped
@@ -536,9 +548,11 @@ final class VirtualMachine: ObservableObject, Identifiable {
         }
     }
 
-    func queryPerf(done: @escaping @Sendable (String?) -> Void) {
+    /// `screen` 0 is the machine's own window, 1 its second screen -- each
+    /// is a separate card with its own counters.
+    func queryPerf(screen: Int = 0, done: @escaping @Sendable (String?) -> Void) {
         guard let runner, state == .running else { done(nil); return }
-        runner.queryPerf(done: done)
+        runner.queryPerf(screen: screen, done: done)
     }
 
     /// Restart through PowerEmu Tools (there is no key for it otherwise).
@@ -1092,6 +1106,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
         display2?.stop()
         display2 = nil
         VMDisplayView.harmonized?.stopGuestDock()
+        VMWindowController.open[url]?.detachSecondScreen()
         VMWindowController.close(self)
         SecondScreenController.close(self)
         attachedUSB = [:]

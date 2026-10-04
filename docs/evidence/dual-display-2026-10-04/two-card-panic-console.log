@@ -1,0 +1,13 @@
+s>> et_property: NULL phandle
+
+>> =============================================================
+>> OpenBIOS 1.1 [Sep 27 2026 20:24]
+>> Configuration device id QEMU version 1 machine id 1
+>> CPUs: 4
+>> Memory: 2048M
+>> UUID: 00000000-0000-0000-0000-000000000000
+>> CPU type PowerPC,G4
+milliseconds isn't unique.
+>> switching to new context:
+>> call-method slw_update_keymap failed with error ffffffdf
+>> call-method slw_update_keymap failed with error ffffffdf
