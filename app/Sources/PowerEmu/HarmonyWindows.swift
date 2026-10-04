@@ -1144,7 +1144,37 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
     /// screen (points, bottom-left), anchored at the top-left corner.  1:1 --
     /// not stretched to fill -- so a guest point and a screen point are the
     /// same distance apart, and clicks and drags land exactly.
-    private func hostFrame(_ g: CGRect) -> CGRect {
+    /*
+     * Which guest screen a rectangle is on, and where it sits on it.
+     *
+     * The guest reports every window in one desktop coordinate space, so a
+     * window on the second screen is simply one whose origin lies past the
+     * first screen's width.  That needs no knowledge of how the reader has
+     * arranged the screens in Displays: anything outside screen 1 is on
+     * another screen, whichever side they put it.
+     *
+     * Harmony turns guest windows into windows on *this* Mac, and on a Mac
+     * with one screen there is one place for them to go, so a window from
+     * the second guest screen is folded back by a screen's width rather than
+     * being left off the edge -- which is what used to happen to it, via
+     * onScreen() below, so it was never refreshed at all.  Its guest
+     * position is untouched, so leaving Harmony puts it back where it was.
+     */
+    private func foldIntoPrimary(_ g: CGRect) -> CGRect {
+        guard guestSize.width > 0 else { return g }
+        var r = g
+        while r.minX >= guestSize.width { r.origin.x -= guestSize.width }
+        while r.maxX <= 0 { r.origin.x += guestSize.width }
+        return r
+    }
+
+    /// True when this rectangle belongs to a guest screen other than the first.
+    func isOnSecondaryGuestScreen(_ g: CGRect) -> Bool {
+        guestSize.width > 0 && (g.minX >= guestSize.width || g.maxX <= 0)
+    }
+
+    private func hostFrame(_ g0: CGRect) -> CGRect {
+        let g = foldIntoPrimary(g0)
         if completeWindowCapture { return coordinates.hostRect(g) }
         let s = scale
         return CGRect(x: screenFrame.minX + g.minX * s,
@@ -1198,7 +1228,14 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
         // list they were taken for the front-most window -- so no real window
         // was ever refreshed from the screen and every one of them sat frozen.
         func onScreen(_ r: CGRect) -> Bool {
-            r.maxY > 0 && r.minY < guestSize.height && r.maxX > 0 && r.minX < guestSize.width
+            // Horizontally this now asks "is it on *a* guest screen", not "is
+            // it on the first one": with two screens the second one's windows
+            // are past the first's width, and dropping them here is why they
+            // never refreshed.  The vertical test is unchanged -- the Dock's
+            // icons really do sit below the desktop while it is hidden.
+            let f = foldIntoPrimary(r)
+            return r.maxY > 0 && r.minY < guestSize.height
+                && f.maxX > 0 && f.minX < guestSize.width
         }
         let shown = windows.filter { !isMenuBar($0.rect) && onScreen($0.rect) }
         // What covers what has to be known before anything is copied.  Working
@@ -2256,7 +2293,18 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
         let gx = (origin.x - screenFrame.minX) / s
         let fromTop = screenFrame.maxY - (origin.y + p.frame.height)   // the window's top edge
         let gy = (fromTop - offsetY) / s
-        requestGuestMove(id, to: CGPoint(x: gx, y: gy))
+        /*
+         * Undo the fold, so a window keeps the guest screen it came from.
+         *
+         * A window shown from the second guest screen was drawn here folded
+         * back by a screen's width; converting a drag straight back would
+         * hand the guest a coordinate on the *first* screen and quietly
+         * migrate the window there.  Putting the fold back means dragging it
+         * around this Mac moves it around its own guest screen, and leaving
+         * Harmony finds it where the reader left it.
+         */
+        let fold = p.guestRect.minX - foldIntoPrimary(p.guestRect).minX
+        requestGuestMove(id, to: CGPoint(x: gx + fold, y: gy))
     }
 
     /// Ask the guest to put a window's top-left at a guest point.
