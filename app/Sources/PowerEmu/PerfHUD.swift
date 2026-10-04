@@ -55,14 +55,15 @@ final class PerfHUD: CALayer {
      * The per-core rows are deliberately not here: there can be four of
      * them, and this style is one short line in the corner of a game.
      */
-    private static let lightTitles = ["Guest", "Emulator"]
-    private var lightRows: [Row] {
+    static let lightTitles = ["Guest", "Emulator"]
+    /* Not private: tests/PerfOverlay checks the titles still match. */
+    var lightRows: [Row] {
         Self.lightTitles.compactMap { t in rows.first { $0.title.hasPrefix(t) } }
     }
 
     /// The label the light style gives a row, where there is no room for
     /// the full title.
-    private static func lightLabel(_ title: String) -> String {
+    static func lightLabel(_ title: String) -> String {
         title.hasPrefix("Guest") ? "FPS" : "CPU"
     }
 
