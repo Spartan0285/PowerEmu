@@ -396,6 +396,15 @@ final class VMDisplayView: NSView {
     var onHarmonyChanged: ((Bool) -> Void)?
     /// And so the guest can be asked to put its Dock and desktop away.
     var onHarmonyGuest: ((Bool) -> Void)?
+    /*
+     * Told when harmony goes on or off, so the machine's *other* screen can
+     * stop being shown as a screen.  There are two presentations -- a second
+     * pane on a Mac with one display, a second window on a Mac with two --
+     * and harmony has to take both away: the guest's windows are windows on
+     * this Mac now, so a second guest desktop sitting alongside them is the
+     * one thing that should not still be on screen.
+     */
+    var onHarmonySecondScreen: ((Bool) -> Void)?
     /// Harmony wants the guest at this Mac's screen resolution so its windows
     /// land 1:1; (0,0) means put the guest's normal resolution back.
     var onHarmonyResolution: ((Int, Int) -> Void)?
@@ -702,6 +711,17 @@ final class VMDisplayView: NSView {
             window?.isOpaque = !harmony
             window?.backgroundColor = harmony ? .clear : .black
             window?.hasShadow = !harmony          // one shadow per guest window, not one around them all
+            /*
+             * The second guest screen stops being drawn as a screen while
+             * harmony is on: its windows are windows on this Mac now, the
+             * same as the first screen's.  This has to sit here rather than
+             * in enterHarmonyScreen(), which returns early when the window is
+             * already full screen or harmony is re-entered -- and then the
+             * second pane went on drawing its whole desktop beside the
+             * masked one.
+             */
+            (superview as? CombinedScreensView)?.showsSecond = !harmony
+            onHarmonySecondScreen?(harmony)
             if harmony {
                 enterHarmonyScreen()
                 if preHarmonyGuestSize == nil { preHarmonyGuestSize = guestSize }   // restore this on exit
@@ -2576,6 +2596,19 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
             }
         }
         display.onHarmonyGuest = { [weak vm] on in vm?.harmony(on) }
+        /*
+         * Hide the second screen's own window while harmony is on, and put it
+         * back afterwards.  The combined-pane case is handled in the view
+         * itself; this is the two-host-screen case, where guest screen 2 has
+         * a window of its own.
+         */
+        display.onHarmonySecondScreen = { [weak vm] on in
+            guard let vm else { return }
+            MainActor.assumeIsolated {
+                guard let w = SecondScreenController.open[vm.url]?.window else { return }
+                if on { w.orderOut(nil) } else { w.orderFront(nil) }
+            }
+        }
         /*
          * A way in for the test rig.  Harmony is a toolbar button and a warning
          * sheet, which is right for a reader and useless for measuring: there

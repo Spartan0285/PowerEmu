@@ -34,6 +34,25 @@ final class CombinedScreensView: NSView {
 
     private let gap: CGFloat = 2
 
+    /*
+     * Whether the second guest screen's pane is drawn.
+     *
+     * Harmony turns the guest's windows into windows on this Mac, so while it
+     * is on there is nothing left for a guest *screen* to show -- the first
+     * pane is masked down to its windows, and the second would otherwise go
+     * on drawing its whole desktop across half the display, which is what it
+     * did.  Hidden, the first pane takes the window and the second screen is
+     * represented by its windows, like the first.
+     */
+    var showsSecond = true {
+        didSet {
+            guard showsSecond != oldValue else { return }
+            second.isHidden = !showsSecond
+            divider.isHidden = !showsSecond
+            needsLayout = true
+        }
+    }
+
     init(first: VMDisplayView, second: VMDisplayView) {
         self.first = first
         self.second = second
@@ -57,6 +76,10 @@ final class CombinedScreensView: NSView {
 
     override func layout() {
         super.layout()
+        guard showsSecond else {
+            first.frame = bounds
+            return
+        }
         let a = first.guestSize, b = second.guestSize
         let ar1 = a.width / max(1, a.height)
         let ar2 = b.width / max(1, b.height)
