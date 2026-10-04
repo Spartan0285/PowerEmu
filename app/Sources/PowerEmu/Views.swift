@@ -183,10 +183,15 @@ struct MachineDetail: View {
     /// second display if it has one, and the current custom value.
     private var secondScreenChoices: [(Int, Int, String)] {
         var out = VMConfig.secondScreenSizes
-        if let s = hostScreens.secondScreenPixelSize {
-            let w = Int(s.width), h = Int(s.height)
-            if !out.contains(where: { $0.0 == w && $0.1 == h }) {
-                out.append((w, h, "\(w) \u{00d7} \(h)  (this Mac\u{2019}s second screen)"))
+        for choice in hostScreens.secondScreenSizes {
+            let w = Int(choice.size.width), h = Int(choice.size.height)
+            let label = "\(w) \u{00d7} \(h)  (\(choice.note))"
+            /* Say so even when it is one of the standard sizes: which of them
+             * is this Mac's own screen is the useful part. */
+            if let i = out.firstIndex(where: { $0.0 == w && $0.1 == h }) {
+                out[i].2 = label
+            } else {
+                out.append((w, h, label))
             }
         }
         let w = vm.config.display2Width, h = vm.config.display2Height

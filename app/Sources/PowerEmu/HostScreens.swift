@@ -44,20 +44,37 @@ final class HostScreens: ObservableObject {
     var canUseTwo: Bool { count > 1 }
 
     /*
-     * The pixel size of the screen the second guest screen would land on,
-     * when this Mac has one to land on.  Offered in the second screen's menu
-     * so the guest can be told to match the monitor it is actually shown on,
-     * rather than the reader working the number out themselves.
+     * The second host display's size, as choices for the guest's second
+     * screen.  Offered in that screen's menu so the guest can be told to match
+     * the monitor it is shown on, rather than the reader working it out.
      *
-     * Backing-store pixels, not points: the guest draws pixels, and a guest
-     * mode matching the panel is what avoids scaling.
+     * A Retina display is two choices, not one, and the difference matters
+     * more than it looks.  Mac OS X has no notion of a Retina screen: it draws
+     * one pixel per pixel, whatever the display.  So the panel's own pixel
+     * count is the sharpest a guest screen can be -- and on a 2x display it
+     * also makes every window, menu and letter half the size it should be.
+     * The point size is the one that comes out the right size, each guest
+     * pixel drawn as a 2x2 block.
+     *
+     * The point size is first because it is what Harmony already does with
+     * the first screen (HarmonyDisplayMode takes screen.frame, which is
+     * points), and because a second screen set in points maps 1:1 in Harmony
+     * -- windows the same size on both screens, and the finest pointer
+     * resolution, since a host pixel is then half a guest pixel rather than
+     * two of them.
      */
-    var secondScreenPixelSize: CGSize? {
+    var secondScreenSizes: [(size: CGSize, note: String)] {
         let screens = NSScreen.screens
-        guard screens.count > 1 else { return nil }
+        guard screens.count > 1 else { return [] }
         let s = screens[1]
         let f = s.frame
-        return CGSize(width: (f.width * s.backingScaleFactor).rounded(),
-                      height: (f.height * s.backingScaleFactor).rounded())
+        let points = CGSize(width: f.width.rounded(), height: f.height.rounded())
+        let pixels = CGSize(width: (f.width * s.backingScaleFactor).rounded(),
+                            height: (f.height * s.backingScaleFactor).rounded())
+        if pixels == points {
+            return [(points, "this Mac\u{2019}s second screen")]
+        }
+        return [(points, "this Mac\u{2019}s second screen"),
+                (pixels, "that screen\u{2019}s full detail \u{2014} everything appears half size")]
     }
 }
