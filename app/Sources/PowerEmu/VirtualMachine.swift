@@ -204,6 +204,10 @@ final class VirtualMachine: ObservableObject, Identifiable {
             a.onMenuFocus = { [weak self] token, id in self?.display?.onMenuFocus?(token, id) }
             a.onGuestFullscreen = { [weak self] in self?.display?.onGuestFullscreen?() }
             a.onHarmonyReady = { [weak self] token, size, ok in self?.display?.onHarmonyReady?(token, size, ok) }
+            a.onScreens = { [weak self] screens in
+                self?.guestScreens = screens
+                self?.display?.onGuestScreens?(screens)
+            }
             a.onMenuBar = { [weak self] pid, app, tops in self?.display?.deliverMenuBar(pid, app, tops) }
             a.onMenuItems = { [weak self] pid, path, items in self?.display?.deliverMenuItems(pid, path, items) }
             agent = a
@@ -584,6 +588,20 @@ final class VirtualMachine: ObservableObject, Identifiable {
      * any more.  Whatever was asked for last is asked for again.
      */
     private var harmonyWanted = false
+
+    /*
+     * Where the guest's own screens are, as it reports them -- main display
+     * first, in the space its windows are reported in.  Empty until an agent
+     * that knows how to say so has said it.
+     */
+    private(set) var guestScreens: [CGRect] = []
+
+    /// Ask the guest to put one of its screens, counting from the main one,
+    /// into a mode of this size.  It answers with its screen list either way,
+    /// so the caller works from what it did rather than what it was asked.
+    func setGuestScreenMode(_ index: Int, _ w: Int, _ h: Int) {
+        agent?.send("DISPLAYMODE", "\(index) \(w) \(h)")
+    }
 
     /// Harmony runs the guest at this Mac's screen resolution so its windows
     /// line up 1:1; (0,0) restores the guest's normal (config) resolution.

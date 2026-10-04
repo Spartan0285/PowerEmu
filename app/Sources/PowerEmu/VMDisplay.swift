@@ -46,6 +46,8 @@ final class DisplayChannel: @unchecked Sendable {
     var onMenuFocus: ((String, Int) -> Void)?
     var onGuestFullscreen: (() -> Void)?
     var onHarmonyReady: ((String, CGSize, Bool) -> Void)?
+    /// The guest's own screens, main display first, as it reports them.
+    var onGuestScreens: (([CGRect]) -> Void)?
     func deliverAppIcon(_ pid: Int, _ png: Data) { onAppIcon?(pid, png) }
     var onMenuBar: ((Int, String, [(index: Int, title: String)]) -> Void)?
     func deliverMenuBar(_ pid: Int, _ app: String, _ t: [(index: Int, title: String)]) { onMenuBar?(pid, app, t) }
@@ -691,20 +693,80 @@ final class VMDisplayView: NSView {
      * the fold is still what runs.
      */
     private func offerSecondGuestScreen(besides harmonyScreen: NSScreen) {
-        guard let guest2 = secondGuestScreenSize?(),
+        guard secondGuestScreenSize?() != nil,
               let card2 = VMDisplayView.secondScreen,
               let other = NSScreen.screens.first(where: { $0 != harmonyScreen }) else {
             harmonyManager.setSecondScreen(host: .zero, guestSize: .zero)
             return
         }
-        harmonyManager.setSecondScreen(host: other.frame, guestSize: guest2)
+        harmonySecondHost = other.frame
+        /*
+         * Put the guest's second screen at the size of the display showing it,
+         * in points -- which is what Harmony already does to the first screen,
+         * and the only size at which one guest pixel is one point on both.
+         *
+         * Asked for, not assumed: a guest mode list is a fixed set, so the
+         * guest may land on something else, and refreshSecondGuestScreen maps
+         * whatever it reports rather than what it was asked for.  Tools too
+         * old to understand this ignore it and report nothing, and the
+         * configured size is fitted instead -- which is where this started.
+         */
+        onGuestScreenMode?(secondGuestScreenIndex,
+                           Int(other.frame.width.rounded()),
+                           Int(other.frame.height.rounded()))
+        refreshSecondGuestScreen()
         /* Its picture comes from the other card, by way of its own view. */
         if let s = card2.lastSurface { harmonyManager.setSecondSurface(s) }
+    }
+
+    /*
+     * Which of the guest's screens is the second one.
+     *
+     * Its main display is the one at the origin -- that is what makes it the
+     * main display -- so the other one is whichever is not there, rather than
+     * whichever is listed second.  The two coincide until somebody moves the
+     * menu bar to the other screen in Displays, at which point counting would
+     * resize the wrong one.
+     */
+    private var secondGuestScreenIndex: Int {
+        guestScreens.firstIndex { $0.origin != .zero } ?? 1
+    }
+
+    /// Hand the window manager the second guest screen as it now stands.
+    private func refreshSecondGuestScreen() {
+        guard harmonySecondHost.width > 0 else { return }
+        if guestScreens.count > 1, secondGuestScreenIndex < guestScreens.count {
+            let g = guestScreens[secondGuestScreenIndex]
+            harmonyManager.setSecondScreen(host: harmonySecondHost, guestSize: g.size,
+                                           guestFrame: g)
+        } else if let configured = secondGuestScreenSize?() {
+            harmonyManager.setSecondScreen(host: harmonySecondHost, guestSize: configured)
+        }
+    }
+
+    /// Give the guest its own second-screen resolution back.
+    private func restoreSecondGuestScreen() {
+        guard harmonySecondHost.width > 0 else { return }
+        harmonySecondHost = .zero
+        if let configured = secondGuestScreenSize?() {
+            onGuestScreenMode?(secondGuestScreenIndex,
+                               Int(configured.width), Int(configured.height))
+        }
     }
 
     /// The guest's second screen, when the machine has one.  Harmony needs
     /// its size to place that screen's windows on this Mac's other display.
     var secondGuestScreenSize: (() -> CGSize?)?
+
+    /// The guest's own screens, main display first, as it reports them.
+    /// Empty with tools too old to say.
+    private(set) var guestScreens: [CGRect] = []
+
+    /// Ask the guest to put one of its screens into a mode of this size.
+    var onGuestScreenMode: ((Int, Int, Int) -> Void)?
+
+    /// This Mac's other screen while Harmony has it, zero otherwise.
+    private var harmonySecondHost = CGRect.zero
 
     /// The display currently in Harmony, if any -- so the Dock menu can offer
     /// to leave it (its window is borderless and has no title bar of its own).
@@ -868,6 +930,7 @@ final class VMDisplayView: NSView {
                 sendHarmonyPointer()
                 stopClickThrough()
                 channel.setHarmony(false)
+                restoreSecondGuestScreen()
                 harmonyManager.setSecondScreen(host: .zero, guestSize: .zero)
                 if let m = preMaskedMouseMode { mouseMode = m; preMaskedMouseMode = nil }
                 exitHarmonyScreen()
@@ -1330,6 +1393,18 @@ final class VMDisplayView: NSView {
             }
             self.harmonyPreparation?.acknowledged = true
             self.finishHarmonyPreparation()
+        }
+        /*
+         * The guest's screen layout.  Harmony places the second screen's
+         * windows from this -- its origin as well as its size -- and a mode
+         * change on either screen comes back here, so what the window manager
+         * works from is what the guest actually has rather than what it was
+         * asked for.
+         */
+        channel.onGuestScreens = { [weak self] screens in
+            guard let self else { return }
+            self.guestScreens = screens
+            if self.harmony { self.refreshSecondGuestScreen() }
         }
         channel.onWindowFrame = { [weak self] data in self?.harmonyManager.receiveWindowFrame(data) }
         harmonyManager.requestWindowFrame = { [weak self] id, sequence, accepted in self?.channel.sendToAgent?("WINDOWFRAME", "\(id) \(sequence) \(accepted) rle32 tiles32") }
@@ -2711,6 +2786,9 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
             }
         }
         display.onHarmonyGuest = { [weak vm] on in vm?.harmony(on) }
+        display.onGuestScreenMode = { [weak vm] index, w, h in
+            vm?.setGuestScreenMode(index, w, h)
+        }
         display.secondGuestScreenSize = { [weak vm] in
             guard let vm, vm.config.displays > 1 else { return nil }
             return CGSize(width: max(640, vm.config.display2Width),

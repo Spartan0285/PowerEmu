@@ -860,31 +860,55 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
 
     var spansTwoScreens: Bool { secondHost.width > 0 && secondGuestSize.width > 0 }
 
-    func setSecondScreen(host: CGRect, guestSize: CGSize) {
+    /*
+     * `guestOriginX` is where the guest itself says its second screen starts.
+     * When it says, that settles it; when it does not -- tools older than the
+     * ones that report a screen list -- the side is learned from the windows
+     * instead, which only works once something has been put over there.
+     */
+    func setSecondScreen(host: CGRect, guestSize: CGSize, guestFrame: CGRect? = nil) {
         secondHost = host
-        secondGuestSize = guestSize
-        if host.width <= 0 || guestSize.width <= 0 {
+        secondGuestSize = guestFrame?.size ?? guestSize
+        reportedFrame = guestFrame
+        if host.width <= 0 || secondGuestSize.width <= 0 {
             secondSurface = nil
             trusted2 = nil
         }
     }
 
+    private var reportedFrame: CGRect?
+
     func setSecondSurface(_ s: IOSurfaceRef) { secondSurface = s }
 
     /// Where the guest's second screen starts in its desktop space.
-    private var secondGuestOriginX: CGFloat {
-        secondOnLeft ? -secondGuestSize.width : guestSize.width
+    /*
+     * Where the guest's second screen starts in its desktop space.  Taken
+     * from the guest when it says, and otherwise assumed to be alongside the
+     * first -- which is the only arrangement that can be guessed from window
+     * positions, and the reason the guest is asked.
+     */
+    private var secondGuestOrigin: CGPoint {
+        if let f = reportedFrame { return f.origin }
+        return CGPoint(x: secondOnLeft ? -secondGuestSize.width : guestSize.width, y: 0)
     }
 
     /// Which guest screen a window is on, decided by its centre -- the way
     /// this Mac decides which of its own screens owns a window.
     private func onSecond(_ g: CGRect) -> Bool {
-        spansTwoScreens && guestSize.width > 0 && (g.midX >= guestSize.width || g.midX < 0)
+        guard spansTwoScreens, guestSize.width > 0 else { return false }
+        /* By its centre, the way this Mac decides which screen owns a window.
+         * The whole frame, not just its left edge: a guest that keeps its
+         * second screen above or below the first shares the first's x. */
+        if let f = reportedFrame {
+            return f.contains(CGPoint(x: g.midX, y: g.midY))
+        }
+        return g.midX >= guestSize.width || g.midX < 0
     }
 
     /// The same rectangle in its own screen's coordinates.
     private func localToSecond(_ g: CGRect) -> CGRect {
-        g.offsetBy(dx: -secondGuestOriginX, dy: 0)
+        let o = secondGuestOrigin
+        return g.offsetBy(dx: -o.x, dy: -o.y)
     }
 
     /*
@@ -1304,7 +1328,8 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
          * guest keeps to the left of its first; nothing reports the
          * arrangement, and this does not need it to.
          */
-        if spansTwoScreens, !secondOnLeft, windows.contains(where: { $0.rect.midX < 0 }) {
+        if spansTwoScreens, reportedFrame == nil, !secondOnLeft,
+           windows.contains(where: { $0.rect.midX < 0 }) {
             secondOnLeft = true
         }
         guard active else { return }
@@ -1762,8 +1787,9 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
         let apply = mine
         let sw = IOSurfaceGetWidth(src), sh = IOSurfaceGetHeight(src)
         /* In that card's own coordinates, not the guest's whole desktop. */
-        let gx = Int((g.minX - (second ? secondGuestOriginX : 0)).rounded())
-        let gy = Int(g.minY.rounded())
+        let o = second ? secondGuestOrigin : .zero
+        let gx = Int((g.minX - o.x).rounded())
+        let gy = Int((g.minY - o.y).rounded())
         let dst = c.surfaces[c.back]
 
         IOSurfaceLock(src, .readOnly, nil)
@@ -2231,9 +2257,9 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
         if completeWindowCapture {
             if spansTwoScreens, secondHost.contains(h) {
                 let q = secondCoordinates.guestPoint(h)
-                let originX = secondGuestOriginX
+                let o = secondGuestOrigin
                 withFocus { [weak self] in
-                    self?.sendPoint?(Int((q.x + originX).rounded()), Int(q.y.rounded()))
+                    self?.sendPoint?(Int((q.x + o.x).rounded()), Int((q.y + o.y).rounded()))
                 }
                 return
             }
@@ -2419,10 +2445,10 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
             let centre = CGPoint(x: origin.x + p.frame.width / 2,
                                  y: origin.y + p.frame.height / 2)
             if secondHost.contains(centre) {
-                let sc = secondScale
+                let sc = secondScale, o = secondGuestOrigin
                 requestGuestMove(id, to: CGPoint(
-                    x: (origin.x - secondHost.minX) / sc + secondGuestOriginX,
-                    y: (secondHost.maxY - (origin.y + p.frame.height)) / sc))
+                    x: (origin.x - secondHost.minX) / sc + o.x,
+                    y: (secondHost.maxY - (origin.y + p.frame.height)) / sc + o.y))
                 return
             }
             if screenFrame.contains(centre) {

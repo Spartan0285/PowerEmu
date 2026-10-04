@@ -90,6 +90,16 @@ extern CGError CGSConnectionGetPID(CGSConnectionID cid, pid_t *pid, CGSConnectio
 
 #include "PETransferZip.h"
 
+/*
+ * Stays at 2.22 until these sources are built on a PowerPC Mac
+ * (guest/scripts/build.sh) and the Tools disc is remade.  The version is what
+ * the app offers an update against, so raising it here while the disc still
+ * holds the old binary would have PowerEmu offer an update that installs the
+ * version it just replaced, for ever.  SCREENS and DISPLAYMODE below need no
+ * version gate: an agent that does not have them ignores the verb, and the
+ * app falls back when no screen list comes back.  Raise this with the
+ * rebuild.
+ */
 #define PE_AGENT_VERSION "2.22"
 
 extern CGError CGSGetConnectionIDForPSN(CGSConnectionID cid, ProcessSerialNumber *psn,
@@ -216,6 +226,8 @@ static int AgentPort(void)
 - (void)harmony:(BOOL)on;
 - (void)reportWindows:(NSTimer *)t;
 - (void)setResolution:(NSString *)wh;
+- (BOOL)setMode:(int)index width:(int)w height:(int)h;
+- (void)sendScreens;
 - (void)raiseWindow:(NSString *)idStr;
 - (void)moveWindow:(NSString *)args;
 - (void)minimizeWindow:(NSString *)args;
@@ -891,6 +903,9 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
     NSString *hello = [NSString stringWithFormat:@"%s\t%@\t%@", PE_AGENT_VERSION,
         [sv objectForKey:@"ProductVersion"], NSUserName()];
     [self send:@"HELLO" text:hello];
+    /* The screen layout up front, so Harmony knows what it has to work with
+     * before anybody asks for it. */
+    [self sendScreens];
 }
 
 - (void)disconnected
@@ -1006,6 +1021,22 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
         }
     } else if ([verb isEqualToString:@"RESOLUTION"]) {
         [self setResolution:text];
+    } else if ([verb isEqualToString:@"SCREENS"]) {
+        [self sendScreens];
+    } else if ([verb isEqualToString:@"DISPLAYMODE"]) {
+        /* "<index> <w> <h>": set one display's mode, counting from the main
+         * one.  PowerEmu uses it to put the guest's second screen at the size
+         * of the display it is shown on when Harmony starts, the way the first
+         * screen is already matched to its own.  The screen list goes back
+         * either way, so the caller works from what the guest actually did
+         * rather than from what it was asked for. */
+        NSArray *f = [text componentsSeparatedByString:@" "];
+        if ([f count] == 3) {
+            [self setMode:[[f objectAtIndex:0] intValue]
+                    width:[[f objectAtIndex:1] intValue]
+                   height:[[f objectAtIndex:2] intValue]];
+        }
+        [self sendScreens];
     } else if ([verb isEqualToString:@"RAISE"]) {
         [self raiseWindow:text];
     } else if ([verb isEqualToString:@"RAISEHARD"]) {
@@ -2145,12 +2176,63 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
     if (w < 640 || h < 480) {
         return;
     }
-    CGDirectDisplayID disp = CGMainDisplayID();
+    [self setMode:0 width:w height:h];
+}
+
+/*
+ * One display's mode, counting from the main one.
+ *
+ * CGGetActiveDisplayList returns the main display first, so the index is the
+ * same one PowerEmu counts its guest screens by.  Returns whether the display
+ * ended up at exactly the size asked for: a mode list is a fixed set, and
+ * CGDisplayBestModeForParameters answers with the nearest it has rather than
+ * refusing, so "it worked" has to mean the size matches.
+ */
+- (BOOL)setMode:(int)index width:(int)w height:(int)h
+{
+    CGDirectDisplayID displays[8];
+    CGDisplayCount count = 0;
+    CGDirectDisplayID disp;
+    CFDictionaryRef mode;
     boolean_t exact = FALSE;
-    CFDictionaryRef mode = CGDisplayBestModeForParameters(disp, 32, w, h, &exact);
+    if (w < 640 || h < 480 || index < 0) {
+        return NO;
+    }
+    if (CGGetActiveDisplayList(8, displays, &count) != kCGErrorSuccess
+        || (CGDisplayCount)index >= count) {
+        return NO;
+    }
+    disp = displays[index];
+    mode = CGDisplayBestModeForParameters(disp, 32, w, h, &exact);
     if (mode) {
         CGDisplaySwitchToMode(disp, mode);
     }
+    return (int)CGDisplayPixelsWide(disp) == w && (int)CGDisplayPixelsHigh(disp) == h;
+}
+
+/*
+ * Where each of the guest's screens is, in the one coordinate space its
+ * windows are reported in: "x,y,w,h;x,y,w,h", main display first.
+ *
+ * Harmony needs the second screen's origin as well as its size -- which side
+ * of the first the guest keeps it on decides which way a window crossing
+ * between them moves -- and guessing that from window positions only works
+ * once a window has been put there.
+ */
+- (void)sendScreens
+{
+    CGDirectDisplayID displays[8];
+    CGDisplayCount count = 0, i;
+    NSMutableString *out = [NSMutableString string];
+    if (CGGetActiveDisplayList(8, displays, &count) != kCGErrorSuccess) {
+        return;
+    }
+    for (i = 0; i < count; i++) {
+        CGRect b = CGDisplayBounds(displays[i]);
+        [out appendFormat:@"%@%d,%d,%d,%d", i ? @";" : @"",
+            (int)b.origin.x, (int)b.origin.y, (int)b.size.width, (int)b.size.height];
+    }
+    [self send:@"SCREENS" text:out];
 }
 
 /*

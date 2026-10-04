@@ -41,6 +41,9 @@ final class GuestAgent: ObservableObject {
     var onMenuFocus: ((String, Int) -> Void)?
     var onGuestFullscreen: (() -> Void)?
     var onHarmonyReady: ((String, CGSize, Bool) -> Void)?
+    /// The guest's screens, main display first, in the space its windows are
+    /// reported in.  Only agents that know how to say so send it.
+    var onScreens: (([CGRect]) -> Void)?
     /// Per window, the rectangles of it that something else is drawn over.
     var onOcclusion: (([Int: [CGRect]]) -> Void)?
     /// The guest window that has the focus: the one nothing is drawn over.
@@ -198,6 +201,23 @@ final class GuestAgent: ObservableObject {
         case "FOCUSREADY":
             let f = text.split(separator: " ").compactMap { Int($0) }
             if f.count == 3 { onFocusReady?(f[0], f[1], f[2] == 1) }
+        case "SCREENS":
+            /*
+             * Where the guest's screens are, in the one space its windows are
+             * reported in: "x,y,w,h;...", main display first.  Harmony needs
+             * the second screen's origin as much as its size -- which side of
+             * the first the guest keeps it on decides which way a window
+             * crossing between them moves.
+             *
+             * Agents older than this say nothing, and Harmony falls back to
+             * fitting the configured size, so there is no version to check.
+             */
+            let screens = text.split(separator: ";").compactMap { part -> CGRect? in
+                let n = part.split(separator: ",").compactMap { Double($0) }
+                guard n.count == 4, n[2] > 0, n[3] > 0 else { return nil }
+                return CGRect(x: n[0], y: n[1], width: n[2], height: n[3])
+            }
+            if !screens.isEmpty { onScreens?(screens) }
         case "HARMONYREADY":
             let f = text.split(separator: " ").map(String.init)
             if f.count == 4, let w = Int(f[1]), let h = Int(f[2]) {
