@@ -189,3 +189,42 @@ other is whichever is not there, not whichever is listed second).
 
 Nothing is version-gated: an older agent ignores the verbs and reports no
 screens, and Harmony falls back to fitting the configured size.
+
+## Can the second card be accelerated? No. (4 Oct 2026)
+
+Two boots, to decide whether the per-card Metal submit layer was worth
+building. Both reached the desktop; neither panicked.
+
+**AGP moved to the second card** (`agp=off` on card 0 instead of card 1):
+
+    gpu0: frames=0 draws=0        gpu1: frames=0 draws=0
+
+Acceleration did not move with the capability -- it disappeared. The
+accelerator wants the AGP card *and* wants it to be the main one.
+
+**Second card given the accelerator's own device id** (no
+`x-pci-device-id=0x5964`), keeping `agp=off`:
+
+    gpu0: frames=28 draws=360     gpu1: frames=0 draws=0
+
+So `0x5964` is not what keeps the second card out of 3D, and it is not what
+prevents the panic either -- `agp=off` is. The id was chosen when the panic
+was misread as `ATIRadeon8500`'s, and the machine boots without it.
+
+### What this means
+
+Mac OS X sends no 3D to a second card here under any arrangement we can
+build. So the process-wide Metal submit layer is **not** what stands between
+this and an accelerated second screen, and making it per-card would buy
+nothing observable: the non-owner refusal path still cannot be reached. It is
+a tidiness item, not a feature.
+
+### Why `x-pci-device-id=0x5964` stays anyway
+
+With the ordinary id the accelerator may *attach* to the second card and
+simply have nothing to draw -- the counters cannot tell "attached and idle"
+from "never attached". If it is attached, the first 3D work that ever reaches
+it lands on the untested non-owner refusal path. Keeping an id the
+accelerator does not claim keeps that path unreachable, which is the state
+0.4.0 shipped and was tested in. Changing it would trade a known-good
+configuration for a cosmetic simplification.
