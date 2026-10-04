@@ -99,3 +99,47 @@ impossible on this Mac; the reason, and the fix, are in
   is correct but untested -- the two-card run never reached a 3D draw on the
   second card, so the refusal never fired.  The right end state is a per-card
   submit layer.
+
+## The performance overlay, per screen (4 Oct 2026)
+
+Each guest screen is its own card, so each overlay panel reads its own card's
+`perf` property -- `/machine/peripheral/gpu0` and `gpu1`. The emulator used to
+keep one set of running totals per machine, which made both panels show the
+sum of the two screens' work: a still second screen flattered the first, and a
+busy one made an idle window look busy. The totals are now one set per card
+(`r200_perf_cards[]`, claimed in `ppc_mac_gpu_realize`).
+
+Measured on a two-card 1680x1050 boot at the Tiger desktop:
+
+    gpu0: frames=26 draws=364 vram_usable=62914560
+    gpu1: frames=0  draws=0   vram_usable=62914560
+
+`gpu1` reporting nothing is correct -- it has no AGP capability and therefore
+no 3D (see above) -- but "0 fps" and "0 draws/s" read as a broken overlay, so
+those two rows say "no 3D on this screen" and "none" and drop their graphs.
+The Window row still shows how often that screen is actually redrawn, which is
+the honest figure for an unaccelerated card.
+
+Both panels appear and disappear together, whichever way the overlay is
+toggled. In the single-screen layout the two guest screens share one window,
+where "the screen you asked from" has no meaning.
+
+### For the release notes
+
+**The second guest screen has no 3D acceleration.** One AGP slot, one
+UniNorth GART, one accelerated card: Warcraft III and anything else wanting
+OpenGL has to run on screen 1. The overlay says so on screen 2 rather than
+reporting zeros.
+
+## The blit-learned pitch could abort the emulator
+
+`r200_set_present_pitch()` assigns `s->disp.stride` directly and so missed the
+bound `ppc_mac_gpu_update_display_mode()` applies to every stride it computes:
+`offset + stride * height` must stay inside the card. The pitch is learned
+from a guest blit, so an over-large one read the scan-out past the end of VRAM
+*and* handed the same unchecked length to
+`memory_region_snapshot_and_clear_dirty()` -- which does not fail an
+out-of-range request, it aborts the process. The 16bpp path had always carried
+this check; the 32bpp one had not. Both the assignment and the dirty-bitmap
+call are now bounded. Three of three two-card boots reach the desktop with it
+in.
