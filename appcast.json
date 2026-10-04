@@ -1,12 +1,18 @@
 {
-  "version": "0.3.5",
-  "build": 8,
-  "published": "2026-10-03T18:11:37Z",
+  "version": "0.4.0",
+  "build": 9,
+  "published": "2026-10-04T18:54:16Z",
   "minimumSystem": "14.0",
-  "notes": "The guest's picture is drawn at the display's own scale, so it is sharper on Retina screens; Sharp, whole pixels now rounds to whole screen pixels rather than whole points. A new Picture setting beside Scaling in the toolbar fits, fills or stretches the guest's screen. Display filters now apply instead of doing nothing. Going full screen with Harmony on no longer leaves a black window with no way back. A guest application's icon leaves this Mac's Dock as soon as it quits. A virtual Mac lent an external disk that is no longer connected now starts without it, rather than refusing to start because another disk has taken its device name.",
-  "url": "https://github.com/Spartan0285/PowerEmu/releases/download/v0.3.5/PowerEmu-0.3.5.zip",
-  "sha256": "ea1bc8645ecd551450e5ec0ea1a7be882f447b3b3f0d79b885600be37f8e3de5",
+  "notes": "A virtual Mac can now be given a second screen. With two displays each guest screen gets its own window; with one they stand side by side in a single window. Harmony spans both, so a guest window can be dragged from one of this Mac's screens to the other, and the guest's second screen is matched to the display showing it so its windows come out the right size rather than half size on a Retina display. The second guest screen has no 3D acceleration - there is one accelerated card, so OpenGL games have to run on the first screen. The performance overlay now shows a panel on each screen, each reading its own card, with a light style that shows just the frame rate and the processor. Also new: snapshots with rollback, duplicating a machine, reclaiming its disk space and running it isolated from the network; printing to a printer the guest already knows how to talk to; the microphone; opening a file from this Mac in the virtual Mac; and a USB device that is remembered and taken at every start. PowerEmu Tools 2.23 is included - update it inside the virtual Mac so Harmony can match the second screen. Fixes: a display pitch the guest could ask for would stop the emulator; the hardware cursor works with two screens; Command-W reaches the guest.",
+  "url": "https://github.com/Spartan0285/PowerEmu/releases/download/v0.4.0/PowerEmu-0.4.0.zip",
+  "sha256": "eeafa98bc9692de48d12285088a38213b220800d6794fb3c496e0a3f05714369",
   "history": [
+    {
+      "version": "0.3.5",
+      "build": 8,
+      "published": "2026-10-03T18:11:37Z",
+      "notes": "The guest's picture is drawn at the display's own scale, so it is sharper on Retina screens; Sharp, whole pixels now rounds to whole screen pixels rather than whole points. A new Picture setting beside Scaling in the toolbar fits, fills or stretches the guest's screen. Display filters now apply instead of doing nothing. Going full screen with Harmony on no longer leaves a black window with no way back. A guest application's icon leaves this Mac's Dock as soon as it quits. A virtual Mac lent an external disk that is no longer connected now starts without it, rather than refusing to start because another disk has taken its device name."
+    },
     {
       "version": "0.3.4",
       "build": 7,
