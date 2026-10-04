@@ -476,18 +476,31 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
      */
     private var trusted: IOSurfaceRef?
     private func holdTrustedFrame() {
-        guard let src = surface as! IOSurfaceRef? else { return }
-        let w = IOSurfaceGetWidth(src), h = IOSurfaceGetHeight(src)
-        guard w > 0, h > 0 else { return }
-        if trusted == nil || IOSurfaceGetWidth(trusted!) != w
-            || IOSurfaceGetHeight(trusted!) != h {
-            let bpr = IOSurfaceAlignProperty(kIOSurfaceBytesPerRow, w * 4)
-            trusted = IOSurfaceCreate([kIOSurfaceWidth: w, kIOSurfaceHeight: h,
-                                       kIOSurfaceBytesPerElement: 4,
-                                       kIOSurfaceBytesPerRow: bpr,
-                                       kIOSurfacePixelFormat: 0x42475241] as CFDictionary)
+        /* The other card's picture, held at the same moment as this one, so a
+         * window on either guest screen is read from the frame the guest has
+         * already answered about. */
+        if spansTwoScreens, let s2 = secondSurface as! IOSurfaceRef? {
+            trusted2 = hold(s2, into: trusted2)
         }
-        guard let dst = trusted else { return }
+        if let src = surface as! IOSurfaceRef? {
+            trusted = hold(src, into: trusted)
+        }
+    }
+
+    /// Put a card's picture aside, making the surface to hold it the first
+    /// time and again whenever the picture changes shape.
+    private func hold(_ src: IOSurfaceRef, into held: IOSurfaceRef?) -> IOSurfaceRef? {
+        let w = IOSurfaceGetWidth(src), h = IOSurfaceGetHeight(src)
+        guard w > 0, h > 0 else { return held }
+        var kept = held
+        if kept == nil || IOSurfaceGetWidth(kept!) != w || IOSurfaceGetHeight(kept!) != h {
+            let bpr = IOSurfaceAlignProperty(kIOSurfaceBytesPerRow, w * 4)
+            kept = IOSurfaceCreate([kIOSurfaceWidth: w, kIOSurfaceHeight: h,
+                                    kIOSurfaceBytesPerElement: 4,
+                                    kIOSurfaceBytesPerRow: bpr,
+                                    kIOSurfacePixelFormat: 0x42475241] as CFDictionary)
+        }
+        guard let dst = kept else { return held }
         IOSurfaceLock(src, .readOnly, nil)
         IOSurfaceLock(dst, [], nil)
         if let sb = IOSurfaceGetBaseAddress(src) as UnsafeMutableRawPointer?,
@@ -503,6 +516,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
         }
         IOSurfaceUnlock(dst, [], nil)
         IOSurfaceUnlock(src, .readOnly, nil)
+        return dst
     }
     /// Bumped whenever any window's rectangle changes, or one comes or goes.
     private var geometryGeneration = 0
@@ -817,6 +831,79 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
     /// The legacy masked fallback retains its width-based scale.
     private var scale: CGFloat { completeWindowCapture ? 1 : (guestSize.width > 0 ? screenFrame.width / guestSize.width : 1) }
     private var coordinates: HarmonyCoordinates { HarmonyCoordinates(screen: screenFrame, topInset: offsetY) }
+
+    /*
+     * The second guest screen, when this Mac has a screen to put it on.
+     *
+     * Harmony has always been one screen's worth: the guest's second screen
+     * was folded onto the first (see foldIntoPrimary), which kept its windows
+     * in the refresh list but drew them from the first card's picture, and a
+     * window dragged towards this Mac's other display was handed back a guest
+     * coordinate on screen 1 -- so it sprang back.
+     *
+     * With a second host screen the two guest screens get one each: windows
+     * are placed on the host screen their guest screen maps to, read from
+     * that card's own surface, and a drag that crosses between this Mac's
+     * screens moves the window between the guest's.  All of it is gated on
+     * `spansTwoScreens`, so a Mac with one screen behaves exactly as before.
+     */
+    private var secondHost = CGRect.zero        // this Mac's other screen
+    private var secondGuestSize = CGSize.zero   // the guest's second screen
+    private weak var secondSurface: AnyObject?
+    private var trusted2: IOSurfaceRef?
+    /*
+     * Which side the guest keeps its second screen on.  Nothing reports the
+     * arrangement, but it does not have to: a window whose centre is left of
+     * zero can only be on a screen to the left of the first.
+     */
+    private var secondOnLeft = false
+
+    var spansTwoScreens: Bool { secondHost.width > 0 && secondGuestSize.width > 0 }
+
+    func setSecondScreen(host: CGRect, guestSize: CGSize) {
+        secondHost = host
+        secondGuestSize = guestSize
+        if host.width <= 0 || guestSize.width <= 0 {
+            secondSurface = nil
+            trusted2 = nil
+        }
+    }
+
+    func setSecondSurface(_ s: IOSurfaceRef) { secondSurface = s }
+
+    /// Where the guest's second screen starts in its desktop space.
+    private var secondGuestOriginX: CGFloat {
+        secondOnLeft ? -secondGuestSize.width : guestSize.width
+    }
+
+    /// Which guest screen a window is on, decided by its centre -- the way
+    /// this Mac decides which of its own screens owns a window.
+    private func onSecond(_ g: CGRect) -> Bool {
+        spansTwoScreens && guestSize.width > 0 && (g.midX >= guestSize.width || g.midX < 0)
+    }
+
+    /// The same rectangle in its own screen's coordinates.
+    private func localToSecond(_ g: CGRect) -> CGRect {
+        g.offsetBy(dx: -secondGuestOriginX, dy: 0)
+    }
+
+    /*
+     * The guest's second screen fitted to the host screen showing it, and
+     * never magnified.  Where the reader let PowerEmu size that screen from
+     * the display it is for, this comes out at exactly 1 / the display's
+     * backing scale -- one guest pixel to one host pixel.
+     */
+    private var secondScale: CGFloat {
+        guard secondGuestSize.width > 0, secondGuestSize.height > 0 else { return 1 }
+        return min(1, min(secondHost.width / secondGuestSize.width,
+                          secondHost.height / secondGuestSize.height))
+    }
+
+    /// No menu-bar inset: this Mac's menu bar is on the screen Harmony
+    /// started on, and the guest's is on its own first screen.
+    private var secondCoordinates: HarmonyCoordinates {
+        HarmonyCoordinates(screen: secondHost, topInset: 0, scale: secondScale)
+    }
     /// How far below the top of the screen the guest starts, so its menu bar's
     /// bottom lines up with this Mac's taller menu bar.
     private var offsetY: CGFloat { max(0, hostMenuBar - guestMenuBar * scale) }
@@ -1174,6 +1261,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
     }
 
     private func hostFrame(_ g0: CGRect) -> CGRect {
+        if onSecond(g0) { return secondCoordinates.hostRect(localToSecond(g0)) }
         let g = foldIntoPrimary(g0)
         if completeWindowCapture { return coordinates.hostRect(g) }
         let s = scale
@@ -1211,6 +1299,14 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
     }
 
     func update(_ windows: [(id: Int, rect: CGRect, visible: CGRect)]) {
+        /*
+         * A window whose centre is left of zero can only be on a screen the
+         * guest keeps to the left of its first; nothing reports the
+         * arrangement, and this does not need it to.
+         */
+        if spansTwoScreens, !secondOnLeft, windows.contains(where: { $0.rect.midX < 0 }) {
+            secondOnLeft = true
+        }
         guard active else { return }
         // Leave out the menu bar: anything glued to the very top and shallow.
         // The guest reports it as several pieces -- the menu titles on the
@@ -1635,7 +1731,15 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
         }
         // The held frame, which the guest has already answered about; only
         // the live one if no answer has ever arrived.
-        guard let src = trusted ?? (surface as! IOSurfaceRef?) else { return c.front }
+        /*
+         * Read from the card whose screen the window is on.  Its pixels exist
+         * in that card's frame buffer and nowhere else -- reading a second
+         * screen's window out of the first card's picture gives whatever
+         * happens to be at that spot on screen 1.
+         */
+        let second = onSecond(g)
+        let live = (second ? secondSurface : surface) as! IOSurfaceRef?
+        guard let src = (second ? trusted2 : trusted) ?? live else { return c.front }
         let whole = CGRect(x: 0, y: 0, width: CGFloat(w), height: CGFloat(h))
         let mine = regions ?? [whole]
         /*
@@ -1657,7 +1761,9 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
          */
         let apply = mine
         let sw = IOSurfaceGetWidth(src), sh = IOSurfaceGetHeight(src)
-        let gx = Int(g.minX.rounded()), gy = Int(g.minY.rounded())
+        /* In that card's own coordinates, not the guest's whole desktop. */
+        let gx = Int((g.minX - (second ? secondGuestOriginX : 0)).rounded())
+        let gy = Int(g.minY.rounded())
         let dst = c.surfaces[c.back]
 
         IOSurfaceLock(src, .readOnly, nil)
@@ -2123,6 +2229,14 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
     }
     func sendPointAtHostPoint(_ h: CGPoint) {
         if completeWindowCapture {
+            if spansTwoScreens, secondHost.contains(h) {
+                let q = secondCoordinates.guestPoint(h)
+                let originX = secondGuestOriginX
+                withFocus { [weak self] in
+                    self?.sendPoint?(Int((q.x + originX).rounded()), Int(q.y.rounded()))
+                }
+                return
+            }
             let p = coordinates.guestPoint(h)
             withFocus { [weak self] in self?.sendPoint?(Int(p.x.rounded()), Int(p.y.rounded())) }
             return
@@ -2289,6 +2403,36 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
     /// and fully drawn -- so the desktop never shows through behind it.
     func moveProxyToGuest(_ id: Int, origin: CGPoint) {
         guard let p = proxies[id] else { return }
+        /*
+         * Which of this Mac's screens it was dropped on decides which of the
+         * guest's screens it goes to.
+         *
+         * Without this the drop was always converted against the screen
+         * Harmony started on, so a window let go on the other display was
+         * handed a guest coordinate past the end of that guest screen, the
+         * guest put it back where it would fit, and the window sprang home.
+         * Now the other display is the guest's second screen, and dropping a
+         * window there moves it there -- including a window coming back the
+         * other way, which is why neither branch puts the fold back.
+         */
+        if spansTwoScreens {
+            let centre = CGPoint(x: origin.x + p.frame.width / 2,
+                                 y: origin.y + p.frame.height / 2)
+            if secondHost.contains(centre) {
+                let sc = secondScale
+                requestGuestMove(id, to: CGPoint(
+                    x: (origin.x - secondHost.minX) / sc + secondGuestOriginX,
+                    y: (secondHost.maxY - (origin.y + p.frame.height)) / sc))
+                return
+            }
+            if screenFrame.contains(centre) {
+                let sc = scale
+                requestGuestMove(id, to: CGPoint(
+                    x: (origin.x - screenFrame.minX) / sc,
+                    y: ((screenFrame.maxY - (origin.y + p.frame.height)) - offsetY) / sc))
+                return
+            }
+        }
         let s = scale
         let gx = (origin.x - screenFrame.minX) / s
         let fromTop = screenFrame.maxY - (origin.y + p.frame.height)   // the window's top edge

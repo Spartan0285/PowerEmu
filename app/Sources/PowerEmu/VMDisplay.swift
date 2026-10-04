@@ -678,6 +678,34 @@ final class VMDisplayView: NSView {
         harmony = true
     }
 
+    /*
+     * Give Harmony this Mac's other screen to put the guest's second one on.
+     *
+     * Harmony has always been one screen's worth, with the guest's second
+     * screen folded onto the first; a window dragged towards this Mac's other
+     * display sprang back, because the drop was converted against the screen
+     * Harmony started on.  With a screen to spare the two guest screens get
+     * one each, and dragging between them moves the window between them.
+     *
+     * Nothing happens without both: one host screen, or one guest screen, and
+     * the fold is still what runs.
+     */
+    private func offerSecondGuestScreen(besides harmonyScreen: NSScreen) {
+        guard let guest2 = secondGuestScreenSize?(),
+              let card2 = VMDisplayView.secondScreen,
+              let other = NSScreen.screens.first(where: { $0 != harmonyScreen }) else {
+            harmonyManager.setSecondScreen(host: .zero, guestSize: .zero)
+            return
+        }
+        harmonyManager.setSecondScreen(host: other.frame, guestSize: guest2)
+        /* Its picture comes from the other card, by way of its own view. */
+        if let s = card2.lastSurface { harmonyManager.setSecondSurface(s) }
+    }
+
+    /// The guest's second screen, when the machine has one.  Harmony needs
+    /// its size to place that screen's windows on this Mac's other display.
+    var secondGuestScreenSize: (() -> CGSize?)?
+
     /// The display currently in Harmony, if any -- so the Dock menu can offer
     /// to leave it (its window is borderless and has no title bar of its own).
     static weak var harmonized: VMDisplayView?
@@ -789,6 +817,7 @@ final class VMDisplayView: NSView {
                     if !maskedDesktop {
                         harmonyManager.setActive(true, screenFrame: scr.frame,
                                                  guestSize: guestSize, hostMenuBar: menuBar)
+                        offerSecondGuestScreen(besides: scr)
                     }
                 }
                 /*
@@ -839,6 +868,7 @@ final class VMDisplayView: NSView {
                 sendHarmonyPointer()
                 stopClickThrough()
                 channel.setHarmony(false)
+                harmonyManager.setSecondScreen(host: .zero, guestSize: .zero)
                 if let m = preMaskedMouseMode { mouseMode = m; preMaskedMouseMode = nil }
                 exitHarmonyScreen()
                 if let s = preHarmonyGuestSize {         // put the guest's normal resolution back
@@ -1452,6 +1482,17 @@ final class VMDisplayView: NSView {
         finishHarmonyPreparation()
         screen.contents = filtered(s, w: w, h: h) ?? s
         lastSurface = s
+        /*
+         * While Harmony is on, the first screen's manager draws the second
+         * guest screen's windows as well, and their pixels are in this card's
+         * picture and nowhere else.  This window is hidden by then, but the
+         * frames keep arriving on its own channel, which is what makes that
+         * possible.
+         */
+        if self === VMDisplayView.secondScreen, let first = VMDisplayView.showing,
+           first.harmony, first.machineName == machineName {
+            first.harmonyManager.setSecondSurface(s)
+        }
         if harmony {
             harmonyManager.setSurface(s)
             // Redraw follows the guest's frames, and only where it drew.
@@ -2670,6 +2711,11 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
             }
         }
         display.onHarmonyGuest = { [weak vm] on in vm?.harmony(on) }
+        display.secondGuestScreenSize = { [weak vm] in
+            guard let vm, vm.config.displays > 1 else { return nil }
+            return CGSize(width: max(640, vm.config.display2Width),
+                          height: max(480, vm.config.display2Height))
+        }
         /*
          * Hide the second screen's own window while harmony is on, and put it
          * back afterwards.  The combined-pane case is handled in the view
