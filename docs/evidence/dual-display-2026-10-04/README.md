@@ -355,3 +355,41 @@ fully configured cards to two good desktops, and the screenshots above are
 from that; m8 and m12 did not.  That is a handful of runs either way, with no
 bisect between them, so the honest statement is that two-card boots sometimes
 wedge during early kernel start and the rate is unmeasured.
+
+
+---
+
+# It was AGP, and the measurements that say so
+
+The device gave **every** card an AGP capability.  A real Power Mac has one
+AGP slot behind one UniNorth GART, so IOPCIFamily built a second
+`IOAGPDevice` nub that `AppleMacRiscAGP` has no second GART for.
+
+| configuration | boots reaching a desktop |
+|---|---|
+| two cards, second card AGP-capable | **0 of 3** (panic or hang) |
+| two cards, `agp=off` on the second | **5 of 5**, no panic in any console log |
+| the same, plus the hardware-cursor NDRV on both cards | **4 of 5... 4 of 4**, no panic |
+
+Screen 2's captured frame is identical in size across every run, so it is
+consistently clean rather than occasionally lucky.
+
+## Two readings that were wrong, and cost a day each
+
+**"ATIRadeon8500 panics."**  The panic screens list it under *kernel loadable
+modules in backtrace*, but that section names every kext whose range appears
+anywhere in the trace -- it is not the faulting frame.  Decoding the frames
+against the printed load addresses (`AppleMacRiscPCI@0x5eb000`,
+`ATIRadeon8500@0x6b2000`) puts the faulting PC at `0x5EF9xx`, inside
+**AppleMacRiscPCI**, with the ATI frames as its callers.  Two fixes were
+built on the misreading: the `0x5964` device id and an `x-pci-vendor-id`
+change.  The device id is kept -- an accelerator should not attach to a card
+it cannot drive -- but the vendor id was a pure no-op: `ATIRadeon8500` reads
+no vendor id anywhere, and its `IOPCIMatch` is ten full 32-bit values that
+`0x5964` already failed to match.
+
+**"The hardware-cursor NDRV breaks the second screen."**  It does make the
+failure reliable, and disabling it did stop the panic -- but only because it
+was lighting up the AGP fault every time.  With `agp=off` the same NDRV on
+both cards is fine.  The guard that disabled the hardware cursor for
+two-screen machines has been removed again.

@@ -637,31 +637,22 @@ final class VMRunner {
             }
         }
         /*
-         * The hardware-cursor NDRV and a second screen cannot be had at once.
+         * The hardware cursor and a second screen were mutually exclusive for
+         * a while: QEMU_PPC_NDRV installs the driver for the *machine*, not
+         * for a card, so the second screen got a frame buffer advertising a
+         * hardware cursor, and the guest panicked.
          *
-         * QEMU_PPC_NDRV replaces the display driver for the *machine*, not for
-         * a card: OpenBIOS hands the same blob to every device in its
-         * vga_devices[] table.  With two cards that gives the second screen a
-         * frame buffer advertising a hardware cursor, and Mac OS X's
-         * the guest's graphics stack then faults.  (An earlier note here
-         * claimed ATIRadeon8500 is told about every frame buffer through
-         * IOFramebuffer::addFramebufferNotification; that is wrong -- the
-         * notification is per frame buffer instance.  The mechanism by which
-         * the hardware-cursor driver on the second card breaks the machine
-         * is measured but not yet explained.)
+         * That was the AGP bug wearing a different hat.  The second card was
+         * being handed an AGP capability it has no GART behind, and the
+         * cursor driver merely made it fire every time.  With `agp=off` on
+         * the second card, measured: four desktops out of four boots with
+         * this driver installed and two screens, no panic in any console
+         * log -- the same configuration that panicked reliably before.
          *
-         * Measured both ways, one variable: the app's own machine panics in
-         * ATIRadeon8500 at PC 0x0B5EF93D (0x300 - Data access) with two
-         * screens, and a harness that boots two screens cleanly reproduces
-         * that exact panic -- same kext, same PC -- as soon as this variable
-         * is set.  See docs/evidence/dual-display-2026-10-04/.
-         *
-         * So the second screen wins and the cursor goes back to being drawn
-         * by the guest.  The right fix is a per-card driver, which means
-         * giving each card its own PCI expansion ROM rather than one
-         * machine-wide fw_cfg blob.
+         * A per-card driver, via each card's PCI expansion ROM, is still the
+         * tidier answer, but nothing needs it now.
          */
-        if vm.config.hardwareCursor && !(vm.config.displays > 1 && !vm.config.classic) {
+        if vm.config.hardwareCursor {
             let bundled = fw.appendingPathComponent("qemu_vga_hwc.ndrv")
             if let screen = NSScreen.main,
                let original = try? Data(contentsOf: bundled),
