@@ -179,6 +179,23 @@ struct MachineIcon: View {
 // MARK: - One virtual Mac
 
 struct MachineDetail: View {
+    /// The menu for the second screen: the standard sizes, this Mac's own
+    /// second display if it has one, and the current custom value.
+    private var secondScreenChoices: [(Int, Int, String)] {
+        var out = VMConfig.secondScreenSizes
+        if let s = hostScreens.secondScreenPixelSize {
+            let w = Int(s.width), h = Int(s.height)
+            if !out.contains(where: { $0.0 == w && $0.1 == h }) {
+                out.append((w, h, "\(w) \u{00d7} \(h)  (this Mac\u{2019}s second screen)"))
+            }
+        }
+        let w = vm.config.display2Width, h = vm.config.display2Height
+        if !out.contains(where: { $0.0 == w && $0.1 == h }) {
+            out.append((w, h, "\(w) \u{00d7} \(h)"))
+        }
+        return out
+    }
+
     @EnvironmentObject var library: VMLibrary
     @ObservedObject var vm: VirtualMachine
     @ObservedObject private var hostScreens = HostScreens.shared
@@ -463,21 +480,52 @@ struct MachineDetail: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 if vm.config.displays > 1 && !vm.config.classic {
+                    /*
+                     * The sizes worth a menu, plus this Mac's own second
+                     * screen when there is one, plus whatever the reader
+                     * typed.  The chosen size is baked into the second
+                     * card's EDID, so it is what Displays offers in the
+                     * guest.
+                     */
                     Picker("Second screen", selection: binding(\.display2Width)) {
-                        ForEach(VMConfig.secondScreenSizes, id: \.0) {
+                        ForEach(secondScreenChoices, id: \.0) {
                             Text($0.2).tag($0.0)
                         }
                     }
                     .onChange(of: vm.config.display2Width) { _, w in
-                        if let m = VMConfig.secondScreenSizes.first(where: { $0.0 == w }) {
+                        if let m = secondScreenChoices.first(where: { $0.0 == w }) {
                             vm.config.display2Height = m.1
                             try? vm.save()
                         }
                     }
+                    HStack {
+                        Text("Custom")
+                        TextField("width", value: binding(\.display2Width),
+                                  format: .number).frame(width: 70)
+                        Text("\u{00d7}")
+                        TextField("height", value: binding(\.display2Height),
+                                  format: .number).frame(width: 70)
+                    }
+                    Text("The second screen is not accelerated: Mac OS X gives "
+                         + "Quartz Extreme only to the AGP card, and this Mac "
+                         + "has one AGP slot. Games belong on screen 1.")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
+                /*
+                 * Say what the machine will actually get.  With two screens
+                 * each card is held at 128 MB (see VMRunner), and a picker
+                 * reading "256 MB" next to a machine reporting 128 is just a
+                 * lie the reader has to discover from About This Mac.
+                 */
                 Picker("Video memory", selection: binding(\.vramMB)) {
                     ForEach(vm.config.classic ? VMConfig.classicVRAMChoices
-                                              : VMConfig.vramChoices, id: \.self) { Text("\($0) MB").tag($0) }
+                                              : VMConfig.vramChoices, id: \.self) { mb in
+                        if mb > 128 && vm.config.displays > 1 && !vm.config.classic {
+                            Text("\(mb) MB (128 with two screens)").tag(mb)
+                        } else {
+                            Text("\(mb) MB").tag(mb)
+                        }
+                    }
                 }
                 if vm.config.displays > 1 && vm.config.vramMB > 128 {
                     Text("With two screens each card is held at 128 MB: two "

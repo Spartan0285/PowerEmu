@@ -398,11 +398,25 @@ final class VMRunner {
              * device_type, no linebytes, no mode.  See
              * docs/BUILDING-OPENBIOS.md.
              */
-            let gpu2 = (r350Experiment
+            var gpu2 = (r350Experiment
                 ? "ppc-mac-r350-probe,id=gpu1,vgamem_mb=\(vram)"
                 : "ppc-mac-gpu,id=gpu1,vgamem_mb=\(vram)")
                 + ",x-pci-device-id=0x5964,agp=off"
                 + ",exact-scanout-pitch=on,present-pitch-override=off"
+            /*
+             * Bake the second screen's size into the second card's EDID.
+             *
+             * Without this the setting was decorative: it sized the host
+             * window and reached neither QEMU nor the firmware, so both
+             * cards advertised the first card's mode and the guest had
+             * nothing else to pick in Displays.  The boot mode is still the
+             * machine-wide -g for both cards -- Open Firmware keeps one
+             * video_info and re-initialises it per card -- so the second
+             * screen comes up at the first's size and the reader chooses
+             * this one afterwards.
+             */
+            let w2 = max(640, c.display2Width), h2 = max(480, c.display2Height)
+            gpu2 += ",host-native-width=\(w2),host-native-height=\(h2)"
             a += ["-device", gpu2]
         }
         /*

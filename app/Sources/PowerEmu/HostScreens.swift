@@ -42,4 +42,22 @@ final class HostScreens: ObservableObject {
 
     /* Whether a second guest screen can be offered at all. */
     var canUseTwo: Bool { count > 1 }
+
+    /*
+     * The pixel size of the screen the second guest screen would land on,
+     * when this Mac has one to land on.  Offered in the second screen's menu
+     * so the guest can be told to match the monitor it is actually shown on,
+     * rather than the reader working the number out themselves.
+     *
+     * Backing-store pixels, not points: the guest draws pixels, and a guest
+     * mode matching the panel is what avoids scaling.
+     */
+    var secondScreenPixelSize: CGSize? {
+        let screens = NSScreen.screens
+        guard screens.count > 1 else { return nil }
+        let s = screens[1]
+        let f = s.frame
+        return CGSize(width: (f.width * s.backingScaleFactor).rounded(),
+                      height: (f.height * s.backingScaleFactor).rounded())
+    }
 }
