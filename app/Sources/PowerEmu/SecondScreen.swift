@@ -91,6 +91,8 @@ final class SecondScreenController: NSWindowController, NSWindowDelegate {
      */
     static func configure(_ display: VMDisplayView, for vm: VirtualMachine) {
         display.machineName = vm.config.name
+        /* Both second-screen layouts come through here; see secondScreen. */
+        VMDisplayView.secondScreen = display
         /*
          * Relative only.  The guest's pointer is a USB tablet, which reports
          * where it is rather than how far it moved, and Mac OS X maps those

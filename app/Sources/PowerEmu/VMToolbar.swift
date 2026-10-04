@@ -817,7 +817,8 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
         refocus()
     }
 
-    @objc private func togglePerf() { display?.togglePerformance(); refocus() }
+    /* Both guest screens, each panel reading its own card. */
+    @objc private func togglePerf() { VMDisplayView.togglePerformanceEverywhere(); refocus() }
     @objc private func pauseOrResume() {
         guard let vm else { return }
         if vm.state == .paused { vm.resume() } else { vm.pause() }

@@ -22,6 +22,9 @@ final class PerfHUD: CALayer {
         var scale: Double           // what the top of the graph means
         var tint: NSColor
         var graph = true
+        /// A shorter reading for the light style, which has room for about a
+        /// dozen characters.  Nil means the value reads the same either way.
+        var lightValue: String?
     }
 
     /// Full: every row, its graph, and the host lines.  Light: the frame
@@ -42,10 +45,25 @@ final class PerfHUD: CALayer {
     private var lines: [String] = []
     var lineCount: Int { lines.count }
 
-    /// Which rows the light style shows, by the start of their title.
-    private static let lightTitles = ["Frame", "CPU", "Processor"]
+    /*
+     * Which rows the light style shows, in the order it shows them.
+     *
+     * Matched against the titles the overlay actually uses.  They were
+     * matched against older ones ("Frame rate", "Processor"), which no row
+     * has been called for some time, so the light style quietly showed the
+     * host cores and no frame rate at all -- the one figure it exists for.
+     * The per-core rows are deliberately not here: there can be four of
+     * them, and this style is one short line in the corner of a game.
+     */
+    private static let lightTitles = ["Guest", "Emulator"]
     private var lightRows: [Row] {
-        rows.filter { r in Self.lightTitles.contains { r.title.hasPrefix($0) } }
+        Self.lightTitles.compactMap { t in rows.first { $0.title.hasPrefix(t) } }
+    }
+
+    /// The label the light style gives a row, where there is no room for
+    /// the full title.
+    private static func lightLabel(_ title: String) -> String {
+        title.hasPrefix("Guest") ? "FPS" : "CPU"
     }
 
     /// Where it was dragged to, as the point of its top-left corner.  The
@@ -172,8 +190,8 @@ final class PerfHUD: CALayer {
         switch style {
         case .light:
             for row in lightRows {
-                let label = row.title.hasPrefix("Frame") ? "FPS" : "CPU"
-                text += Self.width("\(label) \(row.value)", Metric.font) + Metric.gap
+                text += Self.width("\(Self.lightLabel(row.title)) \(row.lightValue ?? row.value)",
+                                   Metric.font) + Metric.gap
             }
             text = max(0, text - Metric.gap)
         case .full:
@@ -203,7 +221,7 @@ final class PerfHUD: CALayer {
             var x = Metric.margin
             for row in lightRows {
                 let text = NSAttributedString(
-                    string: "\(row.title.hasPrefix("Frame") ? "FPS" : "CPU") \(row.value)",
+                    string: "\(Self.lightLabel(row.title)) \(row.lightValue ?? row.value)",
                     attributes: [.font: font, .foregroundColor: NSColor.white])
                 text.draw(at: CGPoint(x: x, y: y))
                 x += text.size().width + Metric.gap

@@ -46,7 +46,7 @@ struct PowerEmuApp: App {
                         VMWindowController.key?.window?.toggleFullScreen(nil)
                     }
                 }
-                Button("Show Performance  (⌃⌥P)") { VMWindowController.key?.display.togglePerformance() }
+                Button("Show Performance  (⌃⌥P)") { VMDisplayView.togglePerformanceEverywhere() }
                 Divider()
                 Button("Pause") { VMWindowController.key?.vm.pause() }
                     .keyboardShortcut("p", modifiers: [.command, .control])
@@ -281,7 +281,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @MainActor @objc private func togglePerfOverlay() {
-        (VMDisplayView.harmonized ?? VMWindowController.key?.display)?.togglePerformance()
+        VMDisplayView.togglePerformanceEverywhere()
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {

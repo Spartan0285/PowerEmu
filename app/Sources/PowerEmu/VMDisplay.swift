@@ -668,6 +668,32 @@ final class VMDisplayView: NSView {
     /// whenever a virtual Mac is running rather than only in Harmony.
     static weak var showing: VMDisplayView?
 
+    /// The machine's second guest screen, in its own window or as the right
+    /// pane of this one.  Set in SecondScreenController.configure, which both
+    /// of those paths go through, and weak so it empties itself when the
+    /// screen is turned off.
+    static weak var secondScreen: VMDisplayView?
+
+    /*
+     * Show or hide the performance overlay on every guest screen at once.
+     *
+     * Each screen is a separate card with its own frame counter and its own
+     * panel, so the two readings differ -- which is the point of a per-screen
+     * overlay: a game at 50 fps on screen 2 while screen 1 sits at 2 is
+     * something a single shared figure could never show.  Both panels appear
+     * together because the alternative is a per-window state the reader has
+     * to work out: in the single-screen layout the two screens share one
+     * window, where "the screen you asked from" means nothing.
+     */
+    static func togglePerformanceEverywhere() {
+        let all = [showing, secondScreen].compactMap { $0 }
+        guard let anchor = all.first else { return }
+        let want = !anchor.showsPerformance
+        for d in all where d.showsPerformance != want {
+            d.togglePerformance()
+        }
+    }
+
     /// The guest's applications, kept on screen above everything else.
     private var appsPanel: GuestAppsPanel?
 
@@ -1730,16 +1756,36 @@ final class VMDisplayView: NSView {
         let range = fpsHistory.hasRange
             ? String(format: "%.0f fps   (%.0f low, %.0f high)", fps, fpsHistory.lowest, fpsHistory.highest)
             : String(format: "%.0f fps", fps)
+        /*
+         * A screen with no 3D at all.
+         *
+         * These figures come from this screen's own card, and only one card
+         * can hold the AGP capability -- one slot, one GART -- so a second
+         * guest screen is unaccelerated and its 3D counters stay at zero for
+         * the life of the machine.  Reported as "0 fps" that reads as a
+         * broken overlay.  The screen is being redrawn; it is just not the 3D
+         * engine doing it, and the Window row is where its rate shows.
+         *
+         * Waiting for a few samples keeps the first second of a boot, when
+         * the accelerated screen has not drawn yet either, from saying it.
+         */
+        let noAccel = cur.frames == 0 && cur.draws == 0 && fpsHistory.values.count >= 3
         var rows: [PerfHUD.Row] = [
-            .init(title: "Guest", value: range,
-                  history: fpsHistory.values, scale: fpsHistory.scale(atLeast: 30), tint: .systemGreen),
+            .init(title: "Guest", value: noAccel ? "no 3D on this screen" : range,
+                  history: fpsHistory.values, scale: fpsHistory.scale(atLeast: 30),
+                  tint: .systemGreen, graph: !noAccel,
+                  lightValue: noAccel ? "no 3D" : String(format: "%.0f", fps)),
             .init(title: "Window", value: String(format: "%.0f fps", shownRate),
                   history: windowHistory.values, scale: max(60, windowHistory.scale(atLeast: 60)),
                   tint: .systemTeal),
-            .init(title: "Draws", value: String(format: "%.0f/s", draws),
-                  history: drawHistory.values, scale: drawHistory.scale(atLeast: 1000), tint: .systemPurple),
+            .init(title: "Draws", value: noAccel ? "none" : String(format: "%.0f/s", draws),
+                  history: drawHistory.values, scale: drawHistory.scale(atLeast: 1000),
+                  tint: .systemPurple, graph: !noAccel),
             .init(title: "Emulator", value: String(format: "%.0f%% host CPU", h.qemuCPU),
-                  history: emuHistory.values, scale: emuHistory.scale(atLeast: Double(max(1, cpuPerformance.count)) * 100), tint: .systemOrange),
+                  history: emuHistory.values,
+                  scale: emuHistory.scale(atLeast: Double(max(1, cpuPerformance.count)) * 100),
+                  tint: .systemOrange,
+                  lightValue: String(format: "%.0f%%", h.qemuCPU)),
         ]
         for reading in cpuReadings {
             if let percent = reading.percent {
@@ -2447,7 +2493,8 @@ final class VMDisplayView: NSView {
         switch e.keyCode {
         case 5: ungrab(); return true                                  // G
         case 3: onToggleFullScreen?(); return true                     // F
-        case 35: togglePerformance(); return true                      // P
+        // The overlay is per screen: both panels, each reading its own card.
+        case 35: VMDisplayView.togglePerformanceEverywhere(); return true   // P
         case 4: requestHarmony(!harmony); return true                        // H
         default: return false
         }
