@@ -153,10 +153,16 @@ Tested by the user on a build with fog off:
    **`x-r350-direct-vram`**, which neither the harness nor the app passes.
    Without it every draw does a `g_malloc`, a full texel read and a per-texel
    four-channel conversion — for a 256x256 surface sampled 10,464 times. The
-   9200 inventory shows it sampling almost everything from `vram` in place. I
-   started a run with `x-r350-direct-vram=on` but **never got a number**; it was
-   still loading. The flag is experimental and may trade correctness for speed,
-   so check its census and image, not just the frame rate.
+   9200 inventory shows it sampling almost everything from `vram` in place.
+
+   **I tried twice and never got a number** — neither run reached the menu
+   before the measurement window closed, so there is no frame rate to report
+   for the flag either way. One weak signal from the short runs:
+   `texture_GPU_address_translation` rejections were **22 with the flag versus
+   3 without**, at comparable draw counts. Far too little to conclude from, but
+   it is the direction you would expect if sampling in place trips on
+   addresses the staging path tolerates. The flag is experimental; check its
+   census and the image, not just the frame rate.
 2. **Bands at the bottom of the screen** — desktop content repeated
    horizontally below the game's output. This is a **scan-out pitch** problem,
    the same shape as the Chess striping, not a missing texture.
