@@ -593,6 +593,10 @@ private final class Capture: AudioCapture, @unchecked Sendable {
     private let ringLock = OSAllocatedUnfairLock()
     private let ring: UnsafeMutablePointer<Float>
     private let ringFrames: Int
+    /// ringFrames - 1.  A power of two and a mask rather than a remainder,
+    /// because this is worked out in the tap's callback and a divide has no
+    /// business on a real-time thread.
+    private let ringMask: Int
     private var ringWrite = 0
     private var ringRead = 0
     private var dropped = 0
@@ -633,6 +637,7 @@ private final class Capture: AudioCapture, @unchecked Sendable {
         // Two and a half seconds at 48kHz: room for the pump to be held up
         // by something else on this Mac without a gap reaching the old one.
         ringFrames = 1 << 17
+        ringMask = ringFrames - 1
         ring = UnsafeMutablePointer<Float>.allocate(capacity: ringFrames * Int(fmt.channelCount))
         ring.initialize(repeating: 0, count: ringFrames * Int(fmt.channelCount))
 
@@ -775,7 +780,7 @@ private final class Capture: AudioCapture, @unchecked Sendable {
         }
         var w = ringWrite
         for i in 0..<frames {
-            let dst = ring + ((w + i) % ringFrames) * channels
+            let dst = ring + ((w + i) & ringMask) * channels
             memcpy(dst, src + i * channels, channels * MemoryLayout<Float>.size)
         }
         w += frames
@@ -789,7 +794,7 @@ private final class Capture: AudioCapture, @unchecked Sendable {
         let have = min(ringWrite - ringRead, frames)
         let r = ringRead
         for i in 0..<have {
-            memcpy(into + i * channels, ring + ((r + i) % ringFrames) * channels,
+            memcpy(into + i * channels, ring + ((r + i) & ringMask) * channels,
                    channels * MemoryLayout<Float>.size)
         }
         ringRead = r + have
