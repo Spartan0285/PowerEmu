@@ -11,5 +11,15 @@
 	-->
 	<key>com.apple.security.cs.allow-jit</key>
 	<true/>
+	<!--
+	    PowerMusic's Audio Relay reads this Mac's own sound with a CoreAudio
+	    process tap, so that the music Apple will only decrypt here can be
+	    played by an old Mac in another room.  Under the hardened runtime,
+	    which notarising requires, a process is refused the tap without
+	    this whatever the owner has agreed to.  The tap exists only while an
+	    old Mac is connected.
+	-->
+	<key>com.apple.security.device.audio-input</key>
+	<true/>
 </dict>
 </plist>

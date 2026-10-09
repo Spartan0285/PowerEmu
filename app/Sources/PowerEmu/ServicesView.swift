@@ -74,6 +74,7 @@ struct MusicSection: View {
     @State private var key = ""
     @State private var keyPath = ""
     @State private var storefront = ""
+    @State private var listeners: [AudioRelay.ReceiverInfo] = []
 
     private var keyReady: Bool {
         !hub.config.musicTeamID.isEmpty && !hub.config.musicKeyID.isEmpty
@@ -140,13 +141,54 @@ struct MusicSection: View {
                     Button("Apply") { apply() }
                         .disabled(team.isEmpty || key.isEmpty || keyPath.isEmpty)
                 }
+                Divider()
+                Toggle("Send the sound to old Macs",
+                       isOn: Binding(get: { hub.config.audioEnabled }, set: { hub.setAudioEnabled($0) }))
+                Group {
+                    Picker("Sound from", selection: Binding(get: { hub.config.audioSource },
+                                                            set: { hub.setAudioSource($0) })) {
+                        Text("The player page").tag("player")
+                        Text("Everything this Mac plays").tag("system")
+                    }
+                    Toggle("Keep this Mac silent while it is sending",
+                           isOn: Binding(get: { hub.config.audioMuteHost }, set: { hub.setAudioMuteHost($0) }))
+                    if listeners.isEmpty {
+                        Text("Nothing is listening.")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(listeners) { r in
+                            HStack {
+                                Label(r.name, systemImage: "hifispeaker")
+                                Spacer()
+                                // The buffer is the one number that says
+                                // whether the old Mac is keeping up.
+                                Text("\(r.fillMs) ms buffered")
+                                    .font(.system(.caption, design: .monospaced))
+                                    .foregroundStyle(r.fillMs > 500 ? Color.secondary : Color.orange)
+                                if r.underruns > 0 {
+                                    Text("\(r.underruns) gap\(r.underruns == 1 ? "" : "s")")
+                                        .font(.caption).foregroundStyle(.orange)
+                                }
+                            }
+                        }
+                    }
+                }
+                .disabled(!hub.config.audioEnabled)
             }
             .disabled(!hub.config.musicEnabled)
         } header: {
             Text("Music")
         } footer: {
-            Text("PowerEmu holds the queue and searches Apple Music for old Macs that could never speak to Apple themselves. The music is played by a page on this Mac — Open Player, and leave it open — because Apple’s music can only be decrypted here; send the sound where you like, including to an AirPlay speaker. Virtual Macs reach it at 10.0.2.100:\(hub.config.musicPort); real Macs need “Let other Macs on the network use the Service Hub” above. The key is yours, from the Apple Developer portal, and stays on this Mac.")
+            Text("PowerEmu holds the queue and searches Apple Music for old Macs that could never speak to Apple themselves. The music is played by a page on this Mac — Open Player, and leave it open — because Apple’s music can only be decrypted here; send the sound where you like, including to an AirPlay speaker. Virtual Macs reach it at 10.0.2.100:\(hub.config.musicPort); real Macs need “Let other Macs on the network use the Service Hub” above. The key is yours, from the Apple Developer portal, and stays on this Mac.\n\nThe sound goes to old Macs as it is — nothing to decode at the other end — because a G4 has no processor to spare and this much bandwidth costs nothing. Run pmaudio on the old Mac; virtual Macs read it at 10.0.2.100:\(hub.config.audioPort), real Macs need the pairing code. This Mac asks for permission to record its own sound the first time something listens.")
                 .font(.caption).foregroundStyle(.secondary)
+        }
+        .task {
+            // While this window is open, and no more often: the relay is
+            // asked what it has rather than telling anybody.
+            while !Task.isCancelled {
+                listeners = hub.audio.receivers()
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+            }
         }
         .onAppear {
             team = hub.config.musicTeamID

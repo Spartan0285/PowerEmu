@@ -113,6 +113,16 @@ struct ServicesConfig: Codable {
     var musicStorefront = "us"
     /// The built controller and player pages.
     var musicWebRoot = NSHomeDirectory() + "/PowerMusic/web/dist"
+    // The Audio Relay: the sound the player page makes, sent to old Macs
+    // so they can play it.  Off until a reader asks for it, because it
+    // needs this Mac's permission to record its own sound.
+    var audioEnabled = false
+    var audioPort = 7781
+    /// "player", "system", or "device:<uid>".  A string rather than the
+    /// enum so an unknown value in an older plist falls back rather than
+    /// failing to decode.
+    var audioSource = "player"
+    var audioMuteHost = true
 
     static func newPairingCode() -> String {
         String(format: "%04d-%04d", Int.random(in: 0...9999), Int.random(in: 0...9999))
@@ -135,6 +145,10 @@ struct ServicesConfig: Codable {
         musicKeyPath = try c.decodeIfPresent(String.self, forKey: .musicKeyPath) ?? ""
         musicStorefront = try c.decodeIfPresent(String.self, forKey: .musicStorefront) ?? "us"
         musicWebRoot = try c.decodeIfPresent(String.self, forKey: .musicWebRoot) ?? (NSHomeDirectory() + "/PowerMusic/web/dist")
+        audioEnabled = try c.decodeIfPresent(Bool.self, forKey: .audioEnabled) ?? false
+        audioPort = try c.decodeIfPresent(Int.self, forKey: .audioPort) ?? 7781
+        audioSource = try c.decodeIfPresent(String.self, forKey: .audioSource) ?? "player"
+        audioMuteHost = try c.decodeIfPresent(Bool.self, forKey: .audioMuteHost) ?? true
     }
 }
 
@@ -231,6 +245,8 @@ final class ServicesHub: ObservableObject {
     nonisolated static let webSocket = NSTemporaryDirectory() + "poweremu-web.sock"
     /// PowerMusic, for virtual Macs at 10.0.2.100:3001.
     nonisolated static let musicSocket = NSTemporaryDirectory() + "poweremu-music.sock"
+    /// The Audio Relay, for virtual Macs at 10.0.2.100:7781.
+    nonisolated static let audioSocket = NSTemporaryDirectory() + "poweremu-audio.sock"
     nonisolated static let printSocket = NSTemporaryDirectory() + "poweremu-print.sock"
 
     /// The Web Accelerator (always exists; listens only when switched on).
@@ -239,8 +255,12 @@ final class ServicesHub: ObservableObject {
     /// the queue whether anything is listening or not, so that a restart
     /// does not lose what was playing.
     nonisolated let music: MusicServer
+    /// The Audio Relay (always exists; listens only when switched on).  It
+    /// listens to this Mac only while an old Mac is actually connected.
+    nonisolated let audio = AudioRelay(note: { s in Task { @MainActor in ServicesHub.shared.note(s) } })
     private var bonjour: NetService?
     private var musicBonjour: NetService?
+    private var audioBonjour: NetService?
 
     /// What the proxy sessions (on their own threads) read.
     nonisolated let accounts = AccountStore()
@@ -290,6 +310,8 @@ final class ServicesHub: ObservableObject {
         bonjour = nil
         musicBonjour?.stop()
         musicBonjour = nil
+        audioBonjour?.stop()
+        audioBonjour = nil
         accounts.set(config.accounts)
         web.update(.init(convertImages: config.webConvertImages, blockTrackers: config.webBlockTrackers,
                          pairingCode: config.pairingCode))
@@ -330,6 +352,25 @@ final class ServicesHub: ObservableObject {
                 b.setTXTRecord(NetService.data(fromTXTRecord: ["v": Data("1".utf8)]))
                 b.publish()
                 musicBonjour = b
+            }
+        }
+        audio.update(.init(source: Self.audioSource(config), muteHost: config.audioMuteHost,
+                           pairingCode: config.pairingCode))
+        if config.audioEnabled {
+            let a = self.audio
+            l.append(SocketListener(unixPath: Self.audioSocket, name: "virtual Mac") { fd, _ in
+                a.serve(fd: fd, fromNetwork: false)
+            })
+            if config.allowNetwork {
+                l.append(SocketListener(tcpPort: UInt16(config.audioPort)) { fd, _ in
+                    a.serve(fd: fd, fromNetwork: true)
+                })
+                // pmaudio on a real Mac finds it by browsing for this.
+                let b = NetService(domain: "local.", type: "_poweremu-audio._tcp.", name: "",
+                                   port: Int32(config.audioPort))
+                b.setTXTRecord(NetService.data(fromTXTRecord: ["v": Data("1".utf8)]))
+                b.publish()
+                audioBonjour = b
             }
         }
         printer.update(PrinterServer.Settings(destination: config.printDestination))
@@ -387,6 +428,19 @@ final class ServicesHub: ObservableObject {
     }
     func setMusicWebRoot(_ p: String) { config.musicWebRoot = p; save(); restartListeners() }
     func setMusicPort(_ p: Int) { config.musicPort = p; save(); restartListeners() }
+    func setAudioEnabled(_ on: Bool) { config.audioEnabled = on; save(); restartListeners() }
+    func setAudioMuteHost(_ on: Bool) { config.audioMuteHost = on; save(); restartListeners() }
+    func setAudioPort(_ p: Int) { config.audioPort = p; save(); restartListeners() }
+    func setAudioSource(_ s: String) { config.audioSource = s; save(); restartListeners() }
+
+    /// The stored string as the relay's own idea of a source.  Anything
+    /// unrecognised is the player page, which is the safe answer: it sends
+    /// the music and not the rest of what this Mac is doing.
+    nonisolated static func audioSource(_ c: ServicesConfig) -> AudioRelay.Source {
+        if c.audioSource == "system" { return .system }
+        if c.audioSource.hasPrefix("device:") { return .device(String(c.audioSource.dropFirst(7))) }
+        return .player
+    }
 
     nonisolated static func musicSettings(_ c: ServicesConfig) -> MusicServer.Settings {
         .init(apple: .init(teamID: c.musicTeamID, keyID: c.musicKeyID,
