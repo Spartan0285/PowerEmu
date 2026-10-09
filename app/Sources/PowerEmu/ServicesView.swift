@@ -74,7 +74,9 @@ struct MusicSection: View {
     @State private var key = ""
     @State private var keyPath = ""
     @State private var storefront = ""
-    @State private var listeners: [AudioRelay.ReceiverInfo] = []
+    @State private var receivers: [AudioRelay.ReceiverInfo] = []
+    @State private var outputs: [AudioRelay.OutputDevice] = []
+    private let tick = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
 
     private var keyReady: Bool {
         !hub.config.musicTeamID.isEmpty && !hub.config.musicKeyID.isEmpty
@@ -141,60 +143,75 @@ struct MusicSection: View {
                     Button("Apply") { apply() }
                         .disabled(team.isEmpty || key.isEmpty || keyPath.isEmpty)
                 }
-                Divider()
-                Toggle("Send the sound to old Macs",
-                       isOn: Binding(get: { hub.config.audioEnabled }, set: { hub.setAudioEnabled($0) }))
-                Group {
-                    Picker("Sound from", selection: Binding(get: { hub.config.audioSource },
-                                                            set: { hub.setAudioSource($0) })) {
-                        Text("The player page").tag("player")
-                        Text("Everything this Mac plays").tag("system")
+            }
+            .disabled(!hub.config.musicEnabled)
+
+            Divider()
+
+            Toggle("Send the sound to old Macs",
+                   isOn: Binding(get: { hub.config.audioEnabled }, set: { hub.setAudioEnabled($0) }))
+            Group {
+                Picker("Source", selection: Binding(get: { hub.config.audioSource },
+                                                    set: { hub.setAudioSource($0) })) {
+                    Text("The player page").tag("player")
+                    Text("Everything this Mac plays").tag("system")
+                    ForEach(outputs) { d in
+                        Text("Everything sent to \(d.name)").tag("device:" + d.uid)
                     }
-                    Toggle("Keep this Mac silent while it is sending",
-                           isOn: Binding(get: { hub.config.audioMuteHost }, set: { hub.setAudioMuteHost($0) }))
-                    if listeners.isEmpty {
-                        Text("Nothing is listening.")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(listeners) { r in
-                            HStack {
-                                Label(r.name, systemImage: "hifispeaker")
-                                Spacer()
-                                // The buffer is the one number that says
-                                // whether the old Mac is keeping up.
-                                Text("\(r.fillMs) ms buffered")
-                                    .font(.system(.caption, design: .monospaced))
-                                    .foregroundStyle(r.fillMs > 500 ? Color.secondary : Color.orange)
-                                if r.underruns > 0 {
-                                    Text("\(r.underruns) gap\(r.underruns == 1 ? "" : "s")")
-                                        .font(.caption).foregroundStyle(.orange)
-                                }
+                }
+                Toggle("Keep this Mac silent while it is sending",
+                       isOn: Binding(get: { hub.config.audioMuteHost }, set: { hub.setAudioMuteHost($0) }))
+                if let trouble = hub.audio.problem {
+                    HStack {
+                        Label(trouble, systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
+                        Spacer()
+                        Button("Open Privacy Settings") {
+                            if let u = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy") {
+                                NSWorkspace.shared.open(u)
                             }
+                        }
+                        .controlSize(.small)
+                    }
+                }
+                if receivers.isEmpty {
+                    Text("No old Mac is listening. This Mac plays the music itself until one is.")
+                        .font(.caption).foregroundStyle(.secondary)
+                } else {
+                    ForEach(receivers) { r in
+                        HStack {
+                            Image(systemName: "hifispeaker")
+                            VStack(alignment: .leading) {
+                                Text(r.name)
+                                Text("\(r.address) · \(r.format) · \(r.rate) Hz")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            VStack(alignment: .trailing) {
+                                Text("\(r.fillMs) ms buffered")
+                                Text(r.underruns == 0 ? "no gaps" : "\(r.underruns) gaps")
+                                    .foregroundStyle(r.underruns == 0 ? Color.secondary : Color.orange)
+                            }
+                            .font(.caption)
                         }
                     }
                 }
-                .disabled(!hub.config.audioEnabled)
             }
-            .disabled(!hub.config.musicEnabled)
+            .disabled(!hub.config.audioEnabled)
         } header: {
             Text("Music")
         } footer: {
-            Text("PowerEmu holds the queue and searches Apple Music for old Macs that could never speak to Apple themselves. The music is played by a page on this Mac — Open Player, and leave it open — because Apple’s music can only be decrypted here; send the sound where you like, including to an AirPlay speaker. Virtual Macs reach it at 10.0.2.100:\(hub.config.musicPort); real Macs need “Let other Macs on the network use the Service Hub” above. The key is yours, from the Apple Developer portal, and stays on this Mac.\n\nThe sound goes to old Macs as it is — nothing to decode at the other end — because a G4 has no processor to spare and this much bandwidth costs nothing. Run pmaudio on the old Mac; virtual Macs read it at 10.0.2.100:\(hub.config.audioPort), real Macs need the pairing code. This Mac asks for permission to record its own sound the first time something listens.")
+            Text("PowerEmu holds the queue and searches Apple Music for old Macs that could never speak to Apple themselves. The music is played by a page on this Mac — Open Player, and leave it open — because Apple’s music can only be decrypted here. Virtual Macs reach it at 10.0.2.100:\(hub.config.musicPort); real Macs need “Let other Macs on the network use the Service Hub” above. The key is yours, from the Apple Developer portal, and stays on this Mac.\n\nThe sound is sent as it is — no encoding, no decoding at the other end — because a G4 has processor to spare for nothing and bandwidth to spare for this. Virtual Macs read it at 10.0.2.100:7781; real Macs need “Let other Macs on the network use the Service Hub” above, and the pairing code.")
                 .font(.caption).foregroundStyle(.secondary)
-        }
-        .task {
-            // While this window is open, and no more often: the relay is
-            // asked what it has rather than telling anybody.
-            while !Task.isCancelled {
-                listeners = hub.audio.receivers()
-                try? await Task.sleep(nanoseconds: 2_000_000_000)
-            }
         }
         .onAppear {
             team = hub.config.musicTeamID
             key = hub.config.musicKeyID
             keyPath = hub.config.musicKeyPath
             storefront = hub.config.musicStorefront
+            outputs = AudioRelay.outputDevices()
+        }
+        .onReceive(tick) { _ in
+            receivers = hub.config.audioEnabled ? hub.audio.receivers() : []
         }
     }
 

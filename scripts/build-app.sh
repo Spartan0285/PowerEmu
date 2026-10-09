@@ -150,13 +150,13 @@ cat > "$OUT/Contents/Info.plist" <<EOF
 	     and something inside it starts recording. -->
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Lets a virtual Mac hear this Mac’s microphone, when you give it one.</string>
-	<!-- PowerMusic's Audio Relay. The music Apple will only let this Mac
-	     decrypt is read back out of this Mac's own sound with a CoreAudio
-	     process tap, and sent to old Macs that cannot play it themselves.
-	     Nothing is read unless an old Mac is connected: the tap is made
-	     when one arrives and destroyed when the last one goes. -->
+	<!-- The Audio Relay listens to what this Mac is playing, with a CoreAudio
+	     process tap, so the sound can be sent to an old Mac that cannot make
+	     it itself. This Mac asks once and then remembers. The tap exists only
+	     while an old Mac is actually listening, so nothing is captured the
+	     rest of the time. -->
 	<key>NSAudioCaptureUsageDescription</key>
-	<string>Lets PowerEmu send the music playing on this Mac to old Macs that cannot play it themselves.</string>
+	<string>PowerEmu sends the music playing on this Mac to old Macs that cannot play it themselves.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>PowerEmu is free software under the GNU GPL v2 or later.</string>
 	<!-- The WebAccelerator proxy fetches the guest's web traffic on the host,

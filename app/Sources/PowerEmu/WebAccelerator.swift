@@ -85,7 +85,8 @@ final class WebAccelerator: NSObject, URLSessionDataDelegate, @unchecked Sendabl
         }
     }
 
-    /// Shared with the Audio Relay, which pairs the same way.
+    /// The pairing code, compared without an early exit.  The Audio Relay
+    /// compares the same code the same way.
     static func sameCode(_ a: String, _ b: String) -> Bool {
         let x = Array(a.utf8), y = Array(b.utf8)
         guard !y.isEmpty, x.count == y.count else { return false }

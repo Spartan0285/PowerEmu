@@ -113,14 +113,12 @@ struct ServicesConfig: Codable {
     var musicStorefront = "us"
     /// The built controller and player pages.
     var musicWebRoot = NSHomeDirectory() + "/PowerMusic/web/dist"
-    // The Audio Relay: the sound the player page makes, sent to old Macs
-    // so they can play it.  Off until a reader asks for it, because it
-    // needs this Mac's permission to record its own sound.
+    /// The Audio Relay: the sound this Mac is making, sent to old Macs that
+    /// cannot make it themselves.  Off until the reader asks, because it
+    /// needs this Mac's permission to listen to its own audio.
     var audioEnabled = false
     var audioPort = 7781
-    /// "player", "system", or "device:<uid>".  A string rather than the
-    /// enum so an unknown value in an older plist falls back rather than
-    /// failing to decode.
+    /// "player" | "system" | "device:<uid>".
     var audioSource = "player"
     var audioMuteHost = true
 
@@ -245,7 +243,7 @@ final class ServicesHub: ObservableObject {
     nonisolated static let webSocket = NSTemporaryDirectory() + "poweremu-web.sock"
     /// PowerMusic, for virtual Macs at 10.0.2.100:3001.
     nonisolated static let musicSocket = NSTemporaryDirectory() + "poweremu-music.sock"
-    /// The Audio Relay, for virtual Macs at 10.0.2.100:7781.
+    /// The sound of the music, for virtual Macs at 10.0.2.100:7781.
     nonisolated static let audioSocket = NSTemporaryDirectory() + "poweremu-audio.sock"
     nonisolated static let printSocket = NSTemporaryDirectory() + "poweremu-print.sock"
 
@@ -255,8 +253,9 @@ final class ServicesHub: ObservableObject {
     /// the queue whether anything is listening or not, so that a restart
     /// does not lose what was playing.
     nonisolated let music: MusicServer
-    /// The Audio Relay (always exists; listens only when switched on).  It
-    /// listens to this Mac only while an old Mac is actually connected.
+    /// The Audio Relay (always exists; listens only when switched on).  The
+    /// music is played by a page on this Mac; this is what carries the
+    /// result to an old Mac.
     nonisolated let audio = AudioRelay(note: { s in Task { @MainActor in ServicesHub.shared.note(s) } })
     private var bonjour: NetService?
     private var musicBonjour: NetService?
@@ -429,13 +428,11 @@ final class ServicesHub: ObservableObject {
     func setMusicWebRoot(_ p: String) { config.musicWebRoot = p; save(); restartListeners() }
     func setMusicPort(_ p: Int) { config.musicPort = p; save(); restartListeners() }
     func setAudioEnabled(_ on: Bool) { config.audioEnabled = on; save(); restartListeners() }
+    func setAudioSource(_ s: String) { config.audioSource = s; save(); restartListeners() }
     func setAudioMuteHost(_ on: Bool) { config.audioMuteHost = on; save(); restartListeners() }
     func setAudioPort(_ p: Int) { config.audioPort = p; save(); restartListeners() }
-    func setAudioSource(_ s: String) { config.audioSource = s; save(); restartListeners() }
 
-    /// The stored string as the relay's own idea of a source.  Anything
-    /// unrecognised is the player page, which is the safe answer: it sends
-    /// the music and not the rest of what this Mac is doing.
+    /// What the relay listens to, from what the plist holds.
     nonisolated static func audioSource(_ c: ServicesConfig) -> AudioRelay.Source {
         if c.audioSource == "system" { return .system }
         if c.audioSource.hasPrefix("device:") { return .device(String(c.audioSource.dropFirst(7))) }
