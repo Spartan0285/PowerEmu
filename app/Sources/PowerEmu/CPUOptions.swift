@@ -36,6 +36,21 @@ struct SMPCapabilities: Codable {
 }
 
 enum CPUOptions {
+    static let reportedSpeedChoices = [1420, 1500, 1670]
+    static let defaultReportedMHz = 1420
+
+    static func reportedMHz(_ configured: Int?) -> Int {
+        min(max(configured ?? defaultReportedMHz, defaultReportedMHz), 1670)
+    }
+
+    static func speedProperties(mhz: Int?, count: Int) -> String {
+        let hz = reportedMHz(mhz) * 1_000_000
+        return (0..<count).map { index in
+            #"" /cpus/PowerPC,G4@\#(index)" find-device d# "# + String(hz)
+                + #" encode-int " clock-frequency" property device-end "#
+        }.joined()
+    }
+
     struct Failure: LocalizedError {
         let message: String
         init(_ message: String) { self.message = message }

@@ -267,7 +267,7 @@ struct NewMachineSheet: View {
     /// reported below 1.42 GHz -- so a slower Mac still says 1.42 GHz there.
     private var shownProcessor: String {
         guard aboutStyle == .custom else {
-            return CPUConfig(mhz: max(cpu.mhz, VMRunner.minReportedMHz)).aboutText
+            return CPUConfig(mhz: CPUOptions.reportedMHz(cpu.mhz), count: cpu.count).aboutText
         }
         return cpu.aboutText
     }

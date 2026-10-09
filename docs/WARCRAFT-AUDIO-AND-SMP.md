@@ -1,5 +1,17 @@
 # Warcraft III audio and the CPU count — 6 October 2026
 
+Latest clock-service fix, command-reader optimization, live captures and packaged test-build status: [October 6 clock fix handoff](WARCRAFT-CLOCK-FIX-HANDOFF-2026-10-06.md).
+
+## Investigation update — verified controls
+
+Latest native matched tests now include both cards at four CPUs and repeated 9800 one/two-CPU captures. Two CPUs remained variable; one CPU was more consistent with lower FPS. A two-CPU load crashed in Miles, but the retry loaded and quit cleanly. No complete audio fix is established. See the final two-CPU section and concrete continuation in the [clock-fix handoff](WARCRAFT-CLOCK-FIX-HANDOFF-2026-10-06.md).
+
+The CPU-count observation is useful and reproduced in controlled tone captures, but the explanation below remains a hypothesis. Newly verified 1- and 4-active-CPU guests use the app's actual firmware and CPU startup properties. One CPU has zero low tone windows in interior seconds 5–45; four CPUs has 0–2.4%. Both have **zero catchup-discarded** throughout their tone logs. Polling overshoot is generally sub-ms; shared emulation/graphics lock waits reach ~13–14 ms. Do not infer whole-host saturation from a process using 400% CPU.
+
+`catchup-discarded` measures dropped pacing budget, not a directly observed count of destroyed PCM samples. Burst delivery may matter independently of that cap. The existing macOS nanosecond polling fix is already in this build. Host callback shortages remain with both CPU counts, so pre-host audio gaps and CoreAudio starvation must be measured separately.
+
+Those CPU controls use a standalone display capture frontend. A subsequent native app four-CPU test reached 33.23 FPS and exposed 77–91 ms active-tone pacing stalls, including an 89ms shared-lock wait; these crossed the 50 ms cap. This confirms that lost pacing budget can occur in the native path, while the responsible lock holder and complete audible cause remain unrooted. One CPU remains the best observed workaround. Full findings and continuation status: [October 6 performance handoff](RADEON-9800-PERFORMANCE-HANDOFF-2026-10-06.md). Preserve the original hypothesis below as context, not a confirmed diagnosis.
+
 A user observation, the mechanism behind it, and the September history that
 explains both. Written for whoever continues the CoreAudio work.
 

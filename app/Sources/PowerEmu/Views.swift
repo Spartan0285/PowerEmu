@@ -330,6 +330,17 @@ struct MachineDetail: View {
                     }
                 }
                 .disabled(vm.asleep || vm.config.classic)
+                Picker("Reported processor speed", selection: Binding(
+                    get: { CPUOptions.reportedMHz(vm.config.cpuMHz) },
+                    set: { binding(\.cpuMHz).wrappedValue = $0 }
+                )) {
+                    ForEach(CPUOptions.reportedSpeedChoices, id: \.self) { mhz in
+                        Text(CPUConfig(mhz: mhz).speed).tag(mhz)
+                    }
+                }
+                .disabled(vm.asleep)
+                Text("The speed apps see for each processor. This does not change emulation performance. Shut down before changing it.")
+                    .font(.caption).foregroundStyle(.secondary)
                 if vm.config.classic {
                     Text("\(vm.config.osName) uses one processor.")
                         .font(.caption).foregroundStyle(.secondary)
@@ -522,6 +533,23 @@ struct MachineDetail: View {
                  * reading "256 MB" next to a machine reporting 128 is just a
                  * lie the reader has to discover from About This Mac.
                  */
+                if VMRunner.graphicsComparisonAvailable {
+                    Picker("Graphics card", selection: Binding(
+                        get: { vm.config.experimentalGraphicsCard ?? .radeon9800 },
+                        set: { value in
+                            guard !locked, !vm.asleep else { return }
+                            vm.config.experimentalGraphicsCard = value
+                            try? vm.save()
+                        })) {
+                        Text("Radeon 9200").tag(VMConfig.ExperimentalGraphicsCard.radeon9200)
+                        Text("Radeon 9800 Pro (Experimental)").tag(VMConfig.ExperimentalGraphicsCard.radeon9800)
+                    }
+                    .disabled(vm.asleep)
+                    if vm.asleep {
+                        Text("Start fresh before changing graphics cards.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
                 Picker("Video memory", selection: binding(\.vramMB)) {
                     ForEach(vm.config.classic ? VMConfig.classicVRAMChoices
                                               : VMConfig.vramChoices, id: \.self) { mb in

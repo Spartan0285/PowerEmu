@@ -2,7 +2,7 @@ import Foundation
 
 /// Answers PowerEmu Clock in the guest (guest/src/PEClock.c): every
 /// newline it sends gets this Mac's time back as "SECONDS.MICROSECONDS\n".  The guest reaches
-/// it at 10.0.2.100:7701 through a guestfwd rule and `nc -U` (VMRunner).
+/// it at 10.0.2.100:7701 through VMRunner's per-connection guestfwd rule.
 final class ClockServer: @unchecked Sendable {
     let socketPath: String
     private var listenFD: Int32 = -1

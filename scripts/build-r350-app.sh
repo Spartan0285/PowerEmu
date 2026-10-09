@@ -4,7 +4,10 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 QEMU_SRC="${POWEREMU_QEMU:-$HOME/Developer/poweremu-qemu}"
-FIRMWARE="${POWEREMU_OPENBIOS:-$ROOT/build/r350/openbios-r350.elf}"
+# The experimental app offers both cards for comparison. The older R350-only
+# image omits the 9200's display node and boots that selection to a black screen.
+# Use the combined firmware validated with both cards and four active CPUs.
+FIRMWARE="${POWEREMU_OPENBIOS:-$ROOT/build/smp/openbios-smp.elf}"
 
 [ -x "$QEMU_SRC/build-r350/qemu-system-ppc64-unsigned" ] || {
     echo "Missing R350 emulator build" >&2; exit 1

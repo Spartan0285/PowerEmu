@@ -87,11 +87,20 @@ The binary is stripped, so confirm the device table from the object file
 rather than the ELF:
 
 ```sh
-powerpc-elf-objdump -s obj-ppc/target/drivers/pci_database.o | grep -E '10025046|10025960|10025964'
+powerpc-elf-objdump -s obj-ppc/target/drivers/pci_database.o | grep -E '10025046|10025960|10025964|10024e48'
 ```
 
-Three entries are expected: `0x5046` Rage 128 (upstream), `0x5960` the RV280
+Four entries are expected: `0x5046` Rage 128 (upstream), `0x5960` the RV280
 this project emulates, and `0x5964` for a second card (see the second-screen
-notes -- an id no ATI kext claims, so the accelerator does not attach to it).
+notes -- an id no ATI kext claims, so the accelerator does not attach to it),
+plus `0x4e48` for the experimental Radeon 9800.
+
+The combined image at `build/smp/openbios-smp.elf` has SHA256
+`ef674543f363cf36c06ccf4580682d9f3fce98274ef72e575b314176ec469705`.
+Both experimental build scripts use it by default. On October 6, the native
+test app booted Tiger with four active CPUs, 256 MB VRAM and accelerated
+1680×1050 displays on both 9200 and 9800 selections. The older R350-only
+image at `build/r350/openbios-r350.elf` omitted the 9200 display node;
+do not package it in an app offering the 9200 comparison switch.
 
 Install it as `openbios-ppc` in the VM app's `Resources/firmware`.

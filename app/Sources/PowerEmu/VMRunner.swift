@@ -9,7 +9,7 @@ import DiskArbitration
 @MainActor
 final class VMRunner {
     /// The lowest processor speed Mac OS X is told (see the boot command).
-    static let minReportedMHz = 1420
+    static let minReportedMHz = CPUOptions.defaultReportedMHz
     private let vm: VirtualMachine
     private var process: Process?
     /// When an external disk is lent, QEMU is started with posix_spawn so the
@@ -131,12 +131,20 @@ final class VMRunner {
         return candidates.first { fm.fileExists(atPath: $0.appendingPathComponent("Contents/MacOS/qemu-system-ppc").path) }
     }
 
+    static var graphicsComparisonAvailable: Bool {
+        Bundle.main.object(forInfoDictionaryKey: "PERadeon9800Experiment") as? Bool == true
+    }
+
+    private var usesRadeon9800: Bool {
+        Self.graphicsComparisonAvailable && vm.config.experimentalGraphicsCard != .radeon9200
+    }
+
     func arguments(firmware fw: URL) throws -> [String] {
         let c = vm.config
         // Experimental application bundles can select the R350 device without
         // adding an unfinished Radeon 9800 choice to users' saved VM configs.
         // Normal PowerEmu bundles omit this key and continue to use the 9200.
-        let r350Experiment = Bundle.main.object(forInfoDictionaryKey: "PERadeon9800Experiment") as? Bool == true
+        let r350Experiment = usesRadeon9800
         let capabilities = SMPCapabilities.load(helper: Self.helperURL)
         let cpuArguments = try CPUOptions.arguments(count: c.cpuCount, smpCapable: capabilities != nil)
         // A machine normally boots an internal disk, but one set up to install
@@ -171,11 +179,14 @@ final class VMRunner {
         let pciRanges = #"" /pci@f2000000" find-device h# 1000000 encode-int h# 0 encode-int encode+ h# 0 encode-int encode+ h# f2000000 encode-int encode+ h# 0 encode-int encode+ h# 800000 encode-int encode+ h# 2000000 encode-int encode+ h# 0 encode-int encode+ h# 80000000 encode-int encode+ h# 80000000 encode-int encode+ h# 0 encode-int encode+ h# 40000000 encode-int encode+ " ranges" property device-end "#
         // The processor speed Mac OS X reports is the cpu node's
         // clock-frequency. Programs read it too, and games refuse to run
-        // below their minimum (Halo on a 500 MHz "Cube"), so a chosen speed
-        // is only ever raised to, never lowered below, 1.42 GHz -- the
-        // fastest Power Mac G4. About This Mac shows the chosen speed anyway
+        // below their minimum (Halo on a 500 MHz "Cube"), so the reported
+        // speed stays between the 1.42 GHz compatibility default and the
+        // configurable 1.67 GHz maximum. About This Mac shows the model speed
         // (PEPersonalize patches its text).
-        let cpuSpeed = c.cpuMHz.map { #"" /cpus/PowerPC,G4@0" find-device d# "# + String(max($0, Self.minReportedMHz) * 1_000_000) + #" encode-int " clock-frequency" property device-end "# } ?? ""
+        // Older configurations omit cpuMHz. Apply the same minimum there:
+        // otherwise OpenBIOS reports 900 MHz and Final Cut Pro 6 exits
+        // before its splash screen when its requirements check warns.
+        let cpuSpeed = CPUOptions.speedProperties(mhz: c.cpuMHz, count: c.cpuCount)
         /*
          * Classic Mac OS: take the sound hardware out of the device tree.
          *
@@ -298,7 +309,16 @@ final class VMRunner {
              * the device because, until the guest could be driven to launch
              * an application at all, there was no way to find that out.
              */
-            ? "ppc-mac-r350-probe,id=gpu0,vgamem_mb=\(vram),x-r350-bridge-aic=on,x-r350-linear-render=on,x-r350-decode-rs=on"
+            /*
+             * x-r350-direct-vram: sample and render straight out of guest
+             * VRAM instead of staging a copy per draw.  Without it every
+             * draw allocates, reads and converts each texture again -- the
+             * same 256x256 surface ten thousand times over a menu -- which
+             * is what made Warcraft III unusable rather than merely slow.
+             * Part of the configuration the 9800 bring-up is validated
+             * against; see RADEON-9800-MODEL-HANDOFF-2026-10-05.md.
+             */
+            ? "ppc-mac-r350-probe,id=gpu0,vgamem_mb=\(vram),x-r350-bridge-aic=on,x-r350-linear-render=on,x-r350-decode-rs=on,x-r350-direct-vram=on"
             : "ppc-mac-gpu,id=gpu0,vgamem_mb=\(vram)"
         /*
          * Classic Mac OS draws through qemu_vga.ndrv, which reports an
@@ -473,25 +493,34 @@ final class VMRunner {
             for (service, host) in sharedPorts.sorted(by: { $0.value < $1.value }) {
                 net += ",hostfwd=tcp::\(host)-:\(service.guestPort)"
             }
+            // The experimental helper supports a separate Unix socket for
+            // every guest connection, avoiding relay process launches under
+            // the emulator's shared lock. Older shipping helpers keep nc.
+            let guestForward = Self.graphicsComparisonAvailable
+                ? "unix-connect:" : "cmd:/usr/bin/nc -U "
             // PowerEmu Tools: the guest's connections to 10.0.2.100:7700
-            // reach GuestAgent's socket, one nc per connection.
-            net += ",guestfwd=tcp:10.0.2.100:7700-cmd:/usr/bin/nc -U \(agentPath)"
+            // reach GuestAgent's socket, independently for each connection.
+            net += ",guestfwd=tcp:10.0.2.100:7700-\(guestForward)\(agentPath)"
             // Shared folders: http://10.0.2.100/ in the guest.
-            net += ",guestfwd=tcp:10.0.2.100:80-cmd:/usr/bin/nc -U \(davPath)"
+            net += ",guestfwd=tcp:10.0.2.100:80-\(guestForward)\(davPath)"
             // The guest's clock daemon asks the time at 10.0.2.100:7701.
-            net += ",guestfwd=tcp:10.0.2.100:7701-cmd:/usr/bin/nc -U \(clockPath)"
+            net += ",guestfwd=tcp:10.0.2.100:7701-\(guestForward)\(clockPath)"
             // The Service Hub (shared by all virtual Macs): mail at
             // 10.0.2.100 on the standard IMAP and SMTP ports.
-            net += ",guestfwd=tcp:10.0.2.100:143-cmd:/usr/bin/nc -U \(ServicesHub.imapSocket)"
-            net += ",guestfwd=tcp:10.0.2.100:25-cmd:/usr/bin/nc -U \(ServicesHub.smtpSocket)"
-            net += ",guestfwd=tcp:10.0.2.100:587-cmd:/usr/bin/nc -U \(ServicesHub.smtpSocket)"
-            net += ",guestfwd=tcp:10.0.2.100:7780-cmd:/usr/bin/nc -U \(ServicesHub.webSocket)"
+            net += ",guestfwd=tcp:10.0.2.100:143-\(guestForward)\(ServicesHub.imapSocket)"
+            net += ",guestfwd=tcp:10.0.2.100:25-\(guestForward)\(ServicesHub.smtpSocket)"
+            net += ",guestfwd=tcp:10.0.2.100:587-\(guestForward)\(ServicesHub.smtpSocket)"
+            net += ",guestfwd=tcp:10.0.2.100:7780-\(guestForward)\(ServicesHub.webSocket)"
             // PowerMusic: the controller in Mac OS X finds this Mac's music
             // at 10.0.2.100:3001.  Always forwarded, like the mail and the
             // web; whether anything answers is the Service Hub's switch.
-            net += ",guestfwd=tcp:10.0.2.100:3001-cmd:/usr/bin/nc -U \(ServicesHub.musicSocket)"
+            net += ",guestfwd=tcp:10.0.2.100:3001-\(guestForward)\(ServicesHub.musicSocket)"
+            // PowerMusic's sound: a listener in the guest reads the stream at
+            // 10.0.2.100:7781.  Always forwarded, like the music it belongs
+            // to; whether anything answers is the Service Hub's switch.
+            net += ",guestfwd=tcp:10.0.2.100:7781-\(guestForward)\(ServicesHub.audioSocket)"
             // The guest prints to this as an LPD printer at 10.0.2.100.
-            net += ",guestfwd=tcp:10.0.2.100:515-cmd:/usr/bin/nc -U \(ServicesHub.printSocket)"
+            net += ",guestfwd=tcp:10.0.2.100:515-\(guestForward)\(ServicesHub.printSocket)"
             a += ["-netdev", net, "-device", "sungem,netdev=net0"]
             /*
              * Bridged: a second card, straight on to this Mac's network
@@ -649,6 +678,17 @@ final class VMRunner {
         let qbin = helper.appendingPathComponent("Contents/MacOS/qemu-system-ppc")
         let args = try arguments(firmware: fw)
         var env = ProcessInfo.processInfo.environment
+        /*
+         * The experimental 9800's tested configuration: tiled depth export
+         * and the linear fog path.  Both are opt-in in the device because
+         * they are not validated beyond the two applications the bring-up
+         * uses, so they are set here rather than defaulted on -- the shipping
+         * 9200 selection is untouched either way.
+         */
+        if usesRadeon9800 {
+            env["POWEREMU_R350_TILED_DEPTH"] = "1"
+            env["POWEREMU_R350_FOG"] = "1"
+        }
         // Burner on whenever the drive is recordable-capable (empty tray or a
         // blank disc) and not booting from a pressed disc.  Recordability of
         // any given disc is still decided by whether its backing is writable.

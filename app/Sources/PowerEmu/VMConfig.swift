@@ -51,7 +51,7 @@ struct VMConfig: Codable, Equatable {
     /// Which Mac it looks like (MacModel.id); only the icon.
     var model: String?
     /// The processor Mac OS X reports, in MHz: cosmetic only, the emulated
-    /// CPU runs the same whatever it says. nil = the emulator's own figure.
+    /// CPU runs the same whatever it says. nil = 1.42 GHz compatibility default.
     var cpuMHz: Int?
     /// One CPU preserves existing packages; two requires the experimental helper.
     var cpuCount: Int = 1
@@ -176,6 +176,13 @@ struct VMConfig: Codable, Equatable {
     /// uni-north PCI window and matching Open Firmware ranges.
     var vramMB = 128
     static let vramChoices = [64, 128, 256]
+    /// Used only by the isolated graphics test bundle. Shipping builds ignore
+    /// this choice and continue to boot their supported Radeon 9200.
+    enum ExperimentalGraphicsCard: String, Codable {
+        case radeon9200 = "9200"
+        case radeon9800 = "9800"
+    }
+    var experimentalGraphicsCard: ExperimentalGraphicsCard?
     /*
      * How the guest's screen is scaled up to fill the window.
      *
@@ -340,7 +347,7 @@ struct VMConfig: Codable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case name, osName, model, cpuMHz, cpuCount, memoryMB, disks, startupDisk, discs, insertedDisc, discRecordable, bootFromDisc
-        case hardwareCursor, extraDisplayModes, startFullscreen, embeddedDisplay, vramMB, mouseMode
+        case hardwareCursor, extraDisplayModes, startFullscreen, embeddedDisplay, vramMB, mouseMode, experimentalGraphicsCard
         case bootChime, chimeSound, chimeFile, bootWidth, bootHeight, autoStart, verboseBoot, safeBoot, singleUser, audio, network, sshPort, shareClipboard, sharedFolders
         case agpBridge, monitorPort, gpuTrace, extraQEMUArgs, gamepad, shareOnNetwork, bridgedInterface
         case externalDisk
@@ -382,6 +389,7 @@ struct VMConfig: Codable, Equatable {
         d.chimeFile = try c.decodeIfPresent(String.self, forKey: .chimeFile)
         try get(.bootWidth, &d.bootWidth); try get(.bootHeight, &d.bootHeight); try get(.autoStart, &d.autoStart)
         try get(.embeddedDisplay, &d.embeddedDisplay); try get(.vramMB, &d.vramMB); try get(.mouseMode, &d.mouseMode)
+        d.experimentalGraphicsCard = try c.decodeIfPresent(ExperimentalGraphicsCard.self, forKey: .experimentalGraphicsCard)
         try get(.verboseBoot, &d.verboseBoot); try get(.safeBoot, &d.safeBoot)
         try get(.singleUser, &d.singleUser); try get(.audio, &d.audio); try get(.network, &d.network)
         if c.contains(.sshPort) { d.sshPort = try c.decodeIfPresent(Int.self, forKey: .sshPort) }
