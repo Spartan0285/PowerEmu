@@ -1,0 +1,1 @@
+{"before_wall_ms": 1791641626753, "after_wall_ms": 1791641626760, "scene_survived": true, "sequence_verified": true, "done_wall_ms": 1791641728342, "fixture": "AudioCalibration-Armed.w3m", "sha256": "0cea7dc9d4985739f2af043d9191745b0aa4995636f0173b205ca91fb4dd04b7", "observed": ["READY", "ARMED", "INDEX1 PCM44100 START/STOP1", "INDEX5 EXACT-MP3 START2", "DONE3PCM3MP3"]}

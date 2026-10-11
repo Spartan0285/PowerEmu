@@ -1,0 +1,23 @@
+[   0.1s] staging ownership and opening the app
+[   1.7s] guard registered: 31665
+[  37.9s] guest up at 38s
+[  40.7s] maps present: -rw-r--r--   1 adam  admin   88248 Sep 18 11:49 /Applications/Warcraft III Folder/Maps/(2)Harrow.w3m | -rw-r--r--   1 adam  admin  299288 Oct 11 01:20 /Applications/Warcraft III Folder/Maps/Prologue01.w3m |
+[  40.7s] === melee: open "/Applications/Warcraft III Folder/Maps/(2)Harrow.w3m" ===
+[  64.0s]   running: 212   1.9 /Applications/Warcraft III Folder/Warcraft III /Applications/Warcraft III Folder/Warcraft III -psn_0_917505
+[  89.0s]   shot melee-t25: 5292017
+[  90.2s]   cpu: 212   0.7 /Applications/Warcraft III Folder/Warcraft III /Applications/Warcraft III Folder/Warcraft III -psn_0_917505
+[  94.6s]   UI: ERR The variable linefeed is not defined. |
+[ 139.6s]   shot melee-final: 5292017
+[ 140.6s]   cpu final: 212   0.9 /Applications/Warcraft III Folder/Warcraft III /Applications/Warcraft III Folder/Warcraft III -psn_0_917505
+[ 180.6s]   quitting before the campaign trial: True
+[ 180.6s] === campaign: open "/Applications/Warcraft III Folder/Maps/Prologue01.w3m" ===
+[ 186.9s]   running: 352   1.1 /Applications/Warcraft III Folder/Warcraft III /Applications/Warcraft III Folder/Warcraft III -psn_0_2359297
+[ 211.9s]   shot campaign-t25: 5292017
+[ 212.9s]   cpu: 352   0.3 /Applications/Warcraft III Folder/Warcraft III /Applications/Warcraft III Folder/Warcraft III -psn_0_2359297
+[ 215.4s]   UI: ERR The variable linefeed is not defined. |
+[ 260.4s]   shot campaign-final: 5292017
+[ 261.5s]   cpu final: 352   1.2 /Applications/Warcraft III Folder/Warcraft III /Applications/Warcraft III Folder/Warcraft III -psn_0_2359297
+[ 261.5s] --- stopping the identified owned VM ---
+[ 261.5s] QMP quit sent
+[ 264.6s] emulator gone
+[ 265.0s] app restored and re-signed

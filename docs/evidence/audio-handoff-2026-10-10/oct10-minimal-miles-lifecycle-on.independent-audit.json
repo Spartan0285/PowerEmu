@@ -1,0 +1,799 @@
+{
+  "checks": {
+    "contiguous_packet_offsets": true,
+    "metadata_end_equals_pcm_bytes": true,
+    "all_six_host_missing_zero": true,
+    "logged_pcm_drops": [
+      "0"
+    ],
+    "logged_metadata_drops": [
+      "0"
+    ],
+    "write_failures": false
+  },
+  "interpretation": "LifecycleON has no clean full-source repeat; failed playback candidate, no promotion. Earlier OFF clean repeats do not by themselves establish causal regression due noisy trials. Local phase is diagnostic, not a corrected score.",
+  "rows": [
+    {
+      "candidate": 1,
+      "mode": "EXACT-MP3",
+      "onset_relative_seconds": 6.385374149659864,
+      "training_corr_recomputed": 0.9999991173322634,
+      "full_corr_recomputed": 0.49118088705652907,
+      "heldout_passed": 3,
+      "source_identity": true,
+      "source_local_zero_islands": [
+        {
+          "frame": 5978,
+          "length": 833,
+          "relative_seconds": 0.13555555555555557,
+          "fixed_reference_rms": 0.05172743654430776
+        },
+        {
+          "frame": 13979,
+          "length": 869,
+          "relative_seconds": 0.316984126984127,
+          "fixed_reference_rms": 0.05704687211646654
+        },
+        {
+          "frame": 36352,
+          "length": 979,
+          "relative_seconds": 0.8243083900226758,
+          "fixed_reference_rms": 0.08421969187722164
+        },
+        {
+          "frame": 51667,
+          "length": 991,
+          "relative_seconds": 1.1715873015873015,
+          "fixed_reference_rms": 0.06586982810932002
+        },
+        {
+          "frame": 64946,
+          "length": 960,
+          "relative_seconds": 1.4726984126984126,
+          "fixed_reference_rms": 0.015648232713425102
+        }
+      ],
+      "strong_local_phase_diagnostic": [
+        {
+          "output_frame": 8192,
+          "reference_minus_output_frames": 357,
+          "corr": 0.9999990873296348
+        },
+        {
+          "output_frame": 16384,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999974309736162
+        },
+        {
+          "output_frame": 18432,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999999622916967
+        },
+        {
+          "output_frame": 20480,
+          "reference_minus_output_frames": 0,
+          "corr": 0.999999953104211
+        },
+        {
+          "output_frame": 22528,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999998408198305
+        },
+        {
+          "output_frame": 24576,
+          "reference_minus_output_frames": 0,
+          "corr": 0.999999210471342
+        },
+        {
+          "output_frame": 26624,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999993263726029
+        },
+        {
+          "output_frame": 28672,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999988472235682
+        },
+        {
+          "output_frame": 30720,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999999301195596
+        },
+        {
+          "output_frame": 32768,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999999428248545
+        },
+        {
+          "output_frame": 38912,
+          "reference_minus_output_frames": -467,
+          "corr": 0.9999997207125406
+        },
+        {
+          "output_frame": 40960,
+          "reference_minus_output_frames": -467,
+          "corr": 0.9999998956772975
+        },
+        {
+          "output_frame": 45056,
+          "reference_minus_output_frames": -467,
+          "corr": 0.9999996503485905
+        },
+        {
+          "output_frame": 47104,
+          "reference_minus_output_frames": -467,
+          "corr": 0.9999997996133742
+        },
+        {
+          "output_frame": 49152,
+          "reference_minus_output_frames": -467,
+          "corr": 0.9999999314514132
+        },
+        {
+          "output_frame": 53248,
+          "reference_minus_output_frames": -946,
+          "corr": 0.9999996575205654
+        },
+        {
+          "output_frame": 55296,
+          "reference_minus_output_frames": -946,
+          "corr": 0.9999993230002672
+        },
+        {
+          "output_frame": 57344,
+          "reference_minus_output_frames": -946,
+          "corr": 0.9999997236261617
+        },
+        {
+          "output_frame": 59392,
+          "reference_minus_output_frames": -946,
+          "corr": 0.9999992166560799
+        },
+        {
+          "output_frame": 61440,
+          "reference_minus_output_frames": -946,
+          "corr": 0.9999987393637869
+        },
+        {
+          "output_frame": 67584,
+          "reference_minus_output_frames": -1394,
+          "corr": 0.9999995605929556
+        },
+        {
+          "output_frame": 69632,
+          "reference_minus_output_frames": -1394,
+          "corr": 0.9999984926007969
+        },
+        {
+          "output_frame": 71680,
+          "reference_minus_output_frames": -1394,
+          "corr": 0.9999995317847531
+        },
+        {
+          "output_frame": 73728,
+          "reference_minus_output_frames": -1394,
+          "corr": 0.9999994987211063
+        },
+        {
+          "output_frame": 75776,
+          "reference_minus_output_frames": -1394,
+          "corr": 0.9999998643602556
+        },
+        {
+          "output_frame": 77824,
+          "reference_minus_output_frames": -1394,
+          "corr": 0.9999996893021001
+        },
+        {
+          "output_frame": 79872,
+          "reference_minus_output_frames": -1394,
+          "corr": 0.9999994121923798
+        }
+      ],
+      "zero_analysis_scored": false,
+      "zero_analysis_reason": "Diagnostic only; fixed-reference waveform phase changes. Unqualified candidates withheld."
+    },
+    {
+      "candidate": 2,
+      "mode": "EXACT-MP3",
+      "onset_relative_seconds": 16.33419501133787,
+      "training_corr_recomputed": 0.4656813520327673,
+      "full_corr_recomputed": -0.0005958613032475318,
+      "heldout_passed": 0,
+      "source_identity": false,
+      "source_local_zero_islands": [],
+      "strong_local_phase_diagnostic": [],
+      "zero_analysis_scored": false,
+      "zero_analysis_reason": "Diagnostic only; fixed-reference waveform phase changes. Unqualified candidates withheld."
+    },
+    {
+      "candidate": 3,
+      "mode": "EXACT-MP3",
+      "onset_relative_seconds": 26.298684807256237,
+      "training_corr_recomputed": 0.9999991173322634,
+      "full_corr_recomputed": 0.368985012303808,
+      "heldout_passed": 3,
+      "source_identity": true,
+      "source_local_zero_islands": [
+        {
+          "frame": 26112,
+          "length": 1032,
+          "relative_seconds": 0.592108843537415,
+          "fixed_reference_rms": 0.05233204939965126
+        },
+        {
+          "frame": 36360,
+          "length": 1026,
+          "relative_seconds": 0.8244897959183674,
+          "fixed_reference_rms": 0.08442536366048177
+        },
+        {
+          "frame": 85002,
+          "length": 841,
+          "relative_seconds": 1.927482993197279,
+          "fixed_reference_rms": 0.01144966025461106
+        }
+      ],
+      "strong_local_phase_diagnostic": [
+        {
+          "output_frame": 4096,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999996641261885
+        },
+        {
+          "output_frame": 6144,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999979546049288
+        },
+        {
+          "output_frame": 8192,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999994754724407
+        },
+        {
+          "output_frame": 12288,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9994624728382293
+        },
+        {
+          "output_frame": 14336,
+          "reference_minus_output_frames": 0,
+          "corr": 0.999982290211836
+        },
+        {
+          "output_frame": 16384,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999974309736162
+        },
+        {
+          "output_frame": 18432,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999999622916967
+        },
+        {
+          "output_frame": 20480,
+          "reference_minus_output_frames": 0,
+          "corr": 0.999999953104211
+        },
+        {
+          "output_frame": 22528,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999998408198305
+        },
+        {
+          "output_frame": 28672,
+          "reference_minus_output_frames": -520,
+          "corr": 0.9999980817446182
+        },
+        {
+          "output_frame": 30720,
+          "reference_minus_output_frames": -520,
+          "corr": 0.9999999267169667
+        },
+        {
+          "output_frame": 32768,
+          "reference_minus_output_frames": -520,
+          "corr": 0.9999999417394952
+        },
+        {
+          "output_frame": 38912,
+          "reference_minus_output_frames": -1034,
+          "corr": 0.9999996331638511
+        },
+        {
+          "output_frame": 40960,
+          "reference_minus_output_frames": -1034,
+          "corr": 0.999999960306452
+        },
+        {
+          "output_frame": 45056,
+          "reference_minus_output_frames": -1034,
+          "corr": 0.999999004263872
+        },
+        {
+          "output_frame": 47104,
+          "reference_minus_output_frames": -1034,
+          "corr": 0.9999998015017642
+        },
+        {
+          "output_frame": 49152,
+          "reference_minus_output_frames": -1034,
+          "corr": 0.9999999218620771
+        },
+        {
+          "output_frame": 51200,
+          "reference_minus_output_frames": -1034,
+          "corr": 0.9999999260975291
+        },
+        {
+          "output_frame": 53248,
+          "reference_minus_output_frames": -1034,
+          "corr": 0.9999996318865859
+        },
+        {
+          "output_frame": 55296,
+          "reference_minus_output_frames": -1034,
+          "corr": 0.9999994062425408
+        },
+        {
+          "output_frame": 57344,
+          "reference_minus_output_frames": -1034,
+          "corr": 0.9999997171621069
+        },
+        {
+          "output_frame": 59392,
+          "reference_minus_output_frames": -1034,
+          "corr": 0.9999991458598761
+        },
+        {
+          "output_frame": 61440,
+          "reference_minus_output_frames": -1034,
+          "corr": 0.9999991009335142
+        },
+        {
+          "output_frame": 63488,
+          "reference_minus_output_frames": -1034,
+          "corr": 0.999994529971934
+        },
+        {
+          "output_frame": 65536,
+          "reference_minus_output_frames": -1034,
+          "corr": 0.9999826446815063
+        },
+        {
+          "output_frame": 67584,
+          "reference_minus_output_frames": -1034,
+          "corr": 0.9999974412074022
+        },
+        {
+          "output_frame": 69632,
+          "reference_minus_output_frames": -1034,
+          "corr": 0.9999995214721332
+        },
+        {
+          "output_frame": 71680,
+          "reference_minus_output_frames": -1034,
+          "corr": 0.9999995491949533
+        },
+        {
+          "output_frame": 73728,
+          "reference_minus_output_frames": -1034,
+          "corr": 0.9999993748304516
+        },
+        {
+          "output_frame": 75776,
+          "reference_minus_output_frames": -1034,
+          "corr": 0.9999998553817443
+        },
+        {
+          "output_frame": 77824,
+          "reference_minus_output_frames": -1034,
+          "corr": 0.999999648011629
+        },
+        {
+          "output_frame": 79872,
+          "reference_minus_output_frames": -1034,
+          "corr": 0.9999992439011887
+        }
+      ],
+      "zero_analysis_scored": false,
+      "zero_analysis_reason": "Diagnostic only; fixed-reference waveform phase changes. Unqualified candidates withheld."
+    },
+    {
+      "candidate": 4,
+      "mode": "PCM44100",
+      "onset_relative_seconds": 36.37097505668934,
+      "training_corr_recomputed": 0.9999999777604313,
+      "full_corr_recomputed": 0.4159665241926648,
+      "heldout_passed": 4,
+      "source_identity": true,
+      "source_local_zero_islands": [
+        {
+          "frame": 30720,
+          "length": 989,
+          "relative_seconds": 0.6965986394557823,
+          "fixed_reference_rms": 0.06356039887042075
+        },
+        {
+          "frame": 35293,
+          "length": 851,
+          "relative_seconds": 0.8002947845804989,
+          "fixed_reference_rms": 0.07852477514391928
+        },
+        {
+          "frame": 38192,
+          "length": 1053,
+          "relative_seconds": 0.866031746031746,
+          "fixed_reference_rms": 0.14522297395092892
+        },
+        {
+          "frame": 58189,
+          "length": 1025,
+          "relative_seconds": 1.3194784580498866,
+          "fixed_reference_rms": 0.03370983745566682
+        },
+        {
+          "frame": 64846,
+          "length": 1039,
+          "relative_seconds": 1.4704308390022676,
+          "fixed_reference_rms": 0.016348223530058163
+        },
+        {
+          "frame": 85341,
+          "length": 1099,
+          "relative_seconds": 1.9351700680272108,
+          "fixed_reference_rms": 0.011926428930452263
+        }
+      ],
+      "strong_local_phase_diagnostic": [
+        {
+          "output_frame": 4096,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999997541984601
+        },
+        {
+          "output_frame": 6144,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999999518431744
+        },
+        {
+          "output_frame": 8192,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999997162398542
+        },
+        {
+          "output_frame": 12288,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999999033025155
+        },
+        {
+          "output_frame": 14336,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999999731926561
+        },
+        {
+          "output_frame": 16384,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999999831850176
+        },
+        {
+          "output_frame": 18432,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999999835683744
+        },
+        {
+          "output_frame": 20480,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999999729635292
+        },
+        {
+          "output_frame": 22528,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999999582661656
+        },
+        {
+          "output_frame": 24576,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999196040098047
+        },
+        {
+          "output_frame": 32768,
+          "reference_minus_output_frames": -477,
+          "corr": 0.9972794700210279
+        },
+        {
+          "output_frame": 40960,
+          "reference_minus_output_frames": -1357,
+          "corr": 0.9999999812110099
+        },
+        {
+          "output_frame": 47104,
+          "reference_minus_output_frames": -1357,
+          "corr": 0.9999999539065139
+        },
+        {
+          "output_frame": 49152,
+          "reference_minus_output_frames": -1357,
+          "corr": 0.9999999488393394
+        },
+        {
+          "output_frame": 51200,
+          "reference_minus_output_frames": -1357,
+          "corr": 0.999999943437425
+        },
+        {
+          "output_frame": 53248,
+          "reference_minus_output_frames": -1357,
+          "corr": 0.999999935337591
+        },
+        {
+          "output_frame": 55296,
+          "reference_minus_output_frames": -1357,
+          "corr": 0.9999999183654457
+        },
+        {
+          "output_frame": 59392,
+          "reference_minus_output_frames": -1870,
+          "corr": 0.9999998217972635
+        },
+        {
+          "output_frame": 61440,
+          "reference_minus_output_frames": -1870,
+          "corr": 0.9999998410000456
+        },
+        {
+          "output_frame": 67584,
+          "reference_minus_output_frames": -2397,
+          "corr": 0.9999996239205173
+        },
+        {
+          "output_frame": 69632,
+          "reference_minus_output_frames": -2397,
+          "corr": 0.999999967520974
+        },
+        {
+          "output_frame": 71680,
+          "reference_minus_output_frames": -2397,
+          "corr": 0.999999979767557
+        },
+        {
+          "output_frame": 73728,
+          "reference_minus_output_frames": -2397,
+          "corr": 0.9999999755989747
+        },
+        {
+          "output_frame": 75776,
+          "reference_minus_output_frames": -2397,
+          "corr": 0.9999999571349554
+        },
+        {
+          "output_frame": 77824,
+          "reference_minus_output_frames": -2397,
+          "corr": 0.9999998957317761
+        },
+        {
+          "output_frame": 79872,
+          "reference_minus_output_frames": -2397,
+          "corr": 0.9999997131232818
+        },
+        {
+          "output_frame": 81920,
+          "reference_minus_output_frames": -2397,
+          "corr": 0.9999992987499585
+        }
+      ],
+      "zero_analysis_scored": false,
+      "zero_analysis_reason": "Diagnostic only; fixed-reference waveform phase changes. Unqualified candidates withheld."
+    },
+    {
+      "candidate": 5,
+      "mode": "PCM44100",
+      "onset_relative_seconds": 46.313968253968255,
+      "training_corr_recomputed": 0.7640971809437517,
+      "full_corr_recomputed": 0.32332948815589113,
+      "heldout_passed": 0,
+      "source_identity": false,
+      "source_local_zero_islands": [],
+      "strong_local_phase_diagnostic": [],
+      "zero_analysis_scored": false,
+      "zero_analysis_reason": "Diagnostic only; fixed-reference waveform phase changes. Unqualified candidates withheld."
+    },
+    {
+      "candidate": 6,
+      "mode": "PCM44100",
+      "onset_relative_seconds": 56.32097505668934,
+      "training_corr_recomputed": 0.9999999777604313,
+      "full_corr_recomputed": 0.6990369535405475,
+      "heldout_passed": 8,
+      "source_identity": true,
+      "source_local_zero_islands": [
+        {
+          "frame": 41984,
+          "length": 1100,
+          "relative_seconds": 0.9520181405895691,
+          "fixed_reference_rms": 0.015957745989918646
+        },
+        {
+          "frame": 76364,
+          "length": 1026,
+          "relative_seconds": 1.731609977324263,
+          "fixed_reference_rms": 0.03646465702694314
+        }
+      ],
+      "strong_local_phase_diagnostic": [
+        {
+          "output_frame": 4096,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999997541984601
+        },
+        {
+          "output_frame": 6144,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999999518431744
+        },
+        {
+          "output_frame": 8192,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999997162398542
+        },
+        {
+          "output_frame": 12288,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999999033025155
+        },
+        {
+          "output_frame": 14336,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999999731926561
+        },
+        {
+          "output_frame": 16384,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999999831850176
+        },
+        {
+          "output_frame": 18432,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999999835683744
+        },
+        {
+          "output_frame": 20480,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999999729635292
+        },
+        {
+          "output_frame": 22528,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999999582661656
+        },
+        {
+          "output_frame": 24576,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999999523503377
+        },
+        {
+          "output_frame": 26624,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999998102211851
+        },
+        {
+          "output_frame": 28672,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999998907919778
+        },
+        {
+          "output_frame": 30720,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999999503701525
+        },
+        {
+          "output_frame": 32768,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999999573471385
+        },
+        {
+          "output_frame": 34816,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999999637002839
+        },
+        {
+          "output_frame": 36864,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999999814505255
+        },
+        {
+          "output_frame": 38912,
+          "reference_minus_output_frames": 0,
+          "corr": 0.9999999867805929
+        },
+        {
+          "output_frame": 45056,
+          "reference_minus_output_frames": -588,
+          "corr": 0.9999998524648854
+        },
+        {
+          "output_frame": 47104,
+          "reference_minus_output_frames": -588,
+          "corr": 0.9999999558976285
+        },
+        {
+          "output_frame": 49152,
+          "reference_minus_output_frames": -588,
+          "corr": 0.9999999490368134
+        },
+        {
+          "output_frame": 51200,
+          "reference_minus_output_frames": -588,
+          "corr": 0.9999999423030166
+        },
+        {
+          "output_frame": 53248,
+          "reference_minus_output_frames": -588,
+          "corr": 0.9999999287498538
+        },
+        {
+          "output_frame": 55296,
+          "reference_minus_output_frames": -588,
+          "corr": 0.9999998992351794
+        },
+        {
+          "output_frame": 57344,
+          "reference_minus_output_frames": -588,
+          "corr": 0.999999830826524
+        },
+        {
+          "output_frame": 59392,
+          "reference_minus_output_frames": -588,
+          "corr": 0.9999998728046087
+        },
+        {
+          "output_frame": 61440,
+          "reference_minus_output_frames": -588,
+          "corr": 0.9999996800322647
+        },
+        {
+          "output_frame": 63488,
+          "reference_minus_output_frames": -588,
+          "corr": 0.9999995830003229
+        },
+        {
+          "output_frame": 65536,
+          "reference_minus_output_frames": -588,
+          "corr": 0.9999995438823345
+        },
+        {
+          "output_frame": 67584,
+          "reference_minus_output_frames": -588,
+          "corr": 0.9999999633413433
+        },
+        {
+          "output_frame": 69632,
+          "reference_minus_output_frames": -588,
+          "corr": 0.9999999784514505
+        },
+        {
+          "output_frame": 71680,
+          "reference_minus_output_frames": -588,
+          "corr": 0.9999999776874589
+        },
+        {
+          "output_frame": 73728,
+          "reference_minus_output_frames": -588,
+          "corr": 0.9999999602095148
+        },
+        {
+          "output_frame": 77824,
+          "reference_minus_output_frames": -1102,
+          "corr": 0.9999997647444069
+        },
+        {
+          "output_frame": 79872,
+          "reference_minus_output_frames": -1102,
+          "corr": 0.9999995268877583
+        }
+      ],
+      "zero_analysis_scored": false,
+      "zero_analysis_reason": "Diagnostic only; fixed-reference waveform phase changes. Unqualified candidates withheld."
+    }
+  ]
+}

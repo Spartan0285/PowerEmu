@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>PowerEmu Depth Wait QA</string>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Any File</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>None</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.item</string>
+			</array>
+		</dict>
+	</array>
+	<key>CFBundleExecutable</key>
+	<string>PowerEmu</string>
+	<key>CFBundleIconFile</key>
+	<string>PowerEmu</string>
+	<key>CFBundleIconName</key>
+	<string>poweremu</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.poweremu.depth.wait.qa</string>
+	<key>CFBundleName</key>
+	<string>PowerEmu Depth Wait QA</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.utilities</string>
+	<key>LSEnvironment</key>
+	<dict>
+		<key>POWEREMU_AUDIO_KEEP_PACE_DEBT</key>
+		<string>0</string>
+		<key>POWEREMU_AUDIO_TIMING</key>
+		<string>0</string>
+		<key>POWEREMU_COREAUDIO_CAPTURE</key>
+		<string>/tmp/pe9800/oct10-minimal-passive-2048-fast</string>
+		<key>POWEREMU_COREAUDIO_CAPTURE_SECONDS</key>
+		<string>600</string>
+		<key>POWEREMU_EXPERIMENT_SUPPORT</key>
+		<string>/tmp/pe9800/oct08-autonomous-support</string>
+		<key>POWEREMU_SCREAMER_LIFECYCLE_FIX</key>
+		<string>0</string>
+	</dict>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSHumanReadableCopyright</key>
+	<string>PowerEmu is free software under the GNU GPL v2 or later.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Lets a virtual Mac hear this Mac’s microphone, when you give it one.</string>
+	<key>PEBuildStage</key>
+	<string>Alpha</string>
+	<key>PERadeon9800Experiment</key>
+	<true/>
+</dict>
+</plist>

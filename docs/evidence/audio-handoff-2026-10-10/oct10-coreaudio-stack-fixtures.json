@@ -1,0 +1,22 @@
+{
+  "synthetic_only": true,
+  "tests": {
+    "valid_stack_RW_data_bridge_no_executeclaim": true,
+    "wrong_backchain": true,
+    "backward_chain": true,
+    "overflow": true,
+    "wrong_return": true,
+    "partial_slots": true,
+    "partial_cleanup": true,
+    "resume_error": true,
+    "epoch_reverse": true,
+    "wrong_stack_extent": true,
+    "saved_record_mismatch": true,
+    "ambiguous_pairs": true,
+    "changed_prologue": true,
+    "changed_callsite": true,
+    "wrong_sample_opcode": true,
+    "changed_capture_epoch": true,
+    "changed_object": true
+  }
+}

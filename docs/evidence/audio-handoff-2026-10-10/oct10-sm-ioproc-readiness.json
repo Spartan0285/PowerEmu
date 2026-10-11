@@ -1,0 +1,15 @@
+{
+  "valid": true,
+  "source_sha256": "af79b75672f6dc2fe4744ca6dad7fe27a311b397a964bc527e7058db0691ace2",
+  "plugin_sha256": "8edd085c3a5aedc1f7c5374b3b1fccbad29fbf1f50cfb351ff66d8c5929bbe68",
+  "control_bytes": 368,
+  "record_bytes": 320,
+  "fixture_tests": 16,
+  "actual_ppc_records": 354,
+  "independent_records": 354,
+  "default_off_load": true,
+  "same_qa_backend_unchanged": true,
+  "no_guest_disk_or_game_launched": true,
+  "live_guest_timestamp_capture_not_yet_done": true,
+  "playback_changed": false
+}

@@ -1,0 +1,16 @@
+ M audio/coreaudio.m
+ M hw/audio/screamer.c
+ M hw/intc/openpic.c
+ M system/cpus.c
+ M system/main.c
+ M tests/poweremu/coreaudio-capture-test.py
+ M tests/poweremu/coreaudio-output-test.py
+ M tests/poweremu/screamer-pacing-test.py
+?? hw/audio/screamer-slot-map.h
+?? hw/audio/screamer-slot.h
+?? tests/poweremu/screamer-irq-trace-test.py
+?? tests/poweremu/screamer-lifecycle-test.py
+?? tests/poweremu/screamer-pcm-capture-test.py
+?? tests/poweremu/screamer-slot-map-test.py
+?? tests/poweremu/screamer-slot-test.py
+?? tests/poweremu/screamer-trace-test.py

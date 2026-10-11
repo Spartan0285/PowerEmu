@@ -1,0 +1,252 @@
+{
+  "schema": 2,
+  "pid": 999,
+  "pid_after": 999,
+  "capture_id": "synthetic",
+  "capture_id_after": "synthetic",
+  "process_before": "999 /Applications/Warcraft III Folder/Warcraft III",
+  "process_after": "999 /Applications/Warcraft III Folder/Warcraft III",
+  "vmmap_before": "Virtual Memory Map of process 999 (Warcraft III)\nMALLOC 10000000-10010000 [64K] rw-/rwx SM=PRV\nVM_ALLOCATE 11000000-11001000 [4K] rw-/rwx SM=PRV\nStack f0307000-f0387000 [512K] rw-/rwx SM=PRV thread 7\n__TEXT 91444000-914c0000 [496K] r-x/rwx SM=COW /System/Library/Frameworks/CoreAudio.framework/Versions/A/CoreAudio\n__TEXT 162ab000-162e5000 [232K] r-x/rwx SM=COW /System/Library/Components/SoundManagerComponents.component/Contents/MacOS/SoundManagerComponents\n",
+  "vmmap_after": "Virtual Memory Map of process 999 (Warcraft III)\nMALLOC 10000000-10010000 [64K] rw-/rwx SM=PRV\nVM_ALLOCATE 11000000-11001000 [4K] rw-/rwx SM=PRV\nStack f0307000-f0387000 [512K] rw-/rwx SM=PRV thread 7\n__TEXT 91444000-914c0000 [496K] r-x/rwx SM=COW /System/Library/Frameworks/CoreAudio.framework/Versions/A/CoreAudio\n__TEXT 162ab000-162e5000 [232K] r-x/rwx SM=COW /System/Library/Components/SoundManagerComponents.component/Contents/MacOS/SoundManagerComponents\n",
+  "snapshot": {
+    "pid": 999,
+    "thread": 17,
+    "pc": 371918872,
+    "sp": 4030228736,
+    "word": 2208497668,
+    "word_ok": 1,
+    "capture_begin_ticks": 100,
+    "capture_end_ticks": 110,
+    "capture_error": 0,
+    "suspend_ok": 1,
+    "resume_ok": 1,
+    "resume_status": 0,
+    "stack_lo": 4029706240,
+    "stack_hi": 4030230528,
+    "frames": [
+      {
+        "frame": 4030228736,
+        "backchain": 4030228880,
+        "lr_address": 4030228888,
+        "lr": 371918772
+      },
+      {
+        "frame": 4030228880,
+        "backchain": 4030228960,
+        "lr_address": 4030228968,
+        "lr": 2437327884
+      },
+      {
+        "frame": 4030228960,
+        "backchain": 4030229120,
+        "lr_address": 4030229128,
+        "lr": 2437327020
+      }
+    ],
+    "candidates": [
+      {
+        "inner_frame": 4030228736,
+        "wrapper_frame": 4030228880,
+        "caller_frame": 4030228960,
+        "record": 268435456,
+        "hw": 268443648,
+        "device": 268439552,
+        "inner_return": 371918772,
+        "wrapper_return": 2437327884,
+        "rawslotshex": "100000001000200010001000162b07b49146ac0c"
+      }
+    ],
+    "reads": [
+      {
+        "address": 371918872,
+        "bytes": 4,
+        "bytes_hex": "83a30004"
+      },
+      {
+        "address": 4030228736,
+        "bytes": 16,
+        "bytes_hex": "f0386990000000000000000000000000"
+      },
+      {
+        "address": 4030228888,
+        "bytes": 4,
+        "bytes_hex": "162b07b4"
+      },
+      {
+        "address": 4030228880,
+        "bytes": 16,
+        "bytes_hex": "f03869e000000000162b07b400000000"
+      },
+      {
+        "address": 4030228968,
+        "bytes": 4,
+        "bytes_hex": "9146ac0c"
+      },
+      {
+        "address": 4030228960,
+        "bytes": 16,
+        "bytes_hex": "f0386a80000000009146ac0c00000000"
+      },
+      {
+        "address": 4030229128,
+        "bytes": 4,
+        "bytes_hex": "9146a8ac"
+      },
+      {
+        "address": 4030229120,
+        "bytes": 16,
+        "bytes_hex": "00000000000000009146a8ac00000000"
+      },
+      {
+        "address": 4030228868,
+        "bytes": 8,
+        "bytes_hex": "1000000010002000"
+      },
+      {
+        "address": 4030228952,
+        "bytes": 4,
+        "bytes_hex": "10001000"
+      }
+    ]
+  },
+  "blobs": {
+    "record_before": "1000100011000000100020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "record_after": "1000100011000000100020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "device_before": "000000000000000700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010003000",
+    "device_after": "000000000000000700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010003000",
+    "list_before": "0000000010000000100000a4",
+    "list_after": "0000000010000000100000a4",
+    "hw_before": "0000000000000000000000000000000700000000000000000000000000000000000000000000000011000000",
+    "hw_after": "0000000000000000000000000000000700000000000000000000000000000000000000000000000011000000",
+    "bridge_before": "3d60162b616b07947d6903a64e800420",
+    "bridge_after": "3d60162b616b07947d6903a64e800420",
+    "core_call_before": "7c0802a67cc63379429f0005bee1ffdc7c7e1b787c9823787fe802a6900100087cba2b787cf93b783fbf0ffe9421ff907d1c4378837d8e9c4182000c7cdb33784800002480a300902f850000419e0018806300003880000138de00844bfff5b5837e00902f9c000083bd8e9c419e000c7f9de3784800002480be00a02f850000419e0018807e00003880000038de00944bfff58183be00a07fc3f3787f44d3787f25cb784800005d2f830000419e0040805e0000819e000480010078813e0008382100707f04c3787f65db787f46d3787fa7eb787f28cb78bae1ffdc806200047d8903a67c0803a64e8004208001007838210070bae1ffdc7c0803a64e800020",
+    "core_call_after": "7c0802a67cc63379429f0005bee1ffdc7c7e1b787c9823787fe802a6900100087cba2b787cf93b783fbf0ffe9421ff907d1c4378837d8e9c4182000c7cdb33784800002480a300902f850000419e0018806300003880000138de00844bfff5b5837e00902f9c000083bd8e9c419e000c7f9de3784800002480be00a02f850000419e0018807e00003880000038de00944bfff58183be00a07fc3f3787f44d3787f25cb784800005d2f830000419e0040805e0000819e000480010078813e0008382100707f04c3787f65db787f46d3787fa7eb787f28cb78bae1ffdc806200047d8903a67c0803a64e8004208001007838210070bae1ffdc7c0803a64e800020",
+    "sm_callback_before": "7c6802a6bfc1fff87ce43b78906100087d3e4b787d234b789421ffb048000039885e00422c02000041a200147fc3f3784bffca5d38800000989e004280a100583821005038600000bbc1fff87ca803a64e800020",
+    "sm_callback_after": "7c6802a6bfc1fff87ce43b78906100087d3e4b787d234b789421ffb048000039885e00422c02000041a200147fc3f3784bffca5d38800000989e004280a100583821005038600000bbc1fff87ca803a64e800020",
+    "sm_prologues_before": "7c6802a6bfc1fff87ce43b78906100087d3e4b787d234b789421ffb048000039885e00422c02000041a200147fc3f3784bffca5d38800000989e004280a100583821005038600000bbc1fff87ca803a64e8000207ca000267c4802a67c842379bec1ffd8904100087c7b1b7890a100043b4000003b0000009421ff703b2000003ac0000083a30004",
+    "sm_prologues_after": "7c6802a6bfc1fff87ce43b78906100087d3e4b787d234b789421ffb048000039885e00422c02000041a200147fc3f3784bffca5d38800000989e004280a100583821005038600000bbc1fff87ca803a64e8000207ca000267c4802a67c842379bec1ffd8904100087c7b1b7890a100043b4000003b0000009421ff703b2000003ac0000083a30004",
+    "core_callsite_before": "7c7d1b7848000b71805e0000",
+    "core_callsite_after": "7c7d1b7848000b71805e0000"
+  },
+  "stack_helper": {
+    "schema": 2,
+    "provenance": "coherent-suspended-stack",
+    "pid": 999,
+    "range_low": 371896320,
+    "range_high": 372133888,
+    "sm_return": 371918772,
+    "core_return": 2437327884,
+    "fixture": false,
+    "stop_requested": false,
+    "errors": 0,
+    "drops": 0,
+    "suspend_successes": 1,
+    "resume_successes": 1,
+    "resume_errors": 0,
+    "total_stack_bytes": 100,
+    "records": [
+      {
+        "pid": 999,
+        "thread": 17,
+        "pc": 371918872,
+        "sp": 4030228736,
+        "word": 2208497668,
+        "word_ok": 1,
+        "capture_begin_ticks": 100,
+        "capture_end_ticks": 110,
+        "capture_error": 0,
+        "suspend_ok": 1,
+        "resume_ok": 1,
+        "resume_status": 0,
+        "stack_lo": 4029706240,
+        "stack_hi": 4030230528,
+        "frames": [
+          {
+            "frame": 4030228736,
+            "backchain": 4030228880,
+            "lr_address": 4030228888,
+            "lr": 371918772
+          },
+          {
+            "frame": 4030228880,
+            "backchain": 4030228960,
+            "lr_address": 4030228968,
+            "lr": 2437327884
+          },
+          {
+            "frame": 4030228960,
+            "backchain": 4030229120,
+            "lr_address": 4030229128,
+            "lr": 2437327020
+          }
+        ],
+        "candidates": [
+          {
+            "inner_frame": 4030228736,
+            "wrapper_frame": 4030228880,
+            "caller_frame": 4030228960,
+            "record": 268435456,
+            "hw": 268443648,
+            "device": 268439552,
+            "inner_return": 371918772,
+            "wrapper_return": 2437327884,
+            "rawslotshex": "100000001000200010001000162b07b49146ac0c"
+          }
+        ],
+        "reads": [
+          {
+            "address": 371918872,
+            "bytes": 4,
+            "bytes_hex": "83a30004"
+          },
+          {
+            "address": 4030228736,
+            "bytes": 16,
+            "bytes_hex": "f0386990000000000000000000000000"
+          },
+          {
+            "address": 4030228888,
+            "bytes": 4,
+            "bytes_hex": "162b07b4"
+          },
+          {
+            "address": 4030228880,
+            "bytes": 16,
+            "bytes_hex": "f03869e000000000162b07b400000000"
+          },
+          {
+            "address": 4030228968,
+            "bytes": 4,
+            "bytes_hex": "9146ac0c"
+          },
+          {
+            "address": 4030228960,
+            "bytes": 16,
+            "bytes_hex": "f0386a80000000009146ac0c00000000"
+          },
+          {
+            "address": 4030229128,
+            "bytes": 4,
+            "bytes_hex": "9146a8ac"
+          },
+          {
+            "address": 4030229120,
+            "bytes": 16,
+            "bytes_hex": "00000000000000009146a8ac00000000"
+          },
+          {
+            "address": 4030228868,
+            "bytes": 8,
+            "bytes_hex": "1000000010002000"
+          },
+          {
+            "address": 4030228952,
+            "bytes": 4,
+            "bytes_hex": "10001000"
+          }
+        ]
+      }
+    ]
+  }
+}

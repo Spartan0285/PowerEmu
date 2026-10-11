@@ -1,0 +1,15 @@
+{
+  "synthetic_only": true,
+  "collector_source": "/tmp/pe9800/oct10-coreaudio-scoped-data-collect.py",
+  "tests": {
+    "clean_balanced_return": true,
+    "nonzero_exit_balanced_no_suspension_claim": true,
+    "incomplete_cleanup_stops_backend": true,
+    "malformed_cleanup_stops_backend": true,
+    "timeout_backend_stop_before_ssh_kill": true,
+    "explicit_CLOCK_MONOTONIC_only": true,
+    "missing_cleanup_fields_stop_backend": true,
+    "invalid_counter_types_stop_backend": true,
+    "missing_record_flags_stop_backend": true
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "valid": true,
+  "tests": [
+    "actual Tiger PPC populated anonymous metadata",
+    "reject basic_status",
+    "reject extended_status",
+    "reject basic_count",
+    "reject extended_count",
+    "reject changed region_low",
+    "reject changed region_size",
+    "reject changed protection",
+    "reject changed max_protection",
+    "reject changed shared",
+    "reject changed reserved",
+    "reject changed object_offset",
+    "reject changed inheritance",
+    "reject changed extended_protection",
+    "reject changed user_tag",
+    "reject changed external_pager",
+    "reject changed share_mode",
+    "reject changed shadow_depth",
+    "reject next region instead of containing region",
+    "reject partial scalar span",
+    "reject different requested scalar",
+    "reject oversized payload request",
+    "file-backed metadata stays metadata, not an object read authorization"
+  ],
+  "physical_fixture": true,
+  "binary_sha256": "cf2b4f1ca3d1b5581d5a918048ad9b9b089b7e8ef5c50b2764556b869bfa3113",
+  "no_guest_run": true,
+  "ownership_unproven": true
+}

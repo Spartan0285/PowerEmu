@@ -1,0 +1,35 @@
+[   0.0s] card in config: 9800 cpuCount: 4
+[   0.0s] config backed up to oct11-map9200b.config.plist.before
+[   0.0s] card switched to "9200" for this run
+[   1.6s] guard registered: 82003
+[  27.4s] guest up at 27s
+[  35.0s] guest sees GPU: (none)
+[  35.0s] === campaign: open "/Applications/Warcraft III Folder/Maps/Prologue01.w3m" ===
+[  42.6s]   started, cpu 0.8
+[  68.1s]   t+25s cpu=0.5 windows=WIN<Warcraft III CD>buttons:[Cancel] /
+[  68.1s]   CD dialog -> clicking Cancel
+[  70.4s]    click result: button Cancel
+[  93.6s]   t+51s cpu=0.7 windows=WIN<Warcraft III CD>buttons:[Cancel] /
+[ 116.9s]   t+74s cpu=0.8 windows=WIN<Warcraft III CD>buttons:[Cancel] /
+[ 140.1s]   t+97s cpu=0.2 windows=WIN<Warcraft III CD>buttons:[Cancel] /
+[ 163.6s]   t+121s cpu=1.9 windows=WIN<Warcraft III CD>buttons:[Cancel] /
+[ 164.6s]   shot campaign-end  cpu=0.6
+[ 165.6s]   campaign final cpu: 0.4
+[ 207.8s]   quit: True
+[ 207.8s] === melee: open "/Applications/Warcraft III Folder/Maps/(2)Harrow.w3m" ===
+[ 216.3s]   started, cpu 0.7
+[ 241.5s]   t+25s cpu=0.4 windows=WIN<Warcraft III CD>buttons:[Cancel] /
+[ 241.5s]   CD dialog -> clicking Cancel
+[ 244.9s]    click result: button Cancel
+[ 269.8s]   t+53s cpu=0.7 windows=WIN<Warcraft III CD>buttons:[Cancel] /
+[ 294.9s]   t+78s cpu=1.9 windows=WIN<Warcraft III CD>buttons:[Cancel] /
+[ 320.3s]   t+103s cpu=2.3 windows=WIN<Warcraft III CD>buttons:[Cancel] /
+[ 345.4s]   t+129s cpu=2.2 windows=WIN<Warcraft III CD>buttons:[Cancel] /
+[ 346.7s]   shot melee-end  cpu=1.0
+[ 347.8s]   melee final cpu: 0.4
+[ 391.0s]   quit: True
+[ 391.0s] --- stopping the identified owned VM ---
+[ 391.0s] QMP quit sent
+[ 394.1s] emulator gone
+[ 394.6s] app restored and re-signed
+[ 394.6s] config restored; card now 9800

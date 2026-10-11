@@ -1,0 +1,231 @@
+{
+  "checks": {
+    "contiguous_packet_offsets": true,
+    "metadata_end_equals_pcm_bytes": true,
+    "all_six_host_missing_zero": true,
+    "logged_pcm_drops": [
+      "0"
+    ],
+    "logged_metadata_drops": [
+      "0"
+    ],
+    "write_failures": false
+  },
+  "interpretation": "No format-specific or monotonic-warmup conclusion: both formats have clean and damaged trials. Weak/unqualified candidates have no loss score. Exact zero runs diagnostic only.",
+  "rows": [
+    {
+      "candidate": 1,
+      "mode": "EXACT-MP3",
+      "onset_relative_seconds": 6.333900226757369,
+      "training_corr_recomputed": 0.9999991173322634,
+      "full_corr_recomputed": 0.7600351323647163,
+      "heldout_passed": 10,
+      "source_identity": true,
+      "source_local_zero_runs": [
+        {
+          "frame": 0,
+          "length": 4014,
+          "relative_seconds": 0.0,
+          "fixed_reference_rms": 3.978556890859911e-06
+        },
+        {
+          "frame": 4015,
+          "length": 74,
+          "relative_seconds": 0.09104308390022675,
+          "fixed_reference_rms": 1.7515484397609054e-05
+        },
+        {
+          "frame": 55296,
+          "length": 567,
+          "relative_seconds": 1.253877551020408,
+          "fixed_reference_rms": 0.05365359664431775
+        },
+        {
+          "frame": 61495,
+          "length": 854,
+          "relative_seconds": 1.3944444444444444,
+          "fixed_reference_rms": 0.025295510965396187
+        },
+        {
+          "frame": 64397,
+          "length": 871,
+          "relative_seconds": 1.460249433106576,
+          "fixed_reference_rms": 0.017527148124721836
+        },
+        {
+          "frame": 68852,
+          "length": 835,
+          "relative_seconds": 1.5612698412698414,
+          "fixed_reference_rms": 0.1156138896540119
+        },
+        {
+          "frame": 73271,
+          "length": 815,
+          "relative_seconds": 1.6614739229024944,
+          "fixed_reference_rms": 0.08152421036966041
+        },
+        {
+          "frame": 92247,
+          "length": 290,
+          "relative_seconds": 2.091768707482993,
+          "fixed_reference_rms": 0.0
+        },
+        {
+          "frame": 92540,
+          "length": 1924,
+          "relative_seconds": 2.0984126984126985,
+          "fixed_reference_rms": 0.0
+        }
+      ],
+      "zero_analysis_scored": false,
+      "zero_analysis_reason": "Diagnostic only; fixed-reference waveform phase may change. Unqualified candidates withheld."
+    },
+    {
+      "candidate": 2,
+      "mode": "EXACT-MP3",
+      "onset_relative_seconds": 16.28126984126984,
+      "training_corr_recomputed": 0.9999991173322634,
+      "full_corr_recomputed": 0.9999913787110246,
+      "heldout_passed": 18,
+      "source_identity": true,
+      "source_local_zero_runs": [
+        {
+          "frame": 0,
+          "length": 4014,
+          "relative_seconds": 0.0,
+          "fixed_reference_rms": 3.978556890859911e-06
+        },
+        {
+          "frame": 4015,
+          "length": 74,
+          "relative_seconds": 0.09104308390022675,
+          "fixed_reference_rms": 1.7515484397609054e-05
+        },
+        {
+          "frame": 90353,
+          "length": 290,
+          "relative_seconds": 2.0488208616780046,
+          "fixed_reference_rms": 1.8116014941149088e-05
+        },
+        {
+          "frame": 90646,
+          "length": 3818,
+          "relative_seconds": 2.05546485260771,
+          "fixed_reference_rms": 2.9666146378277987e-06
+        }
+      ],
+      "zero_analysis_scored": false,
+      "zero_analysis_reason": "Diagnostic only; fixed-reference waveform phase may change. Unqualified candidates withheld."
+    },
+    {
+      "candidate": 3,
+      "mode": "EXACT-MP3",
+      "onset_relative_seconds": 26.2978231292517,
+      "training_corr_recomputed": 0.7673293923037973,
+      "full_corr_recomputed": 0.3219219715088086,
+      "heldout_passed": 1,
+      "source_identity": false,
+      "source_local_zero_runs": [],
+      "zero_analysis_scored": false,
+      "zero_analysis_reason": "Diagnostic only; fixed-reference waveform phase may change. Unqualified candidates withheld."
+    },
+    {
+      "candidate": 4,
+      "mode": "PCM44100",
+      "onset_relative_seconds": 36.4014739229025,
+      "training_corr_recomputed": 0.9999999777604313,
+      "full_corr_recomputed": 0.10795133231576286,
+      "heldout_passed": 3,
+      "source_identity": true,
+      "source_local_zero_runs": [
+        {
+          "frame": 0,
+          "length": 3840,
+          "relative_seconds": 0.0,
+          "fixed_reference_rms": 3.5512898874331007e-06
+        },
+        {
+          "frame": 25600,
+          "length": 798,
+          "relative_seconds": 0.5804988662131519,
+          "fixed_reference_rms": 0.06616824838238164
+        },
+        {
+          "frame": 50462,
+          "length": 134,
+          "relative_seconds": 1.1442630385487529,
+          "fixed_reference_rms": 0.04103563736549654
+        },
+        {
+          "frame": 50974,
+          "length": 581,
+          "relative_seconds": 1.155873015873016,
+          "fixed_reference_rms": 0.06783371153562262
+        },
+        {
+          "frame": 64355,
+          "length": 805,
+          "relative_seconds": 1.459297052154195,
+          "fixed_reference_rms": 0.0179808101968237
+        },
+        {
+          "frame": 68744,
+          "length": 1762,
+          "relative_seconds": 1.5588208616780046,
+          "fixed_reference_rms": 0.10805385248163694
+        },
+        {
+          "frame": 74602,
+          "length": 988,
+          "relative_seconds": 1.691655328798186,
+          "fixed_reference_rms": 0.06317440370374824
+        },
+        {
+          "frame": 93144,
+          "length": 1320,
+          "relative_seconds": 2.112108843537415,
+          "fixed_reference_rms": 0.0
+        }
+      ],
+      "zero_analysis_scored": false,
+      "zero_analysis_reason": "Diagnostic only; fixed-reference waveform phase may change. Unqualified candidates withheld."
+    },
+    {
+      "candidate": 5,
+      "mode": "PCM44100",
+      "onset_relative_seconds": 46.30544217687075,
+      "training_corr_recomputed": 0.9999999777604313,
+      "full_corr_recomputed": 0.33910832203098346,
+      "heldout_passed": 1,
+      "source_identity": false,
+      "source_local_zero_runs": [],
+      "zero_analysis_scored": false,
+      "zero_analysis_reason": "Diagnostic only; fixed-reference waveform phase may change. Unqualified candidates withheld."
+    },
+    {
+      "candidate": 6,
+      "mode": "PCM44100",
+      "onset_relative_seconds": 56.33401360544217,
+      "training_corr_recomputed": 0.9999999777604313,
+      "full_corr_recomputed": 0.999999945249324,
+      "heldout_passed": 18,
+      "source_identity": true,
+      "source_local_zero_runs": [
+        {
+          "frame": 0,
+          "length": 3840,
+          "relative_seconds": 0.0,
+          "fixed_reference_rms": 3.5512898874331007e-06
+        },
+        {
+          "frame": 90770,
+          "length": 3694,
+          "relative_seconds": 2.0582766439909297,
+          "fixed_reference_rms": 0.0
+        }
+      ],
+      "zero_analysis_scored": false,
+      "zero_analysis_reason": "Diagnostic only; fixed-reference waveform phase may change. Unqualified candidates withheld."
+    }
+  ]
+}

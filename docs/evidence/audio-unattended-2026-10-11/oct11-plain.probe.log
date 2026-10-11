@@ -1,0 +1,22 @@
+[   0.1s] card "9200"; config backed up
+[   1.8s] guard registered: 39076
+[  32.8s] guest up at 33s
+[  46.5s] desktop ready at 46s
+[  46.5s] plain launch: open -a (no document)
+[  59.8s]   started, cpu 0.5
+[  92.0s]   t25s cpu=0.3 windows=<Warcraft III CD>
+[ 122.0s]   t50s cpu=3.4 windows=<Warcraft III CD>
+[ 150.4s]   t75s cpu=0.3 windows=<Warcraft III CD>
+[ 178.9s]   t100s cpu=0.4 windows=<Warcraft III CD>
+[ 207.2s]   t125s cpu=0.3 windows=<Warcraft III CD>
+[ 235.7s]   t150s cpu=1.6 windows=<Warcraft III CD>
+[ 264.2s]   t175s cpu=0.1 windows=<Warcraft III CD>
+[ 292.7s]   t200s cpu=0.9 windows=<Warcraft III CD>
+[ 321.4s]   t225s cpu=0.7 windows=<Warcraft III CD>
+[ 350.6s]   t250s cpu=0.7 windows=<Warcraft III CD>
+[ 351.8s] RESULT peak cpu 3.4 | CD dialog seen: True | still running: True
+[ 351.8s] --- stopping the identified owned VM ---
+[ 351.8s] QMP quit sent
+[ 354.9s] emulator gone
+[ 355.4s] app restored and re-signed
+[ 355.4s] config restored; card now 9800

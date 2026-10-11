@@ -1,0 +1,103 @@
+{
+  "label": "oct11-trace7",
+  "guest_pid": 302,
+  "owned_pid": 85767,
+  "module_base": 371896320,
+  "entry": 371918740,
+  "exit": 371918820,
+  "entry_word": 2087191206,
+  "exit_word": 1317011488,
+  "device_id": 258,
+  "hw": 4482240,
+  "record": 4244336,
+  "device": 373221920,
+  "bridge": 4376320,
+  "stacks": [
+    [
+      3212836864,
+      3221221376
+    ],
+    [
+      3221221376,
+      3221225472
+    ],
+    [
+      4026535936,
+      4027060224
+    ],
+    [
+      4027064320,
+      4027588608
+    ],
+    [
+      4027592704,
+      4028116992
+    ],
+    [
+      4028121088,
+      4028645376
+    ],
+    [
+      4028649472,
+      4029173760
+    ],
+    [
+      4029177856,
+      4029702144
+    ],
+    [
+      4029706240,
+      4030230528
+    ],
+    [
+      4030234624,
+      4030758912
+    ],
+    [
+      4030763008,
+      4031287296
+    ],
+    [
+      4031291392,
+      4031815680
+    ],
+    [
+      4031819776,
+      4032344064
+    ],
+    [
+      4032348160,
+      4032872448
+    ],
+    [
+      4032876544,
+      4033400832
+    ],
+    [
+      4033404928,
+      4033929216
+    ]
+  ],
+  "numer": 1000000000,
+  "denom": 24949183,
+  "core_return": 2437327884,
+  "sm_return": 371918772,
+  "sound_channel": 26264128,
+  "context_address": 373156656,
+  "context_words": [
+    1031798841,
+    1636610852,
+    2148270080,
+    2152464388
+  ],
+  "driver_contract": "/tmp/pe9800/oct11-trace7.driver-contract.json",
+  "delay_sec": 3,
+  "window_sec": 60,
+  "collector_label": "oct10-trace7",
+  "verification": "/tmp/pe9800/oct10-trace7.verification.json",
+  "stack_extents": "/tmp/pe9800/oct10-trace7.stack-extents.txt",
+  "receipt": "/tmp/pe9800/oct10-trace7.receipt.json",
+  "receipt_sha256": "bc7c8e62339edf117358534420e5a1d137c555213b071e792b53ecc6849e8bc5",
+  "prepared_ns": 585062177040000,
+  "note": "Staged proof only.  ABL, core_return and Miles context are read fresh while paused in finalize; nothing here is a publication."
+}

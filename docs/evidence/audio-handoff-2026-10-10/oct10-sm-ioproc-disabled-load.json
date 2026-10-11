@@ -1,0 +1,10 @@
+{
+  "valid": true,
+  "default_off": true,
+  "no_disks": true,
+  "exit": 0,
+  "stdout": "{\"QMP\": {\"version\": {\"qemu\": {\"micro\": 2, \"minor\": 0, \"major\": 10}, \"package\": \"\"}, \"capabilities\": [\"oob\"]}}\r\n{\"return\": {}}\r\n{\"timestamp\": {\"seconds\": 1791685674, \"microseconds\": 401764}, \"event\": \"SHUTDOWN\", \"data\": {\"guest\": false, \"reason\": \"host-qmp-quit\"}}\r\n{\"return\": {}}\r\n",
+  "stderr": "",
+  "elapsed_ns": 74781000,
+  "plugin_sha256": "8edd085c3a5aedc1f7c5374b3b1fccbad29fbf1f50cfb351ff66d8c5929bbe68"
+}

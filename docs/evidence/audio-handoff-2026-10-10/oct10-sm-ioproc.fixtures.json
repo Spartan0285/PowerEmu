@@ -1,0 +1,25 @@
+{
+  "valid": true,
+  "sanitizers": [
+    "ASan",
+    "UBSan"
+  ],
+  "tests": [
+    "disabled no callbacks",
+    "core registers duplicate_corelicate/missing rejected",
+    "no reads before publish",
+    "delay3 immutable one publish",
+    "crossCPU SP/LR pairs",
+    "duplicate_corelicate pair rejected",
+    "read failure",
+    "actual context code mismatch skips",
+    "timestamp bounds",
+    "torn timestamp",
+    "wrongHW skips without memoryread",
+    "tryguard no blocking",
+    "no reads after window",
+    "changed publication",
+    "capacity drop",
+    "stopped flush exact size"
+  ]
+}

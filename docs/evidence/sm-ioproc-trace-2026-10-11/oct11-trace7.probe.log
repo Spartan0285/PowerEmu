@@ -1,0 +1,19 @@
+[   0.3s] observer staged
+[   1.4s] guard registered: 85767 seconds_left 479
+[  23.0s] desktop ready at 23s
+[  31.6s] three guest helpers staged and hash-matched
+[  46.6s] rendering at cpu 114.8 guest pid 302
+[  48.5s] MENU UP -- waiting for navigation
+[ 198.7s] no command after 150s; starting the trace anyway
+[ 200.7s] shot ingame cpu=116.0
+[ 200.7s] prepare: owned 85767 guard /tmp/pe9800/oct11-trace7.produced-guard.json
+[ 286.1s] prepare rc 0 -> oct11-trace7.prepare.out
+[ 287.3s] finalize: publishing
+[ 334.0s] finalize rc 0 -> oct11-trace7.finalize.out
+[ 334.0s] armed; holding 51s for the window
+[ 386.4s] window elapsed; cpu 125.0
+[ 389.0s] exiting; budget left 56.0
+[ 389.0s] --- stopping the identified owned VM ---
+[ 389.0s] QMP quit sent
+[ 392.1s] emulator gone
+[ 392.3s] app restored and re-signed

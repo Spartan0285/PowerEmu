@@ -1,0 +1,138 @@
+{
+  "accepted": true,
+  "provenance": "coherent_saved_stack",
+  "bridge_bytes_data_proven": true,
+  "bridge_current_execute_permission_proven": false,
+  "scoped_DATA_not_anonymous_RAM": true,
+  "actual_call_chain_proven": true,
+  "pid": 279,
+  "capture_id": "oct10-sm-scoped-retained",
+  "thread": 5383,
+  "pc": "0x162dec34",
+  "record": "0x40c390",
+  "record_list_index": 0,
+  "device": "0x163eea60",
+  "device_id": 258,
+  "hwstate": "0x4464e0",
+  "generated_bridge": "0x42c720",
+  "bridge_target": "0x162b0794",
+  "module_base": "0x162ab000",
+  "before_after_identity_stable": true,
+  "core_call_body_bytes": 256,
+  "sm_callback_body_bytes": 84,
+  "limitations": [
+    "No SM HWstate-to-CarbonSound channel ownership gate",
+    "No timestamp ABI/timebase or scheduling attribution",
+    "Before/after stable identities are not an atomic entire-object snapshot",
+    "Task epoch/capture receipt supplied by owned collector; no independent live task read in this offline tool"
+  ],
+  "independent_per_epoch_mapping_checks": [
+    {
+      "role": "record",
+      "epoch": "before",
+      "classification": {
+        "kind": "PEF binary",
+        "lo": 4194304,
+        "hi": 5263360,
+        "perm": "rw-",
+        "maxperm": "rwx",
+        "tail": "SM=PRV  CFMPriv_AGL"
+      },
+      "gate": "exactscopedPEF DATA"
+    },
+    {
+      "role": "record",
+      "epoch": "after",
+      "classification": {
+        "kind": "MALLOC_TINY",
+        "lo": 4194304,
+        "hi": 4251648,
+        "perm": "rw-",
+        "maxperm": "rwx",
+        "tail": "SM=COW  DefaultMallocZone_0x400000"
+      },
+      "gate": "existing ordinaryRAM"
+    },
+    {
+      "role": "hw",
+      "epoch": "before",
+      "classification": {
+        "kind": "PEF binary",
+        "lo": 4194304,
+        "hi": 5263360,
+        "perm": "rw-",
+        "maxperm": "rwx",
+        "tail": "SM=PRV  CFMPriv_AGL"
+      },
+      "gate": "exactscopedPEF DATA"
+    },
+    {
+      "role": "hw",
+      "epoch": "after",
+      "classification": {
+        "kind": "MALLOC_TINY",
+        "lo": 4280320,
+        "hi": 4608000,
+        "perm": "rw-",
+        "maxperm": "rwx",
+        "tail": "SM=COW  DefaultMallocZone_0x400000"
+      },
+      "gate": "existing ordinaryRAM"
+    },
+    {
+      "role": "list",
+      "epoch": "before",
+      "classification": {
+        "kind": "PEF binary",
+        "lo": 4194304,
+        "hi": 5263360,
+        "perm": "rw-",
+        "maxperm": "rwx",
+        "tail": "SM=PRV  CFMPriv_AGL"
+      },
+      "gate": "exactscopedPEF DATA"
+    },
+    {
+      "role": "list",
+      "epoch": "after",
+      "classification": {
+        "kind": "MALLOC_TINY",
+        "lo": 4280320,
+        "hi": 4608000,
+        "perm": "rw-",
+        "maxperm": "rwx",
+        "tail": "SM=COW  DefaultMallocZone_0x400000"
+      },
+      "gate": "existing ordinaryRAM"
+    },
+    {
+      "role": "bridge",
+      "epoch": "before",
+      "classification": {
+        "kind": "PEF binary",
+        "lo": 4194304,
+        "hi": 5263360,
+        "perm": "rw-",
+        "maxperm": "rwx",
+        "tail": "SM=PRV  CFMPriv_AGL"
+      },
+      "gate": "exactscopedPEF DATA"
+    },
+    {
+      "role": "bridge",
+      "epoch": "after",
+      "classification": {
+        "kind": "MALLOC_TINY",
+        "lo": 4280320,
+        "hi": 4608000,
+        "perm": "rw-",
+        "maxperm": "rwx",
+        "tail": "SM=COW  DefaultMallocZone_0x400000"
+      },
+      "gate": "existing ordinaryRAM"
+    }
+  ],
+  "kernel_query_metadata_stable": true,
+  "anonymous_backing_proven": false,
+  "diagnostic_only": true
+}

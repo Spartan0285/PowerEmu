@@ -1,0 +1,16 @@
+[   0.1s] staging ownership and opening the app (autoStart boots the VM)
+[   1.8s] guard registered: 21086
+[   1.8s] waiting for guest SSH
+[  28.0s] guest up at 28s
+[  28.0s] --- Save folder and existing maps ---
+[  29.6s]   save: total 0 | drwxr-xr-x   5 adam  admin  170 Sep 19 17:22 Profile1 | 
+[  31.4s]   save_campaign: ls: /Applications/Warcraft III Folder/Save/Campaign: No such file or directory | 
+[  33.6s]   maps: total 18560 | -rw-r--r--   1 adam  admin  298790 Sep 18 11:49 (10)DustwallowKeys.w3m | -rw-r--r--   1 adam  admin  339968 Sep 18 11:49 (12)DivideAndConquer.w3m | -rw-r--r--   1 adam  admin  317650 Sep 18 11:49 (12)IceCrown.w3m | -rw-r--r--   1 adam  admin  122789 Sep 18 11:49 (2)BootyBay.w3m | -rw-r--r--   1 adam  admin   88248 Sep 18 11:49 (2)Harrow.w3m | -rw-r--r--   1 adam  admin   93065 Sep 18
+[  33.6s] --- installing the map into the Maps folder ---
+[  38.0s]   installed, md5 matches
+[  38.0s] --- direct exec with the map as argv[1] ---
+[  43.0s]   rc 0 log: nohup: ./Warcraft III: Permission denied |
+[ 103.3s] --- stopping the identified owned VM ---
+[ 103.3s] QMP quit sent
+[ 106.4s] emulator gone
+[ 106.8s] app restored and re-signed

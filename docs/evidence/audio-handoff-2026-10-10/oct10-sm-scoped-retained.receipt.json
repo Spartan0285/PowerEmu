@@ -1,0 +1,1919 @@
+{
+  "schema": 2,
+  "pid": 279,
+  "capture_id": "oct10-sm-scoped-retained",
+  "pid_after": 279,
+  "capture_id_after": "oct10-sm-scoped-retained",
+  "blobs": {
+    "sm_prologues_before": {
+      "path": "/tmp/pe9800/oct10-sm-scoped-retained.sm_prologues_before.bin",
+      "address": 371918740,
+      "bytes": 136,
+      "actual_bytes": 136,
+      "exit_status": 0,
+      "stderr_path": "/tmp/pe9800/oct10-sm-scoped-retained.sm_prologues_before.stderr",
+      "sha256": "0b796e093c8584224329f2afa3b6e40287e510574495e5066eb035c61c751a07"
+    },
+    "core_callsite_before": {
+      "path": "/tmp/pe9800/oct10-sm-scoped-retained.core_callsite_before.bin",
+      "address": 2437327876,
+      "bytes": 12,
+      "actual_bytes": 12,
+      "exit_status": 0,
+      "stderr_path": "/tmp/pe9800/oct10-sm-scoped-retained.core_callsite_before.stderr",
+      "sha256": "12ef5c3162710f4359f970b1cc41548b7bf72fef2ace52187110cc6484f4acaf"
+    },
+    "core_call_before": {
+      "path": "/tmp/pe9800/oct10-sm-scoped-retained.core_call_before.bin",
+      "address": 2437330808,
+      "bytes": 256,
+      "actual_bytes": 256,
+      "exit_status": 0,
+      "stderr_path": "/tmp/pe9800/oct10-sm-scoped-retained.core_call_before.stderr",
+      "sha256": "93e8b16b02bb3d88aea8f783f8ecb50f8902fb9db7e9bf3c8f07e461ad0c852d"
+    },
+    "record_before": {
+      "path": "/tmp/pe9800/oct10-sm-scoped-retained.record_before.bin",
+      "address": 4244368,
+      "bytes": 164,
+      "actual_bytes": 164,
+      "exit_status": 0,
+      "stderr_path": "/tmp/pe9800/oct10-sm-scoped-retained.record_before.stderr",
+      "sha256": "f15b73a4d17d6eec2e7f45dc2c590afae3a79be659200c68b3c63122194d5bef"
+    },
+    "hw_before": {
+      "path": "/tmp/pe9800/oct10-sm-scoped-retained.hw_before.bin",
+      "address": 4482272,
+      "bytes": 44,
+      "actual_bytes": 44,
+      "exit_status": 0,
+      "stderr_path": "/tmp/pe9800/oct10-sm-scoped-retained.hw_before.stderr",
+      "sha256": "4369bdbf55cf73b23f3c2f759d7752a8173329face144e270a1ec9dc5fa7ab13"
+    },
+    "device_before": {
+      "path": "/tmp/pe9800/oct10-sm-scoped-retained.device_before.bin",
+      "address": 373221984,
+      "bytes": 108,
+      "actual_bytes": 108,
+      "exit_status": 0,
+      "stderr_path": "/tmp/pe9800/oct10-sm-scoped-retained.device_before.stderr",
+      "sha256": "ddf149c801b78f723b21dd1dce1f37b4cb7a2f4fdfb4773f79c3a306fb11d5e6"
+    },
+    "list_before": {
+      "path": "/tmp/pe9800/oct10-sm-scoped-retained.list_before.bin",
+      "address": 4310288,
+      "bytes": 12,
+      "actual_bytes": 12,
+      "exit_status": 0,
+      "stderr_path": "/tmp/pe9800/oct10-sm-scoped-retained.list_before.stderr",
+      "sha256": "00e4c88a107bb3fc9aa308e5fbffcfc11b00e4541f9186bc9264c81f7b89ba48"
+    },
+    "bridge_before": {
+      "path": "/tmp/pe9800/oct10-sm-scoped-retained.bridge_before.bin",
+      "address": 4376352,
+      "bytes": 16,
+      "actual_bytes": 16,
+      "exit_status": 0,
+      "stderr_path": "/tmp/pe9800/oct10-sm-scoped-retained.bridge_before.stderr",
+      "sha256": "17d1647436818db77b6d70d1956a103f5c3ac664629185f82a176f2e33f21359"
+    },
+    "sm_callback_before": {
+      "path": "/tmp/pe9800/oct10-sm-scoped-retained.sm_callback_before.bin",
+      "address": 371918740,
+      "bytes": 84,
+      "actual_bytes": 84,
+      "exit_status": 0,
+      "stderr_path": "/tmp/pe9800/oct10-sm-scoped-retained.sm_callback_before.stderr",
+      "sha256": "b2a378c4709a9ba5cf027e0859474f91406a1b463b788c0100fabb6a4420d79e"
+    },
+    "sm_callback_after": {
+      "path": "/tmp/pe9800/oct10-sm-scoped-retained.sm_callback_after.bin",
+      "address": 371918740,
+      "bytes": 84,
+      "actual_bytes": 84,
+      "exit_status": 0,
+      "stderr_path": "/tmp/pe9800/oct10-sm-scoped-retained.sm_callback_after.stderr",
+      "sha256": "b2a378c4709a9ba5cf027e0859474f91406a1b463b788c0100fabb6a4420d79e"
+    },
+    "bridge_after": {
+      "path": "/tmp/pe9800/oct10-sm-scoped-retained.bridge_after.bin",
+      "address": 4376352,
+      "bytes": 16,
+      "actual_bytes": 16,
+      "exit_status": 0,
+      "stderr_path": "/tmp/pe9800/oct10-sm-scoped-retained.bridge_after.stderr",
+      "sha256": "17d1647436818db77b6d70d1956a103f5c3ac664629185f82a176f2e33f21359"
+    },
+    "hw_after": {
+      "path": "/tmp/pe9800/oct10-sm-scoped-retained.hw_after.bin",
+      "address": 4482272,
+      "bytes": 44,
+      "actual_bytes": 44,
+      "exit_status": 0,
+      "stderr_path": "/tmp/pe9800/oct10-sm-scoped-retained.hw_after.stderr",
+      "sha256": "4369bdbf55cf73b23f3c2f759d7752a8173329face144e270a1ec9dc5fa7ab13"
+    },
+    "list_after": {
+      "path": "/tmp/pe9800/oct10-sm-scoped-retained.list_after.bin",
+      "address": 4310288,
+      "bytes": 12,
+      "actual_bytes": 12,
+      "exit_status": 0,
+      "stderr_path": "/tmp/pe9800/oct10-sm-scoped-retained.list_after.stderr",
+      "sha256": "00e4c88a107bb3fc9aa308e5fbffcfc11b00e4541f9186bc9264c81f7b89ba48"
+    },
+    "device_after": {
+      "path": "/tmp/pe9800/oct10-sm-scoped-retained.device_after.bin",
+      "address": 373221984,
+      "bytes": 108,
+      "actual_bytes": 108,
+      "exit_status": 0,
+      "stderr_path": "/tmp/pe9800/oct10-sm-scoped-retained.device_after.stderr",
+      "sha256": "ddf149c801b78f723b21dd1dce1f37b4cb7a2f4fdfb4773f79c3a306fb11d5e6"
+    },
+    "record_after": {
+      "path": "/tmp/pe9800/oct10-sm-scoped-retained.record_after.bin",
+      "address": 4244368,
+      "bytes": 164,
+      "actual_bytes": 164,
+      "exit_status": 0,
+      "stderr_path": "/tmp/pe9800/oct10-sm-scoped-retained.record_after.stderr",
+      "sha256": "f15b73a4d17d6eec2e7f45dc2c590afae3a79be659200c68b3c63122194d5bef"
+    },
+    "core_call_after": {
+      "path": "/tmp/pe9800/oct10-sm-scoped-retained.core_call_after.bin",
+      "address": 2437330808,
+      "bytes": 256,
+      "actual_bytes": 256,
+      "exit_status": 0,
+      "stderr_path": "/tmp/pe9800/oct10-sm-scoped-retained.core_call_after.stderr",
+      "sha256": "93e8b16b02bb3d88aea8f783f8ecb50f8902fb9db7e9bf3c8f07e461ad0c852d"
+    },
+    "sm_prologues_after": {
+      "path": "/tmp/pe9800/oct10-sm-scoped-retained.sm_prologues_after.bin",
+      "address": 371918740,
+      "bytes": 136,
+      "actual_bytes": 136,
+      "exit_status": 0,
+      "stderr_path": "/tmp/pe9800/oct10-sm-scoped-retained.sm_prologues_after.stderr",
+      "sha256": "0b796e093c8584224329f2afa3b6e40287e510574495e5066eb035c61c751a07"
+    },
+    "core_callsite_after": {
+      "path": "/tmp/pe9800/oct10-sm-scoped-retained.core_callsite_after.bin",
+      "address": 2437327876,
+      "bytes": 12,
+      "actual_bytes": 12,
+      "exit_status": 0,
+      "stderr_path": "/tmp/pe9800/oct10-sm-scoped-retained.core_callsite_after.stderr",
+      "sha256": "12ef5c3162710f4359f970b1cc41548b7bf72fef2ace52187110cc6484f4acaf"
+    }
+  },
+  "collection_started_ns": 540360429232000,
+  "guard_path": "/private/tmp/pe9800/oct10-sm-scoped-retained.produced-guard.json",
+  "helper_receipts": {
+    "oct10-coreaudio-stack-snapshot": {
+      "md5": "78202c3be5c2b81c37e3b39baf924eeb",
+      "remote_verified": true
+    },
+    "oct10-miles-read-memory": {
+      "md5": "262e93257cb1077cb68a9a8364ed2cb5",
+      "remote_verified": true
+    },
+    "oct10-task-region-query": {
+      "md5": "ec802104d8f10f45242529d7ab3885fe",
+      "remote_verified": true
+    }
+  },
+  "identity_fields": "Tiger-supported pid,command header plus exact one bodyline (no lstart/process birth-time claim)",
+  "process_before": "279 /Applications/Warcraft III Folder/Warcraft III /Applications/Warcraft III",
+  "vmmap_before": "Virtual Memory Map of process 279 (Warcraft III)\nOutput report format:  2.0\n\n==== Non-writable regions for process 279\n__PAGEZERO             00000000-00001000 [    4K] ---/--- SM=NUL  /System/Library/Frameworks/Carbon.framework/Versions/A/Support/LaunchCFMApp\n__TEXT                 00001000-00003000 [    8K] r-x/rwx SM=COW  /System/Library/Frameworks/Carbon.framework/Versions/A/Support/LaunchCFMApp\n__LINKEDIT             00004000-00006000 [    8K] r--/rwx SM=COW  /System/Library/Frameworks/Carbon.framework/Versions/A/Support/LaunchCFMApp\nshared memory          00006000-00008000 [    8K] r--/rw- SM=SHM  \nmapped file            0001e000-00032000 [   80K] r--/rwx SM=COW  /System/Library/CoreServices/CharacterSets/CFUnicodeData-B.mapping\nmapped file            00032000-00089000 [  348K] r--/rwx SM=COW  /System/Library/CoreServices/CharacterSets/CFCharacterSetBitmaps.bitmap\nmapped file            0009e000-000c0000 [  136K] r--/rwx SM=COW  ...bon.framework/Versions/A/Frameworks/HIToolbox.framework/Versions/A/Resources/HIToolbox.rsrc\nIOKit                  000c1000-000c2000 [    4K] r--/r-- SM=SHM  \nPEF binary             000c8000-000d1000 [   36K] r--/rwx SM=COW  /System/Library/CFMSupport/OpenGLLib [OpenGLMemory]\n__TEXT                 00205000-002f4000 [  956K] r-x/rwx SM=COW  /usr/lib/libxml2.2.dylib\n__LINKEDIT             00302000-00320000 [  120K] r--/rwx SM=COW  /usr/lib/libxml2.2.dylib\nmapped file            00320000-0039a000 [  488K] r--/rwx SM=COW  ...Versions/A/Frameworks/HIToolbox.framework/Versions/A/Resources/English.lproj/Localized.rsrc\nPEF binary             00505000-00570000 [  428K] r--/rwx SM=COW  /System/Library/CFMSupport/CarbonLib [Apple;Carbon;Networking]\nPEF binary             00570000-005ea000 [  488K] r--/rwx SM=COW  /Applications/Warcraft III Folder/Miles Carbon Library [Miles Carbon Library]\nmapped file            007e6000-007eb000 [   20K] r--/rwx SM=COW  /Library/Caches/com.apple.IntlDataCache.sbdl.501\nmapped file            007eb000-007f0000 [   20K] r--/rwx SM=COW  /System/Library/Caches/com.apple.IntlDataCache.tecx\nmapped file            007f0000-007fe000 [   56K] r--/rwx SM=COW  ...em/Library/Frameworks/QuickTime.framework/Versions/A/Resources/English.lproj/Localized.rsrc\nshared memory          007ff000-00800000 [    4K] r--/r-- SM=SHM  \nPEF binary             0103b000-0103e000 [   12K] r--/rwx SM=COW  /Applications/Warcraft III Folder/Miles/Reverb3.flt []\nIOKit                  0103e000-01040000 [    8K] r--/r-- SM=SHM  \n__TEXT                 01040000-01042000 [    8K] r-x/rwx SM=COW  ...ensions/IOAudioFamily.kext/Contents/PlugIns/AOAHALPlugin.bundle/Contents/MacOS/AOAHALPlugin\n__LINKEDIT             01043000-01044000 [    4K] r--/rwx SM=COW  ...ensions/IOAudioFamily.kext/Contents/PlugIns/AOAHALPlugin.bundle/Contents/MacOS/AOAHALPlugin\nPEF binary             0104a000-0105b000 [   68K] r--/rwx SM=COW  /Applications/Warcraft III Folder/Miles/MP3Dec.asi []\nPEF binary             0105b000-01061000 [   24K] r--/rwx SM=COW  /Applications/Warcraft III Folder/Miles/MSSDolby.m3d []\nmapped file            01061000-01084000 [  140K] r--/rwx SM=COW  /System/Library/Frameworks/QuickTime.framework/Versions/A/Resources/QuickTime.rsrc\nshared memory          0108b000-010cb000 [  256K] r--/r-- SM=SHM  \n__TEXT                 01134000-0113a000 [   24K] r-x/rwx SM=COW  /Library/QuickTime/LiveType.component/Contents/MacOS/LiveType\n__LINKEDIT             0113b000-0113d000 [    8K] r--/rwx SM=COW  /Library/QuickTime/LiveType.component/Contents/MacOS/LiveType\nshared memory          01145000-0114d000 [   32K] r--/r-- SM=SHM  \n__TEXT                 0116f000-011d5000 [  408K] r-x/rwx SM=COW  /System/Library/PrivateFrameworks/LiveType.framework/Versions/A/LiveType\n__LINKEDIT             011da000-011f6000 [  112K] r--/rwx SM=COW  /System/Library/PrivateFrameworks/LiveType.framework/Versions/A/LiveType\nmapped file            011f6000-0127c000 [  536K] r--/rwx SM=COW  /System/Library/Caches/com.apple.IntlDataCache.kbdx\nmapped file            0127c000-017a9000 [ 5300K] r--/rwx SM=COW  ...Carbon.framework/Versions/A/Frameworks/HIToolbox.framework/Versions/A/Resources/Extras.rsrc\nPEF binary             02008000-02ae3000 [11116K] r--/rwx SM=COW  /Applications/Warcraft III Folder/Warcraft III [CursorDeviceLib]\n__TEXT                 15efa000-1600a000 [ 1088K] r-x/rwx SM=COW  /System/Library/Frameworks/OpenGL.framework/Resources/GLEngine.bundle/GLEngine\n__LINKEDIT             1600f000-16038000 [  164K] r--/rwx SM=COW  /System/Library/Frameworks/OpenGL.framework/Resources/GLEngine.bundle/GLEngine\n__TEXT                 16038000-16129000 [  964K] r-x/rwx SM=COW  /System/Library/Extensions/ATIRadeon9700GLDriver.bundle/Contents/MacOS/ATIRadeon9700GLDriver\n__LINKEDIT             16133000-16136000 [   12K] r--/rwx SM=COW  /System/Library/Extensions/ATIRadeon9700GLDriver.bundle/Contents/MacOS/ATIRadeon9700GLDriver\n__TEXT                 16136000-16150000 [  104K] r-x/rwx SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Resources/GLDriver.bundle/GLDriver\n__LINKEDIT             16151000-16155000 [   16K] r--/rwx SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Resources/GLDriver.bundle/GLDriver\n__TEXT                 16155000-16171000 [  112K] r-x/rwx SM=COW  ...ary/Frameworks/OpenGL.framework/Versions/A/Resources/GLRendererFloat.bundle/GLRendererFloat\n__LINKEDIT             16172000-16176000 [   16K] r--/rwx SM=COW  ...ary/Frameworks/OpenGL.framework/Versions/A/Resources/GLRendererFloat.bundle/GLRendererFloat\nPEF binary             16284000-16289000 [   20K] r--/rwx SM=COW  /Applications/Warcraft III Folder/Miles/MSSFast.m3d []\n__TEXT                 162ab000-162e5000 [  232K] r-x/rwx SM=COW  ...m/Library/Components/SoundManagerComponents.component/Contents/MacOS/SoundManagerComponents\n__LINKEDIT             162e7000-162ea000 [   12K] r--/rwx SM=COW  ...m/Library/Components/SoundManagerComponents.component/Contents/MacOS/SoundManagerComponents\n__TEXT                 8fe00000-8fe53000 [  332K] r-x/rwx SM=COW  /usr/lib/dyld\n__LINKEDIT             8fe5d000-8fe71000 [   80K] r--/rwx SM=COW  /usr/lib/dyld\n__TEXT                 90000000-901bd000 [ 1780K] r-x/r-x SM=COW  /usr/lib/libSystem.B.dylib\n__LINKEDIT             901bd000-90214000 [  348K] r--/r-- SM=COW  /usr/lib/libSystem.B.dylib\n__TEXT                 90214000-9021a000 [   24K] r-x/r-x SM=COW  /usr/lib/system/libmathCommon.A.dylib\n__LINKEDIT             9021a000-9021b000 [    4K] r--/r-- SM=COW  /usr/lib/system/libmathCommon.A.dylib\n__TEXT                 9021b000-90269000 [  312K] r-x/r-x SM=COW  .../ApplicationServices.framework/Versions/A/Frameworks/CoreText.framework/Versions/A/CoreText\n__LINKEDIT             90269000-90293000 [  168K] r--/r-- SM=COW  .../ApplicationServices.framework/Versions/A/Frameworks/CoreText.framework/Versions/A/CoreText\n__TEXT                 90293000-90345000 [  712K] r-x/r-x SM=COW  ...Frameworks/ApplicationServices.framework/Versions/A/Frameworks/ATS.framework/Versions/A/ATS\n__LINKEDIT             90345000-90373000 [  184K] r--/r-- SM=COW  ...Frameworks/ApplicationServices.framework/Versions/A/Frameworks/ATS.framework/Versions/A/ATS\n__TEXT                 90373000-9072f000 [ 3824K] r-x/r-x SM=COW  ...tionServices.framework/Versions/A/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics\n__LINKEDIT             9072f000-907bb000 [  560K] r--/r-- SM=COW  ...tionServices.framework/Versions/A/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics\n__TEXT                 907bb000-90896000 [  876K] r-x/r-x SM=COW  /System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation\n__LINKEDIT             90896000-908de000 [  288K] r--/r-- SM=COW  /System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation\n__TEXT                 908de000-908df000 [    4K] r-x/r-x SM=COW  /System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices\n__LINKEDIT             908df000-908e0000 [    4K] r--/r-- SM=COW  /System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices\n__TEXT                 908e0000-909e3000 [ 1036K] r-x/r-x SM=COW  /usr/lib/libicucore.A.dylib\n__LINKEDIT             909e3000-90a3c000 [  356K] r--/r-- SM=COW  /usr/lib/libicucore.A.dylib\n__TEXT                 90a3c000-90ac1000 [  532K] r-x/r-x SM=COW  /usr/lib/libobjc.A.dylib\n__LINKEDIT             90ac1000-90aea000 [  164K] r--/r-- SM=COW  /usr/lib/libobjc.A.dylib\n__TEXT                 90aea000-90b5d000 [  460K] r-x/r-x SM=COW  /System/Library/Frameworks/IOKit.framework/Versions/A/IOKit\n__LINKEDIT             90b5d000-90b72000 [   84K] r--/r-- SM=COW  /System/Library/Frameworks/IOKit.framework/Versions/A/IOKit\n__TEXT                 90b72000-90b85000 [   76K] r-x/r-x SM=COW  /usr/lib/libauto.dylib\n__LINKEDIT             90b85000-90b8b000 [   24K] r--/r-- SM=COW  /usr/lib/libauto.dylib\n__TEXT                 90b8b000-90e63000 [ 2912K] r-x/r-x SM=COW  ...rks/CoreServices.framework/Versions/A/Frameworks/CarbonCore.framework/Versions/A/CarbonCore\n__LINKEDIT             90e63000-90ec8000 [  404K] r--/r-- SM=COW  ...rks/CoreServices.framework/Versions/A/Frameworks/CarbonCore.framework/Versions/A/CarbonCore\n__TEXT                 90ec8000-90f49000 [  516K] r-x/r-x SM=COW  ...rks/CoreServices.framework/Versions/A/Frameworks/OSServices.framework/Versions/A/OSServices\n__LINKEDIT             90f49000-90f92000 [  292K] r--/r-- SM=COW  ...rks/CoreServices.framework/Versions/A/Frameworks/OSServices.framework/Versions/A/OSServices\n__TEXT                 90f92000-90fd5000 [  268K] r-x/r-x SM=COW  ...works/CoreServices.framework/Versions/A/Frameworks/CFNetwork.framework/Versions/A/CFNetwork\n__LINKEDIT             90fd5000-90fe9000 [   80K] r--/r-- SM=COW  ...works/CoreServices.framework/Versions/A/Frameworks/CFNetwork.framework/Versions/A/CFNetwork\n__TEXT                 90fe9000-91002000 [  100K] r-x/r-x SM=COW  ...rvices.framework/Versions/A/Frameworks/WebServicesCore.framework/Versions/A/WebServicesCore\n__LINKEDIT             91002000-91011000 [   60K] r--/r-- SM=COW  ...rvices.framework/Versions/A/Frameworks/WebServicesCore.framework/Versions/A/WebServicesCore\n__TEXT                 91011000-91093000 [  520K] r-x/r-x SM=COW  ...works/CoreServices.framework/Versions/A/Frameworks/SearchKit.framework/Versions/A/SearchKit\n__LINKEDIT             91093000-910d8000 [  276K] r--/r-- SM=COW  ...works/CoreServices.framework/Versions/A/Frameworks/SearchKit.framework/Versions/A/SearchKit\n__TEXT                 910d8000-91102000 [  168K] r-x/r-x SM=COW  ...meworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Metadata\n__LINKEDIT             91102000-91112000 [   64K] r--/r-- SM=COW  ...meworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Metadata\n__TEXT                 91112000-91121000 [   60K] r-x/r-x SM=COW  /usr/lib/libz.1.dylib\n__LINKEDIT             91121000-91123000 [    8K] r--/r-- SM=COW  /usr/lib/libz.1.dylib\n__TEXT                 91123000-912df000 [ 1776K] r-x/r-x SM=COW  /System/Library/Frameworks/Security.framework/Versions/A/Security\n__LINKEDIT             912df000-913dd000 [ 1016K] r--/r-- SM=COW  /System/Library/Frameworks/Security.framework/Versions/A/Security\n__TEXT                 913dd000-913e7000 [   40K] r-x/r-x SM=COW  /System/Library/Frameworks/DiskArbitration.framework/Versions/A/DiskArbitration\n__LINKEDIT             913e7000-913ed000 [   24K] r--/r-- SM=COW  /System/Library/Frameworks/DiskArbitration.framework/Versions/A/DiskArbitration\n__TEXT                 913ed000-913f6000 [   36K] r-x/r-x SM=COW  /usr/lib/libbsm.dylib\n__LINKEDIT             913f6000-913f9000 [   12K] r--/r-- SM=COW  /usr/lib/libbsm.dylib\n__TEXT                 913f9000-91422000 [  164K] r-x/r-x SM=COW  /System/Library/Frameworks/SystemConfiguration.framework/Versions/A/SystemConfiguration\n__LINKEDIT             91422000-91434000 [   72K] r--/r-- SM=COW  /System/Library/Frameworks/SystemConfiguration.framework/Versions/A/SystemConfiguration\n__TEXT                 91434000-91440000 [   48K] r-x/r-x SM=COW  /usr/lib/libgcc_s.1.dylib\n__LINKEDIT             91440000-91444000 [   16K] r--/r-- SM=COW  /usr/lib/libgcc_s.1.dylib\n__TEXT                 91444000-914c0000 [  496K] r-x/r-x SM=COW  /System/Library/Frameworks/CoreAudio.framework/Versions/A/CoreAudio\n__LINKEDIT             914c0000-914fc000 [  240K] r--/r-- SM=COW  /System/Library/Frameworks/CoreAudio.framework/Versions/A/CoreAudio\n__TEXT                 914fc000-914fd000 [    4K] r-x/r-x SM=COW  /System/Library/Frameworks/ApplicationServices.framework/Versions/A/ApplicationServices\n__LINKEDIT             914fd000-914fe000 [    4K] r--/r-- SM=COW  /System/Library/Frameworks/ApplicationServices.framework/Versions/A/ApplicationServices\n__TEXT                 914fe000-91537000 [  228K] r-x/r-x SM=COW  ...y/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/AE.framework/Versions/A/AE\n__LINKEDIT             91537000-91551000 [  104K] r--/r-- SM=COW  ...y/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/AE.framework/Versions/A/AE\n__TEXT                 91551000-91624000 [  844K] r-x/r-x SM=COW  ...pplicationServices.framework/Versions/A/Frameworks/ColorSync.framework/Versions/A/ColorSync\n__LINKEDIT             91624000-91676000 [  328K] r--/r-- SM=COW  ...pplicationServices.framework/Versions/A/Frameworks/ColorSync.framework/Versions/A/ColorSync\n__TEXT                 91676000-91708000 [  584K] r-x/r-x SM=COW  ...pplicationServices.framework/Versions/A/Frameworks/PrintCore.framework/Versions/A/PrintCore\n__LINKEDIT             91708000-9174e000 [  280K] r--/r-- SM=COW  ...pplicationServices.framework/Versions/A/Frameworks/PrintCore.framework/Versions/A/PrintCore\n__TEXT                 9174e000-91806000 [  736K] r-x/r-x SM=COW  ...y/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/QD.framework/Versions/A/QD\n__LINKEDIT             91806000-91842000 [  240K] r--/r-- SM=COW  ...y/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/QD.framework/Versions/A/QD\n__TEXT                 91842000-918a1000 [  380K] r-x/r-x SM=COW  ...licationServices.framework/Versions/A/Frameworks/HIServices.framework/Versions/A/HIServices\n__LINKEDIT             918a1000-918cf000 [  184K] r--/r-- SM=COW  ...licationServices.framework/Versions/A/Frameworks/HIServices.framework/Versions/A/HIServices\n__TEXT                 918cf000-918f1000 [  136K] r-x/r-x SM=COW  ...tionServices.framework/Versions/A/Frameworks/LangAnalysis.framework/Versions/A/LangAnalysis\n__LINKEDIT             918f1000-91904000 [   76K] r--/r-- SM=COW  ...tionServices.framework/Versions/A/Frameworks/LangAnalysis.framework/Versions/A/LangAnalysis\n__TEXT                 91904000-9192a000 [  152K] r-x/r-x SM=COW  ...onServices.framework/Versions/A/Frameworks/FindByContent.framework/Versions/A/FindByContent\n__LINKEDIT             9192a000-9193c000 [   72K] r--/r-- SM=COW  ...onServices.framework/Versions/A/Frameworks/FindByContent.framework/Versions/A/FindByContent\n__TEXT                 9193c000-9197f000 [  268K] r-x/r-x SM=COW  ...Services.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/LaunchServices\n__LINKEDIT             9197f000-9199a000 [  108K] r--/r-- SM=COW  ...Services.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/LaunchServices\n__TEXT                 9199a000-919af000 [   84K] r-x/r-x SM=COW  ...rvices.framework/Versions/A/Frameworks/SpeechSynthesis.framework/Versions/A/SpeechSynthesis\n__LINKEDIT             919af000-919bc000 [   52K] r--/r-- SM=COW  ...rvices.framework/Versions/A/Frameworks/SpeechSynthesis.framework/Versions/A/SpeechSynthesis\n__TEXT                 919bc000-91a03000 [  284K] r-x/r-x SM=COW  ...ks/ApplicationServices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/ImageIO\n__LINKEDIT             91a03000-91a19000 [   88K] r--/r-- SM=COW  ...ks/ApplicationServices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/ImageIO\n__TEXT                 91a19000-91ae1000 [  800K] r-x/r-x SM=COW  /usr/lib/libcrypto.0.9.7.dylib\n__LINKEDIT             91ae1000-91b2e000 [  308K] r--/r-- SM=COW  /usr/lib/libcrypto.0.9.7.dylib\n__TEXT                 91b2e000-91b44000 [   88K] r-x/r-x SM=COW  /usr/lib/libcups.2.dylib\n__LINKEDIT             91b44000-91b48000 [   16K] r--/r-- SM=COW  /usr/lib/libcups.2.dylib\n__TEXT                 91b48000-91b67000 [  124K] r-x/r-x SM=COW  ...rvices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libJPEG.dylib\n__LINKEDIT             91b67000-91b6c000 [   20K] r--/r-- SM=COW  ...rvices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libJPEG.dylib\n__TEXT                 91b6c000-91c24000 [  736K] r-x/r-x SM=COW  ...ervices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libJP2.dylib\n__LINKEDIT             91c24000-91c72000 [  312K] r--/r-- SM=COW  ...ervices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libJP2.dylib\n__TEXT                 91c72000-91c77000 [   20K] r-x/r-x SM=COW  ...ervices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libGIF.dylib\n__LINKEDIT             91c77000-91c78000 [    4K] r--/r-- SM=COW  ...ervices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libGIF.dylib\n__TEXT                 91c78000-91ce3000 [  428K] r-x/r-x SM=COW  ...ervices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libRaw.dylib\n__LINKEDIT             91ce3000-91ce7000 [   16K] r--/r-- SM=COW  ...ervices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libRaw.dylib\n__TEXT                 91ce7000-91d03000 [  112K] r-x/r-x SM=COW  ...ervices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libPng.dylib\n__LINKEDIT             91d03000-91d07000 [   16K] r--/r-- SM=COW  ...ervices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libPng.dylib\n__TEXT                 91d07000-91d0b000 [   16K] r-x/r-x SM=COW  ...es.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libRadiance.dylib\n__LINKEDIT             91d0b000-91d0c000 [    4K] r--/r-- SM=COW  ...es.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libRadiance.dylib\n__TEXT                 91e0a000-91e49000 [  252K] r-x/r-x SM=COW  ...rvices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libTIFF.dylib\n__LINKEDIT             91e49000-91e4f000 [   24K] r--/r-- SM=COW  ...rvices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libTIFF.dylib\n__TEXT                 91e4f000-91e50000 [    4K] r-x/r-x SM=COW  /System/Library/Frameworks/Accelerate.framework/Versions/A/Accelerate\n__LINKEDIT             91e50000-91e51000 [    4K] r--/r-- SM=COW  /System/Library/Frameworks/Accelerate.framework/Versions/A/Accelerate\n__TEXT                 91e51000-91f37000 [  920K] r-x/r-x SM=COW  ...ry/Frameworks/Accelerate.framework/Versions/A/Frameworks/vImage.framework/Versions/A/vImage\n__LINKEDIT             91f37000-91f3e000 [   28K] r--/r-- SM=COW  ...ry/Frameworks/Accelerate.framework/Versions/A/Frameworks/vImage.framework/Versions/A/vImage\n__TEXT                 91f3e000-91f5e000 [  128K] r-x/r-x SM=COW  ...ry/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/vecLib\n__LINKEDIT             91f5e000-91fc9000 [  428K] r--/r-- SM=COW  ...ry/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/vecLib\n__TEXT                 91fc9000-92038000 [  444K] r-x/r-x SM=COW  ...works/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libvMisc.dylib\n__LINKEDIT             92038000-92042000 [   40K] r--/r-- SM=COW  ...works/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libvMisc.dylib\n__TEXT                 92042000-920d8000 [  600K] r-x/r-x SM=COW  ...eworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libvDSP.dylib\n__LINKEDIT             920d8000-920f1000 [  100K] r--/r-- SM=COW  ...eworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libvDSP.dylib\n__TEXT                 920f1000-9267a000 [ 5668K] r-x/r-x SM=COW  ...eworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib\n__LINKEDIT             9267a000-926ac000 [  200K] r--/r-- SM=COW  ...eworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib\n__TEXT                 926ac000-929d8000 [ 3248K] r-x/r-x SM=COW  ...orks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libLAPACK.dylib\n__LINKEDIT             929d8000-92a07000 [  188K] r--/r-- SM=COW  ...orks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libLAPACK.dylib\n__TEXT                 92a07000-92af6000 [  956K] r-x/r-x SM=COW  /usr/lib/libiconv.2.dylib\n__LINKEDIT             92af6000-92af8000 [    8K] r--/r-- SM=COW  /usr/lib/libiconv.2.dylib\n__TEXT                 92af8000-92b81000 [  548K] r-x/r-x SM=COW  /System/Library/PrivateFrameworks/DesktopServicesPriv.framework/Versions/A/DesktopServicesPriv\n__LINKEDIT             92b81000-92bc1000 [  256K] r--/r-- SM=COW  /System/Library/PrivateFrameworks/DesktopServicesPriv.framework/Versions/A/DesktopServicesPriv\n__TEXT                 92bc1000-92df5000 [ 2256K] r-x/r-x SM=COW  /System/Library/Frameworks/Foundation.framework/Versions/C/Foundation\n__LINKEDIT             92df5000-92f18000 [ 1164K] r--/r-- SM=COW  /System/Library/Frameworks/Foundation.framework/Versions/C/Foundation\n__TEXT                 92f27000-92f46000 [  124K] r-x/r-x SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib\n__LINKEDIT             92f46000-92f50000 [   40K] r--/r-- SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib\n__TEXT                 92f50000-92fab000 [  364K] r-x/r-x SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGLU.dylib\n__LINKEDIT             92fab000-92fc8000 [  116K] r--/r-- SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGLU.dylib\n__TEXT                 92fc8000-92fc9000 [    4K] r-x/r-x SM=COW  /System/Library/Frameworks/Carbon.framework/Versions/A/Carbon\n__LINKEDIT             92fc9000-92fca000 [    4K] r--/r-- SM=COW  /System/Library/Frameworks/Carbon.framework/Versions/A/Carbon\n__TEXT                 92fca000-92fdf000 [   84K] r-x/r-x SM=COW  ...works/Carbon.framework/Versions/A/Frameworks/ImageCapture.framework/Versions/A/ImageCapture\n__LINKEDIT             92fdf000-92ff6000 [   92K] r--/r-- SM=COW  ...works/Carbon.framework/Versions/A/Frameworks/ImageCapture.framework/Versions/A/ImageCapture\n__TEXT                 92ff6000-93007000 [   68K] r-x/r-x SM=COW  ...on.framework/Versions/A/Frameworks/SpeechRecognition.framework/Versions/A/SpeechRecognition\n__LINKEDIT             93007000-93012000 [   44K] r--/r-- SM=COW  ...on.framework/Versions/A/Frameworks/SpeechRecognition.framework/Versions/A/SpeechRecognition\n__TEXT                 93012000-93028000 [   88K] r-x/r-x SM=COW  ...rameworks/Carbon.framework/Versions/A/Frameworks/SecurityHI.framework/Versions/A/SecurityHI\n__LINKEDIT             93028000-93039000 [   68K] r--/r-- SM=COW  ...rameworks/Carbon.framework/Versions/A/Frameworks/SecurityHI.framework/Versions/A/SecurityHI\n__TEXT                 93039000-930c1000 [  544K] r-x/r-x SM=COW  /System/Library/Frameworks/Carbon.framework/Versions/A/Frameworks/Ink.framework/Versions/A/Ink\n__LINKEDIT             930c1000-930d4000 [   76K] r--/r-- SM=COW  /System/Library/Frameworks/Carbon.framework/Versions/A/Frameworks/Ink.framework/Versions/A/Ink\n__TEXT                 930d4000-930e0000 [   48K] r-x/r-x SM=COW  ...em/Library/Frameworks/Carbon.framework/Versions/A/Frameworks/Help.framework/Versions/A/Help\n__LINKEDIT             930e0000-930e9000 [   36K] r--/r-- SM=COW  ...em/Library/Frameworks/Carbon.framework/Versions/A/Frameworks/Help.framework/Versions/A/Help\n__TEXT                 930e9000-93118000 [  188K] r-x/r-x SM=COW  ...rks/Carbon.framework/Versions/A/Frameworks/OpenScripting.framework/Versions/A/OpenScripting\n__LINKEDIT             93118000-93131000 [  100K] r--/r-- SM=COW  ...rks/Carbon.framework/Versions/A/Frameworks/OpenScripting.framework/Versions/A/OpenScripting\n__TEXT                 93131000-93141000 [   64K] r-x/r-x SM=COW  .../Library/Frameworks/Carbon.framework/Versions/A/Frameworks/Print.framework/Versions/A/Print\n__LINKEDIT             93141000-9314c000 [   44K] r--/r-- SM=COW  .../Library/Frameworks/Carbon.framework/Versions/A/Frameworks/Print.framework/Versions/A/Print\n__TEXT                 9314c000-931b3000 [  412K] r-x/r-x SM=COW  ...rks/Carbon.framework/Versions/A/Frameworks/HTMLRendering.framework/Versions/A/HTMLRendering\n__LINKEDIT             931b3000-931e3000 [  192K] r--/r-- SM=COW  ...rks/Carbon.framework/Versions/A/Frameworks/HTMLRendering.framework/Versions/A/HTMLRendering\n__TEXT                 931e3000-93233000 [  320K] r-x/r-x SM=COW  ....framework/Versions/A/Frameworks/NavigationServices.framework/Versions/A/NavigationServices\n__LINKEDIT             93233000-93260000 [  180K] r--/r-- SM=COW  ....framework/Versions/A/Frameworks/NavigationServices.framework/Versions/A/NavigationServices\n__TEXT                 93260000-9327e000 [  120K] r-x/r-x SM=COW  ...meworks/Carbon.framework/Versions/A/Frameworks/CarbonSound.framework/Versions/A/CarbonSound\n__LINKEDIT             9327e000-9328f000 [   68K] r--/r-- SM=COW  ...meworks/Carbon.framework/Versions/A/Frameworks/CarbonSound.framework/Versions/A/CarbonSound\n__TEXT                 9328f000-9329d000 [   56K] r-x/r-x SM=COW  ...works/Carbon.framework/Versions/A/Frameworks/CommonPanels.framework/Versions/A/CommonPanels\n__LINKEDIT             9329d000-932a5000 [   32K] r--/r-- SM=COW  ...works/Carbon.framework/Versions/A/Frameworks/CommonPanels.framework/Versions/A/CommonPanels\n__TEXT                 932a5000-935b4000 [ 3132K] r-x/r-x SM=COW  .../Frameworks/Carbon.framework/Versions/A/Frameworks/HIToolbox.framework/Versions/A/HIToolbox\n__LINKEDIT             935b4000-93703000 [ 1340K] r--/r-- SM=COW  .../Frameworks/Carbon.framework/Versions/A/Frameworks/HIToolbox.framework/Versions/A/HIToolbox\n__TEXT                 93703000-93710000 [   52K] r-x/r-x SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/OpenGL\n__LINKEDIT             93710000-93714000 [   16K] r--/r-- SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/OpenGL\n__TEXT                 94149000-941bc000 [  460K] r-x/r-x SM=COW  /System/Library/Frameworks/CoreData.framework/Versions/A/CoreData\n__LINKEDIT             941bc000-941f4000 [  224K] r--/r-- SM=COW  /System/Library/Frameworks/CoreData.framework/Versions/A/CoreData\n__TEXT                 941f4000-942ba000 [  792K] r-x/r-x SM=COW  /System/Library/Frameworks/AudioToolbox.framework/Versions/A/AudioToolbox\n__LINKEDIT             942ba000-9430c000 [  328K] r--/r-- SM=COW  /System/Library/Frameworks/AudioToolbox.framework/Versions/A/AudioToolbox\n__TEXT                 9430c000-9430d000 [    4K] r-x/r-x SM=COW  /System/Library/Frameworks/AudioUnit.framework/Versions/A/AudioUnit\n__LINKEDIT             9430d000-9430e000 [    4K] r--/r-- SM=COW  /System/Library/Frameworks/AudioUnit.framework/Versions/A/AudioUnit\n__TEXT                 9430e000-944cf000 [ 1796K] r-x/r-x SM=COW  /System/Library/Frameworks/QuartzCore.framework/Versions/A/QuartzCore\n__LINKEDIT             944cf000-94518000 [  292K] r--/r-- SM=COW  /System/Library/Frameworks/QuartzCore.framework/Versions/A/QuartzCore\n__TEXT                 94518000-94556000 [  248K] r-x/r-x SM=COW  /usr/lib/libsqlite3.0.dylib\n__LINKEDIT             94556000-9455d000 [   28K] r--/r-- SM=COW  /usr/lib/libsqlite3.0.dylib\n__TEXT                 9455d000-945ae000 [  324K] r-x/r-x SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGLImage.dylib\n__LINKEDIT             945ae000-945b6000 [   32K] r--/r-- SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGLImage.dylib\n__TEXT                 945b6000-945d0000 [  104K] r-x/r-x SM=COW  /System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo\n__LINKEDIT             945d0000-945df000 [   60K] r--/r-- SM=COW  /System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo\n__TEXT                 9477d000-9478d000 [   64K] r-x/r-x SM=COW  ...ramework/Versions/A/Frameworks/CoreGraphics.framework/Versions/A/Resources/libCGATS.A.dylib\n__LINKEDIT             9478d000-94794000 [   28K] r--/r-- SM=COW  ...ramework/Versions/A/Frameworks/CoreGraphics.framework/Versions/A/Resources/libCGATS.A.dylib\n__TEXT                 94794000-947a2000 [   56K] r-x/r-x SM=COW  ...ramework/Versions/A/Frameworks/CoreGraphics.framework/Versions/A/Resources/libCSync.A.dylib\n__LINKEDIT             947a2000-947a7000 [   20K] r--/r-- SM=COW  ...ramework/Versions/A/Frameworks/CoreGraphics.framework/Versions/A/Resources/libCSync.A.dylib\n__TEXT                 947e7000-94801000 [  104K] r-x/r-x SM=COW  ....framework/Versions/A/Frameworks/CoreGraphics.framework/Versions/A/Resources/libRIP.A.dylib\n__LINKEDIT             94801000-94807000 [   24K] r--/r-- SM=COW  ....framework/Versions/A/Frameworks/CoreGraphics.framework/Versions/A/Resources/libRIP.A.dylib\n__TEXT                 94807000-94b3b000 [ 3280K] r-x/r-x SM=COW  /System/Library/Frameworks/QuickTime.framework/Versions/A/QuickTime\n__LINKEDIT             94b3b000-94c22000 [  924K] r--/r-- SM=COW  /System/Library/Frameworks/QuickTime.framework/Versions/A/QuickTime\n__TEXT                 94c22000-94c94000 [  456K] r-x/r-x SM=COW  /usr/lib/libstdc++.6.dylib\n__LINKEDIT             94c94000-94d06000 [  456K] r--/r-- SM=COW  /usr/lib/libstdc++.6.dylib\n__TEXT                 9506a000-95088000 [  120K] r-x/r-x SM=COW  /usr/lib/libresolv.9.dylib\n__LINKEDIT             95088000-9508f000 [   28K] r--/r-- SM=COW  /usr/lib/libresolv.9.dylib\n__TEXT                 97b9d000-97c5f000 [  776K] r-x/r-x SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGLProgrammability.dylib\n__LINKEDIT             97c5f000-97c89000 [  168K] r--/r-- SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGLProgrammability.dylib\n__TEXT                 97c89000-97c8b000 [    8K] r-x/r-x SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGLSystem.dylib\n__LINKEDIT             97c8b000-97c8c000 [    4K] r--/r-- SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGLSystem.dylib\n__TEXT                 97c8c000-97c9a000 [   56K] r-x/r-x SM=COW  /System/Library/Frameworks/AGL.framework/Versions/A/AGL\n__LINKEDIT             97c9a000-97cb1000 [   92K] r--/r-- SM=COW  /System/Library/Frameworks/AGL.framework/Versions/A/AGL\n__TEXT                 9ac67000-9ac86000 [  124K] r-x/r-x SM=COW  /System/Library/PrivateFrameworks/OpenTransport.framework/OpenTransport\n__LINKEDIT             9ac86000-9ac8f000 [   36K] r--/r-- SM=COW  /System/Library/PrivateFrameworks/OpenTransport.framework/OpenTransport\n__TEXT                 9ac8f000-9ac95000 [   24K] r-x/r-x SM=COW  /System/Library/Frameworks/DrawSprocket.framework/Versions/A/DrawSprocket\n__LINKEDIT             9ac95000-9ac99000 [   16K] r--/r-- SM=COW  /System/Library/Frameworks/DrawSprocket.framework/Versions/A/DrawSprocket\n__TEXT                 9ad00000-9ad02000 [    8K] r-x/r-x SM=COW  /System/Library/Frameworks/DVComponentGlue.framework/Versions/A/DVComponentGlue\n__LINKEDIT             9ad02000-9ad03000 [    4K] r--/r-- SM=COW  /System/Library/Frameworks/DVComponentGlue.framework/Versions/A/DVComponentGlue\n__TEXT                 9ffb8000-9fff8000 [  256K] r-x/r-x SM=COW  /System/Library/QuickTime/QuickTimeFireWireDV.component/Contents/MacOS/QuickTimeFireWireDV\n__LINKEDIT             9fff8000-a0000000 [   32K] r--/r-- SM=COW  /System/Library/QuickTime/QuickTimeFireWireDV.component/Contents/MacOS/QuickTimeFireWireDV\n__DATA                 a0214000-a0215000 [    4K] r--/r-- SM=COW  /usr/lib/system/libmathCommon.A.dylib\n__DATA                 a08de000-a08df000 [    4K] r--/r-- SM=COW  /System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices\n__DATA                 a08e0000-a08e8000 [   32K] r--/r-- SM=COW  /usr/lib/libicucore.A.dylib\n__DATA                 a08e8000-a08e9000 [    4K] r--/r-- SM=COW  /usr/lib/libicucore.A.dylib\n__DATA                 a0aea000-a0aed000 [   12K] r--/r-- SM=COW  /System/Library/Frameworks/IOKit.framework/Versions/A/IOKit\n__DATA                 a0aed000-a0aee000 [    4K] r--/r-- SM=COW  /System/Library/Frameworks/IOKit.framework/Versions/A/IOKit\n__DATA                 a0ed0000-a0ed1000 [    4K] r--/r-- SM=COW  ...rks/CoreServices.framework/Versions/A/Frameworks/OSServices.framework/Versions/A/OSServices\n__DATA                 a0f92000-a0f95000 [   12K] r--/r-- SM=COW  ...works/CoreServices.framework/Versions/A/Frameworks/CFNetwork.framework/Versions/A/CFNetwork\n__DATA                 a0fe9000-a0feb000 [    8K] r--/r-- SM=COW  ...rvices.framework/Versions/A/Frameworks/WebServicesCore.framework/Versions/A/WebServicesCore\n__DATA                 a0feb000-a0fec000 [    4K] r--/r-- SM=NUL  ...rvices.framework/Versions/A/Frameworks/WebServicesCore.framework/Versions/A/WebServicesCore\n__DATA                 a1011000-a1021000 [   64K] r--/r-- SM=COW  ...works/CoreServices.framework/Versions/A/Frameworks/SearchKit.framework/Versions/A/SearchKit\n__DATA                 a10d8000-a10db000 [   12K] r--/r-- SM=COW  ...meworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Metadata\n__DATA                 a1112000-a1113000 [    4K] r--/r-- SM=COW  /usr/lib/libz.1.dylib\n__DATA                 a13ed000-a13ee000 [    4K] r--/r-- SM=COW  /usr/lib/libbsm.dylib\n__DATA                 a13f9000-a13fd000 [   16K] r--/r-- SM=COW  /System/Library/Frameworks/SystemConfiguration.framework/Versions/A/SystemConfiguration\n__DATA                 a1676000-a1683000 [   52K] r--/r-- SM=COW  ...pplicationServices.framework/Versions/A/Frameworks/PrintCore.framework/Versions/A/PrintCore\n__DATA                 a1683000-a1684000 [    4K] r--/r-- SM=NUL  ...pplicationServices.framework/Versions/A/Frameworks/PrintCore.framework/Versions/A/PrintCore\n__DATA                 a18cf000-a18d1000 [    8K] r--/r-- SM=COW  ...tionServices.framework/Versions/A/Frameworks/LangAnalysis.framework/Versions/A/LangAnalysis\n__DATA                 a1904000-a1907000 [   12K] r--/r-- SM=COW  ...onServices.framework/Versions/A/Frameworks/FindByContent.framework/Versions/A/FindByContent\n__DATA                 a193c000-a193f000 [   12K] r--/r-- SM=COW  ...Services.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/LaunchServices\n__DATA                 a193f000-a1940000 [    4K] r--/r-- SM=COW  ...Services.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/LaunchServices\n__DATA                 a199a000-a199c000 [    8K] r--/r-- SM=COW  ...rvices.framework/Versions/A/Frameworks/SpeechSynthesis.framework/Versions/A/SpeechSynthesis\n__DATA                 a1a19000-a1a2b000 [   72K] r--/r-- SM=COW  /usr/lib/libcrypto.0.9.7.dylib\n__DATA                 a1a2b000-a1a2e000 [   12K] r--/r-- SM=COW  /usr/lib/libcrypto.0.9.7.dylib\n__DATA                 a1b2e000-a1b2f000 [    4K] r--/r-- SM=COW  /usr/lib/libcups.2.dylib\n__DATA                 a1b48000-a1b49000 [    4K] r--/r-- SM=COW  ...rvices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libJPEG.dylib\n__DATA                 a1c72000-a1c73000 [    4K] r--/r-- SM=COW  ...ervices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libGIF.dylib\n__DATA                 a1c78000-a1c79000 [    4K] r--/r-- SM=COW  ...ervices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libRaw.dylib\n__DATA                 a1ce7000-a1ce8000 [    4K] r--/r-- SM=COW  ...ervices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libPng.dylib\n__DATA                 a1d07000-a1d08000 [    4K] r--/r-- SM=COW  ...es.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libRadiance.dylib\n__DATA                 a1e0a000-a1e0c000 [    8K] r--/r-- SM=COW  ...rvices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libTIFF.dylib\n__DATA                 a1e0c000-a1e0d000 [    4K] r--/r-- SM=NUL  ...rvices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libTIFF.dylib\n__DATA                 a1e4f000-a1e50000 [    4K] r--/r-- SM=COW  /System/Library/Frameworks/Accelerate.framework/Versions/A/Accelerate\n__DATA                 a1e51000-a1e52000 [    4K] r--/r-- SM=COW  ...ry/Frameworks/Accelerate.framework/Versions/A/Frameworks/vImage.framework/Versions/A/vImage\n__DATA                 a1f3e000-a1f45000 [   28K] r--/r-- SM=COW  ...ry/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/vecLib\n__DATA                 a1fc9000-a1fca000 [    4K] r--/r-- SM=COW  ...works/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libvMisc.dylib\n__DATA                 a2042000-a2043000 [    4K] r--/r-- SM=COW  ...eworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libvDSP.dylib\n__DATA                 a2043000-a2049000 [   24K] r--/r-- SM=NUL  ...eworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libvDSP.dylib\n__DATA                 a20f1000-a20f3000 [    8K] r--/r-- SM=COW  ...eworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib\n__DATA                 a26ac000-a26ad000 [    4K] r--/r-- SM=COW  ...orks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libLAPACK.dylib\n__DATA                 a2a07000-a2a08000 [    4K] r--/r-- SM=COW  /usr/lib/libiconv.2.dylib\n__DATA                 a2f50000-a2f52000 [    8K] r--/r-- SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGLU.dylib\n__DATA                 a303b000-a3040000 [   20K] r--/r-- SM=NUL  /System/Library/Frameworks/Carbon.framework/Versions/A/Frameworks/Ink.framework/Versions/A/Ink\n__DATA                 a30d5000-a30d6000 [    4K] r--/r-- SM=NUL  ...em/Library/Frameworks/Carbon.framework/Versions/A/Frameworks/Help.framework/Versions/A/Help\n__DATA                 a30ee000-a30ef000 [    4K] r--/r-- SM=NUL  ...rks/Carbon.framework/Versions/A/Frameworks/OpenScripting.framework/Versions/A/OpenScripting\n__DATA                 a41f4000-a4208000 [   80K] r--/r-- SM=COW  /System/Library/Frameworks/AudioToolbox.framework/Versions/A/AudioToolbox\n__DATA                 a430c000-a430d000 [    4K] r--/r-- SM=COW  /System/Library/Frameworks/AudioUnit.framework/Versions/A/AudioUnit\n__DATA                 a4316000-a4317000 [    4K] r--/r-- SM=PRV  /System/Library/Frameworks/QuartzCore.framework/Versions/A/QuartzCore\n__DATA                 a4518000-a4519000 [    4K] r--/r-- SM=COW  /usr/lib/libsqlite3.0.dylib\n__DATA                 a506a000-a506b000 [    4K] r--/r-- SM=COW  /usr/lib/libresolv.9.dylib\n__DATA                 a506b000-a506c000 [    4K] r--/r-- SM=NUL  /usr/lib/libresolv.9.dylib\n__DATA                 a7b9d000-a7ba1000 [   16K] r--/r-- SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGLProgrammability.dylib\n__DATA                 aac69000-aac6c000 [   12K] r--/r-- SM=NUL  /System/Library/PrivateFrameworks/OpenTransport.framework/OpenTransport\nCoreGraphics           b0003000-b000b000 [   32K] r--/r-- SM=SHM  \nCoreGraphics           b0015000-b001d000 [   32K] r--/r-- SM=SHM  \nSTACK GUARD            f0000000-f0001000 [    4K] ---/rwx SM=NUL  \nSTACK GUARD            f0081000-f0082000 [    4K] ---/rwx SM=NUL  \nSTACK GUARD            f0102000-f0103000 [    4K] ---/rwx SM=NUL  \nSTACK GUARD            f0183000-f0184000 [    4K] ---/rwx SM=NUL  \nSTACK GUARD            f0204000-f0205000 [    4K] ---/rwx SM=NUL  \nSTACK GUARD            f0285000-f0286000 [    4K] ---/rwx SM=NUL  \nSTACK GUARD            f0306000-f0307000 [    4K] ---/rwx SM=NUL  \nSTACK GUARD            f0387000-f0388000 [    4K] ---/rwx SM=NUL  \nSTACK GUARD            f0408000-f0409000 [    4K] ---/rwx SM=NUL  \nSTACK GUARD            f0489000-f048a000 [    4K] ---/rwx SM=NUL  \nSTACK GUARD            f050a000-f050b000 [    4K] ---/rwx SM=NUL  \nSTACK GUARD            f058b000-f058c000 [    4K] ---/rwx SM=NUL  \nSTACK GUARD            f060c000-f060d000 [    4K] ---/rwx SM=NUL  \nsystem                 fffec000-fffef000 [   12K] ---/rwx SM=NUL  commpage [libobjc.A.dylib]\nsystem                 fffef000-ffff0000 [    4K] r-x/rwx SM=PRV  commpage [libobjc.A.dylib]\nsystem                 ffff8000-ffffa000 [    8K] r--/r-- SM=SHM  commpage [libSystem.B.dylib]\n\n==== Writable regions for process 279\n__DATA                 00003000-00004000 [    4K] rw-/rwx SM=COW  /System/Library/Frameworks/Carbon.framework/Versions/A/Support/LaunchCFMApp\nMALLOC_LARGE           00008000-0000e000 [   24K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nVM_ALLOCATE ?          0000e000-0001e000 [   64K] rw-/rwx SM=PRV  \nVM_ALLOCATE ?          00089000-00099000 [   64K] rw-/rwx SM=PRV  \nMALLOC_LARGE           00099000-0009a000 [    4K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nVM_ALLOCATE ?          0009a000-0009e000 [   16K] rw-/rwx SM=COW  \nVM_ALLOCATE ?          000c0000-000c1000 [    4K] rw-/rwx SM=PRV  \nMALLOC_LARGE           000c2000-000c8000 [   24K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           000d1000-000ec000 [  108K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nVM_ALLOCATE ?          000ec000-000ed000 [    4K] rw-/rwx SM=PRV  \nATS (font support)     000ed000-000ee000 [    4K] rw-/rwx SM=SHM  \nATS (font support)     000ee000-000ef000 [    4K] rw-/rwx SM=COW  \nVM_ALLOCATE ?          000ef000-000fd000 [   56K] rw-/rwx SM=NUL  \nATS (font support)     000fd000-000ff000 [    8K] rw-/rwx SM=COW  \nMALLOC_LARGE           000ff000-00100000 [    4K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_TINY (freed?)   00100000-00205000 [ 1044K] rw-/rwx SM=PRV  \n__DATA                 002f4000-002f9000 [   20K] rw-/rwx SM=COW  /usr/lib/libxml2.2.dylib\n__DATA                 002f9000-00302000 [   36K] rw-/rwx SM=NUL  /usr/lib/libxml2.2.dylib\nMALLOC_LARGE           0039a000-003a5000 [   44K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nVM_ALLOCATE ?          003a5000-003fd000 [  352K] rw-/rwx SM=PRV  \nATS (font support)     003fd000-003ff000 [    8K] rw-/rwx SM=COW  \nVM_ALLOCATE ?          003ff000-00400000 [    4K] rw-/rwx SM=PRV  \nPEF binary             00400000-00505000 [ 1044K] rw-/rwx SM=PRV  CFMPriv_AGL\nMALLOC_LARGE           005ea000-006d9000 [  956K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nVM_ALLOCATE ?          006d9000-00701000 [  160K] rw-/rwx SM=PRV  \nMALLOC_LARGE           00701000-0070d000 [   48K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nATS (font support)     0070d000-0078d000 [  512K] rw-/rwx SM=COW  \nVM_ALLOCATE ?          0078d000-00795000 [   32K] rw-/rwx SM=PRV  \nMALLOC_LARGE           00795000-007e6000 [  324K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nshared memory          007fe000-007ff000 [    4K] rw-/rw- SM=SHM  \nMALLOC (freed?)        00800000-01008000 [ 8224K] rw-/rwx SM=PRV  \nIOKit                  01008000-0100c000 [   16K] rw-/rw- SM=SHM  \nIOKit                  0100c000-0100e000 [    8K] rw-/rw- SM=ALI  \nMALLOC_LARGE           0100e000-01017000 [   36K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_REALLOC         01017000-01019000 [    8K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           01019000-0103b000 [  136K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\n__DATA                 01042000-01043000 [    4K] rw-/rwx SM=COW  ...ensions/IOAudioFamily.kext/Contents/PlugIns/AOAHALPlugin.bundle/Contents/MacOS/AOAHALPlugin\nVM_ALLOCATE ?          01044000-01045000 [    4K] rw-/rwx SM=PRV  \nMALLOC_LARGE           01045000-0104a000 [   20K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           01084000-0108b000 [   28K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nVM_ALLOCATE ?          010cb000-010cc000 [    4K] rw-/rwx SM=PRV  \nMALLOC_LARGE           010cc000-010d0000 [   16K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  010d0000-010d1000 [    4K] rw-/rw- SM=ALI  \nVM_ALLOCATE ?          010d1000-0110a000 [  228K] rw-/rwx SM=COW  \nMALLOC_LARGE           0110a000-01134000 [  168K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\n__DATA                 0113a000-0113b000 [    4K] rw-/rwx SM=COW  /Library/QuickTime/LiveType.component/Contents/MacOS/LiveType\nVM_ALLOCATE ?          0113d000-01145000 [   32K] rw-/rwx SM=PRV  \nVM_ALLOCATE ?          0114d000-01155000 [   32K] rw-/rwx SM=PRV  \nMALLOC_LARGE           01155000-0115a000 [   20K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nshared memory          0115a000-01161000 [   28K] rw-/rwx SM=SHM  \nMALLOC_LARGE           01161000-0116f000 [   56K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\n__DATA                 011d5000-011d8000 [   12K] rw-/rwx SM=COW  /System/Library/PrivateFrameworks/LiveType.framework/Versions/A/LiveType\n__DATA                 011d8000-011d9000 [    4K] rw-/rwx SM=NUL  /System/Library/PrivateFrameworks/LiveType.framework/Versions/A/LiveType\n__OBJC                 011d9000-011da000 [    4K] rw-/rwx SM=COW  /System/Library/PrivateFrameworks/LiveType.framework/Versions/A/LiveType\nVM_ALLOCATE ?          017a9000-017b1000 [   32K] rw-/rwx SM=PRV  \nMALLOC_LARGE           017b1000-01800000 [  316K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC                 01800000-02008000 [ 8224K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  02ae3000-12ae3000 [262144K] rw-/rw- SM=NUL  \nATS (font support)     12ae3000-14a63000 [32256K] rw-/rwx SM=COW  \nshared memory          14a63000-15a5f000 [16368K] rw-/rw- SM=SHM  \nmapped file            15a5f000-15c83000 [ 2192K] rw-/rwx SM=COW  /System/Library/Fonts/LucidaGrande.dfont\nATS (font support)     15c83000-15d83000 [ 1024K] rw-/rwx SM=SHM  \nVM_ALLOCATE ?          15d83000-15e7a000 [  988K] rw-/rwx SM=COW  \nMALLOC_LARGE           15e7a000-15efa000 [  512K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\n__DATA                 1600a000-1600e000 [   16K] rw-/rwx SM=COW  /System/Library/Frameworks/OpenGL.framework/Resources/GLEngine.bundle/GLEngine\n__DATA                 1600e000-1600f000 [    4K] rw-/rwx SM=PRV  /System/Library/Frameworks/OpenGL.framework/Resources/GLEngine.bundle/GLEngine\n__DATA                 16129000-1612e000 [   20K] rw-/rwx SM=COW  /System/Library/Extensions/ATIRadeon9700GLDriver.bundle/Contents/MacOS/ATIRadeon9700GLDriver\n__DATA                 1612e000-16133000 [   20K] rw-/rwx SM=PRV  /System/Library/Extensions/ATIRadeon9700GLDriver.bundle/Contents/MacOS/ATIRadeon9700GLDriver\n__DATA                 16150000-16151000 [    4K] rw-/rwx SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Resources/GLDriver.bundle/GLDriver\n__DATA                 16171000-16172000 [    4K] rw-/rwx SM=COW  ...ary/Frameworks/OpenGL.framework/Versions/A/Resources/GLRendererFloat.bundle/GLRendererFloat\nMALLOC_LARGE           16176000-16189000 [   76K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  16189000-161a7000 [  120K] rw-/rw- SM=SHM  \nIOKit                  161a9000-161b1000 [   32K] rw-/rw- SM=ALI  \nVM_ALLOCATE ?          161b1000-161b9000 [   32K] rw-/rwx SM=PRV  \nMALLOC_LARGE           161b9000-161c3000 [   40K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  161c3000-161dc000 [  100K] rw-/rw- SM=SHM  \nMALLOC_LARGE           161dc000-161ee000 [   72K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  161ee000-16204000 [   88K] rw-/rw- SM=SHM  \nMALLOC_LARGE           1620a000-16263000 [  356K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  16263000-16266000 [   12K] rw-/rw- SM=SHM  \nMALLOC_LARGE           16266000-16284000 [  120K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16289000-162ab000 [  136K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\n__DATA                 162e5000-162e7000 [    8K] rw-/rwx SM=COW  ...m/Library/Components/SoundManagerComponents.component/Contents/MacOS/SoundManagerComponents\nshared memory          162ea000-162fc000 [   72K] rw-/rwx SM=SHM  \nMALLOC_LARGE           162fc000-16300000 [   16K] rw-/rwx SM=NUL  DefaultMallocZone_0x400000\nMALLOC_TINY            16300000-16405000 [ 1044K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16405000-165da000 [ 1876K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nVM_ALLOCATE ?          165da000-1663a000 [  384K] rw-/rwx SM=PRV  \nMALLOC_LARGE           1663a000-167f6000 [ 1776K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           167f7000-16810000 [  100K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16810000-16830000 [  128K] rw-/rwx SM=NUL  DefaultMallocZone_0x400000\nMALLOC_LARGE           16830000-16840000 [   64K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16840000-1687c000 [  240K] rw-/rwx SM=NUL  DefaultMallocZone_0x400000\nMALLOC_LARGE           1687c000-1688c000 [   64K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           1688c000-168a4000 [   96K] rw-/rwx SM=NUL  DefaultMallocZone_0x400000\nMALLOC_LARGE           168a4000-168e2000 [  248K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           168e2000-168e8000 [   24K] rw-/rwx SM=ZER  DefaultMallocZone_0x400000\nMALLOC_LARGE           168e8000-168ec000 [   16K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           168ec000-168f6000 [   40K] rw-/rwx SM=ZER  DefaultMallocZone_0x400000\nMALLOC_LARGE           168f8000-16900000 [   32K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_TINY            16900000-16a05000 [ 1044K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16a05000-16b2d000 [ 1184K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16b2f000-16b37000 [   32K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16b3b000-16b4b000 [   64K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  16b4b000-16b52000 [   28K] rw-/rw- SM=SHM  \nMALLOC_LARGE           16b55000-16b65000 [   64K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  16b65000-16b83000 [  120K] rw-/rw- SM=SHM  \nMALLOC_LARGE           16b84000-16c0d000 [  548K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  16c0d000-16c10000 [   12K] rw-/rw- SM=SHM  \nMALLOC_LARGE           16c10000-16c64000 [  336K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16c66000-16ce0000 [  488K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16ce2000-16cea000 [   32K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  16cea000-16ced000 [   12K] rw-/rw- SM=SHM  \nMALLOC_LARGE           16ced000-16d0a000 [  116K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16d0b000-16d13000 [   32K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16d16000-16d3a000 [  144K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16d3c000-16d5c000 [  128K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16d5d000-16d75000 [   96K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16d76000-16dae000 [  224K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16db1000-16e78000 [  796K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16e79000-16e93000 [  104K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16e94000-16ea2000 [   56K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16ea3000-16ed7000 [  208K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16ed8000-16f6c000 [  592K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16f6e000-16fe0000 [  456K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16fe1000-170ad000 [  816K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           170ae000-171ae000 [ 1024K] rw-/rwx SM=NUL  DefaultMallocZone_0x400000\nMALLOC_LARGE           171ae000-174ba000 [ 3120K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           174ba000-174c4000 [   40K] rw-/rwx SM=ZER  DefaultMallocZone_0x400000\nMALLOC_LARGE           174c4000-174c8000 [   16K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           174ca000-174ce000 [   16K] rw-/rwx SM=ZER  DefaultMallocZone_0x400000\nMALLOC_LARGE           174ce000-174d2000 [   16K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           174d4000-174ec000 [   96K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           174ef000-17649000 [ 1384K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  17649000-17660000 [   92K] rw-/rw- SM=PRV  \nMALLOC_LARGE           17660000-17682000 [  136K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  17682000-17689000 [   28K] rw-/rw- SM=SHM  \nMALLOC_LARGE           17689000-17833000 [ 1704K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           17835000-1789e000 [  420K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           178a0000-178ca000 [  168K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           178cb000-179d6000 [ 1068K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  179d6000-179fd000 [  156K] rw-/rw- SM=SHM  \nMALLOC_TINY            17a00000-17b05000 [ 1044K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  17b05000-17c8a000 [ 1556K] rw-/rw- SM=SHM  \nMALLOC_LARGE           17c8a000-17c9a000 [   64K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  17ca9000-18337000 [ 6712K] rw-/rw- SM=SHM  \nMALLOC_LARGE           18337000-1834b000 [   80K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  1834b000-18362000 [   92K] rw-/rw- SM=SHM  \nIOKit                  18362000-18379000 [   92K] rw-/rw- SM=PRV  \nIOKit                  18379000-18425000 [  688K] rw-/rw- SM=SHM  \nMALLOC_LARGE           18425000-18449000 [  144K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  18449000-1870a000 [ 2820K] rw-/rw- SM=SHM  \nMALLOC_LARGE           1870a000-18710000 [   24K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           18710000-18736000 [  152K] rw-/rwx SM=COW  DefaultMallocZone_0x400000\nMALLOC_LARGE           18736000-1877b000 [  276K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  18790000-1886c000 [  880K] rw-/rw- SM=SHM  \nMALLOC_LARGE           18886000-188e9000 [  396K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           1892f000-18950000 [  132K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\n__DATA                 8fe53000-8fe5a000 [   28K] rw-/rwx SM=COW  /usr/lib/dyld\n__DATA                 8fe5a000-8fe5d000 [   12K] rw-/rwx SM=PRV  /usr/lib/dyld\n__DATA                 a0000000-a000b000 [   44K] rw-/rw- SM=COW  /usr/lib/libSystem.B.dylib\n__DATA                 a000b000-a0012000 [   28K] rw-/rw- SM=PRV  /usr/lib/libSystem.B.dylib\n__DATA                 a021b000-a0220000 [   20K] rw-/rw- SM=COW  .../ApplicationServices.framework/Versions/A/Frameworks/CoreText.framework/Versions/A/CoreText\n__OBJC                 a0220000-a0221000 [    4K] rw-/rw- SM=COW  .../ApplicationServices.framework/Versions/A/Frameworks/CoreText.framework/Versions/A/CoreText\n__DATA                 a0293000-a0297000 [   16K] rw-/rw- SM=COW  ...Frameworks/ApplicationServices.framework/Versions/A/Frameworks/ATS.framework/Versions/A/ATS\n__DATA                 a0297000-a0298000 [    4K] rw-/rw- SM=COW  ...Frameworks/ApplicationServices.framework/Versions/A/Frameworks/ATS.framework/Versions/A/ATS\n__DATA                 a0373000-a0390000 [  116K] rw-/rw- SM=COW  ...tionServices.framework/Versions/A/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics\n__DATA                 a0390000-a0391000 [    4K] rw-/rw- SM=PRV  ...tionServices.framework/Versions/A/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics\n__DATA                 a07bb000-a07c5000 [   40K] rw-/rw- SM=COW  /System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation\n__DATA                 a0a3c000-a0a51000 [   84K] rw-/rw- SM=COW  /usr/lib/libobjc.A.dylib\n__OBJC                 a0a51000-a0a52000 [    4K] rw-/rw- SM=COW  /usr/lib/libobjc.A.dylib\n__DATA                 a0b72000-a0b73000 [    4K] rw-/rw- SM=COW  /usr/lib/libauto.dylib\n__DATA                 a0b8b000-a0b95000 [   40K] rw-/rw- SM=COW  ...rks/CoreServices.framework/Versions/A/Frameworks/CarbonCore.framework/Versions/A/CarbonCore\n__DATA                 a0b95000-a0b96000 [    4K] rw-/rw- SM=PRV  ...rks/CoreServices.framework/Versions/A/Frameworks/CarbonCore.framework/Versions/A/CarbonCore\n__DATA                 a0ec8000-a0ed0000 [   32K] rw-/rw- SM=COW  ...rks/CoreServices.framework/Versions/A/Frameworks/OSServices.framework/Versions/A/OSServices\n__DATA                 a1123000-a1168000 [  276K] rw-/rw- SM=COW  /System/Library/Frameworks/Security.framework/Versions/A/Security\n__DATA                 a13dd000-a13de000 [    4K] rw-/rw- SM=COW  /System/Library/Frameworks/DiskArbitration.framework/Versions/A/DiskArbitration\n__DATA                 a1434000-a1435000 [    4K] rw-/rw- SM=COW  /usr/lib/libgcc_s.1.dylib\n__DATA                 a1444000-a144f000 [   44K] rw-/rw- SM=COW  /System/Library/Frameworks/CoreAudio.framework/Versions/A/CoreAudio\n__DATA                 a14fc000-a14fd000 [    4K] rw-/rw- SM=COW  /System/Library/Frameworks/ApplicationServices.framework/Versions/A/ApplicationServices\n__DATA                 a14fe000-a1500000 [    8K] rw-/rw- SM=COW  ...y/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/AE.framework/Versions/A/AE\n__DATA                 a1551000-a155c000 [   44K] rw-/rw- SM=COW  ...pplicationServices.framework/Versions/A/Frameworks/ColorSync.framework/Versions/A/ColorSync\n__DATA                 a174e000-a1752000 [   16K] rw-/rw- SM=COW  ...y/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/QD.framework/Versions/A/QD\n__DATA                 a1842000-a1846000 [   16K] rw-/rw- SM=COW  ...licationServices.framework/Versions/A/Frameworks/HIServices.framework/Versions/A/HIServices\n__DATA                 a1846000-a1847000 [    4K] rw-/rw- SM=COW  ...licationServices.framework/Versions/A/Frameworks/HIServices.framework/Versions/A/HIServices\n__DATA                 a19bc000-a19c3000 [   28K] rw-/rw- SM=COW  ...ks/ApplicationServices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/ImageIO\n__DATA                 a1b6c000-a1b7e000 [   72K] rw-/rw- SM=COW  ...ervices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libJP2.dylib\n__DATA                 a1b7e000-a1b7f000 [    4K] rw-/rw- SM=COW  ...ervices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libJP2.dylib\n__DATA                 a2af8000-a2b0a000 [   72K] rw-/rw- SM=COW  /System/Library/PrivateFrameworks/DesktopServicesPriv.framework/Versions/A/DesktopServicesPriv\n__DATA                 a2bc1000-a2bde000 [  116K] rw-/rw- SM=COW  /System/Library/Frameworks/Foundation.framework/Versions/C/Foundation\n__OBJC                 a2bde000-a2be5000 [   28K] rw-/rw- SM=COW  /System/Library/Frameworks/Foundation.framework/Versions/C/Foundation\n__OBJC                 a2be5000-a2c10000 [  172K] rw-/rw- SM=COW  /System/Library/Frameworks/Foundation.framework/Versions/C/Foundation\n__DATA                 a2f27000-a2f28000 [    4K] rw-/rw- SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib\n__DATA                 a2fc8000-a2fc9000 [    4K] rw-/rw- SM=COW  /System/Library/Frameworks/Carbon.framework/Versions/A/Carbon\n__DATA                 a2fca000-a2fcd000 [   12K] rw-/rw- SM=COW  ...works/Carbon.framework/Versions/A/Frameworks/ImageCapture.framework/Versions/A/ImageCapture\n__DATA                 a2ff6000-a2ff8000 [    8K] rw-/rw- SM=COW  ...on.framework/Versions/A/Frameworks/SpeechRecognition.framework/Versions/A/SpeechRecognition\n__DATA                 a3012000-a3014000 [    8K] rw-/rw- SM=COW  ...rameworks/Carbon.framework/Versions/A/Frameworks/SecurityHI.framework/Versions/A/SecurityHI\n__DATA                 a3039000-a303b000 [    8K] rw-/rw- SM=COW  /System/Library/Frameworks/Carbon.framework/Versions/A/Frameworks/Ink.framework/Versions/A/Ink\n__DATA                 a30d4000-a30d5000 [    4K] rw-/rw- SM=COW  ...em/Library/Frameworks/Carbon.framework/Versions/A/Frameworks/Help.framework/Versions/A/Help\n__DATA                 a30e9000-a30ee000 [   20K] rw-/rw- SM=COW  ...rks/Carbon.framework/Versions/A/Frameworks/OpenScripting.framework/Versions/A/OpenScripting\n__DATA                 a3131000-a3133000 [    8K] rw-/rw- SM=COW  .../Library/Frameworks/Carbon.framework/Versions/A/Frameworks/Print.framework/Versions/A/Print\n__DATA                 a314c000-a3156000 [   40K] rw-/rw- SM=COW  ...rks/Carbon.framework/Versions/A/Frameworks/HTMLRendering.framework/Versions/A/HTMLRendering\n__DATA                 a31e3000-a31e8000 [   20K] rw-/rw- SM=COW  ....framework/Versions/A/Frameworks/NavigationServices.framework/Versions/A/NavigationServices\n__DATA                 a3260000-a3262000 [    8K] rw-/rw- SM=COW  ...meworks/Carbon.framework/Versions/A/Frameworks/CarbonSound.framework/Versions/A/CarbonSound\n__DATA                 a328f000-a3290000 [    4K] rw-/rw- SM=COW  ...works/Carbon.framework/Versions/A/Frameworks/CommonPanels.framework/Versions/A/CommonPanels\n__DATA                 a32a5000-a32c4000 [  124K] rw-/rw- SM=COW  .../Frameworks/Carbon.framework/Versions/A/Frameworks/HIToolbox.framework/Versions/A/HIToolbox\n__DATA                 a32c4000-a32c6000 [    8K] rw-/rw- SM=PRV  .../Frameworks/Carbon.framework/Versions/A/Frameworks/HIToolbox.framework/Versions/A/HIToolbox\n__OBJC                 a32c6000-a32c7000 [    4K] rw-/rw- SM=COW  .../Frameworks/Carbon.framework/Versions/A/Frameworks/HIToolbox.framework/Versions/A/HIToolbox\n__DATA                 a3703000-a3704000 [    4K] rw-/rw- SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/OpenGL\n__DATA                 a4149000-a414d000 [   16K] rw-/rw- SM=COW  /System/Library/Frameworks/CoreData.framework/Versions/A/CoreData\n__OBJC                 a414d000-a415a000 [   52K] rw-/rw- SM=COW  /System/Library/Frameworks/CoreData.framework/Versions/A/CoreData\n__DATA                 a430e000-a4316000 [   32K] rw-/rw- SM=COW  /System/Library/Frameworks/QuartzCore.framework/Versions/A/QuartzCore\n__OBJC                 a4317000-a4325000 [   56K] rw-/rw- SM=COW  /System/Library/Frameworks/QuartzCore.framework/Versions/A/QuartzCore\n__DATA                 a455d000-a455e000 [    4K] rw-/rw- SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGLImage.dylib\n__DATA                 a45b6000-a45b8000 [    8K] rw-/rw- SM=COW  /System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo\n__DATA                 a477d000-a477e000 [    4K] rw-/rw- SM=COW  ...ramework/Versions/A/Frameworks/CoreGraphics.framework/Versions/A/Resources/libCGATS.A.dylib\n__DATA                 a4794000-a4795000 [    4K] rw-/rw- SM=COW  ...ramework/Versions/A/Frameworks/CoreGraphics.framework/Versions/A/Resources/libCSync.A.dylib\n__DATA                 a47e7000-a47e8000 [    4K] rw-/rw- SM=COW  ....framework/Versions/A/Frameworks/CoreGraphics.framework/Versions/A/Resources/libRIP.A.dylib\n__DATA                 a4807000-a482b000 [  144K] rw-/rw- SM=COW  /System/Library/Frameworks/QuickTime.framework/Versions/A/QuickTime\n__DATA                 a482b000-a482d000 [    8K] rw-/rw- SM=COW  /System/Library/Frameworks/QuickTime.framework/Versions/A/QuickTime\n__DATA                 a4c22000-a4c2f000 [   52K] rw-/rw- SM=COW  /usr/lib/libstdc++.6.dylib\n__DATA                 a4c2f000-a4c32000 [   12K] rw-/rw- SM=COW  /usr/lib/libstdc++.6.dylib\n__DATA                 a7c89000-a7c8a000 [    4K] rw-/rw- SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGLSystem.dylib\n__DATA                 a7c8c000-a7c8e000 [    8K] rw-/rw- SM=COW  /System/Library/Frameworks/AGL.framework/Versions/A/AGL\n__DATA                 aac67000-aac69000 [    8K] rw-/rw- SM=COW  /System/Library/PrivateFrameworks/OpenTransport.framework/OpenTransport\n__DATA                 aac8f000-aac90000 [    4K] rw-/rw- SM=COW  /System/Library/Frameworks/DrawSprocket.framework/Versions/A/DrawSprocket\n__DATA                 aad00000-aad01000 [    4K] rw-/rw- SM=COW  /System/Library/Frameworks/DVComponentGlue.framework/Versions/A/DVComponentGlue\n__DATA                 affb8000-affba000 [    8K] rw-/rw- SM=COW  /System/Library/QuickTime/QuickTimeFireWireDV.component/Contents/MacOS/QuickTimeFireWireDV\nCoreGraphics           b000c000-b0014000 [   32K] rw-/rw- SM=SHM  \nCoreGraphics           b0734000-b073c000 [   32K] rw-/rw- SM=SHM  \nCoreGraphics           b073d000-b076b000 [  184K] rw-/rw- SM=SHM  \nStack                  bf800000-c0000000 [ 8192K] rw-/rwx SM=PRV  thread 0\nStack                  f0001000-f0081000 [  512K] rw-/rwx SM=PRV  thread 1\nStack                  f0082000-f0102000 [  512K] rw-/rwx SM=PRV  thread 2\nStack                  f0103000-f0183000 [  512K] rw-/rwx SM=PRV  thread 3\nStack                  f0184000-f0204000 [  512K] rw-/rwx SM=PRV  thread 4\nStack                  f0205000-f0285000 [  512K] rw-/rwx SM=PRV  thread 5\nStack                  f0286000-f0306000 [  512K] rw-/rwx SM=PRV  thread 6\nStack                  f0307000-f0387000 [  512K] rw-/rwx SM=PRV  thread 7\nStack                  f0388000-f0408000 [  512K] rw-/rwx SM=PRV  thread 8\nStack                  f0409000-f0489000 [  512K] rw-/rwx SM=PRV  thread 9\nStack                  f048a000-f050a000 [  512K] rw-/rwx SM=PRV  thread 10\nStack                  f050b000-f058b000 [  512K] rw-/rwx SM=PRV  thread 11\nStack                  f058c000-f060c000 [  512K] rw-/rwx SM=PRV  thread 12\nStack                  f060d000-f068d000 [  512K] rw-/rwx SM=PRV  thread 13\n\n==== Legend\nSM=sharing mode:  \n\tCOW=copy_on_write PRV=private NUL=empty ALI=aliased \n\tSHM=shared ZER=zero_filled S/A=shared_alias\n\n==== Summary for process 279\nReadOnly portion of Libraries: Total=71972KB resident=33176KB(46%) swapped_out_or_unallocated=38796KB(54%)\nWritable regions: Total=391124KB written=33660KB(9%) resident=48352KB(12%) swapped_out=0KB(0%) unallocated=342772KB(88%)\n\nREGION TYPE             [ VIRTUAL]\n===========             [ =======]\nATS (font support)      [  33816K]\nCoreGraphics            [    312K]\nIOKit                   [ 275824K]\nMALLOC                  [  45988K]\nPEF binary              [  13236K]\nSTACK GUARD             [     52K]\nStack                   [  14848K]\nVM_ALLOCATE ?           [   2492K]\n__DATA                  [   2612K]\n__LINKEDIT              [  15220K]\n__OBJC                  [    324K]\n__PAGEZERO              [      4K]\n__TEXT                  [  56752K]\nmapped file             [   9316K]\nshared memory           [  16772K]\nsystem                  [     24K]\n",
+  "scoped_data_queries": [
+    {
+      "role": "record",
+      "address": 4244368,
+      "bytes": 164,
+      "before_query": {
+        "schema": 1,
+        "pid": 279,
+        "fixture": false,
+        "payload_reads": 0,
+        "vm_mutations": 0,
+        "regions": [
+          {
+            "address": 4244368,
+            "bytes": 164,
+            "covered_stable": true,
+            "before": {
+              "basic_status": 0,
+              "extended_status": 0,
+              "basic_count": 8,
+              "extended_count": 8,
+              "region_low": 4198400,
+              "region_size": 53248,
+              "protection": 3,
+              "max_protection": 7,
+              "shared": 0,
+              "reserved": 0,
+              "object_offset": 0,
+              "inheritance": 1,
+              "extended_protection": 3,
+              "user_tag": 7,
+              "external_pager": 0,
+              "share_mode": 1,
+              "shadow_depth": 1
+            },
+            "after": {
+              "basic_status": 0,
+              "extended_status": 0,
+              "basic_count": 8,
+              "extended_count": 8,
+              "region_low": 4198400,
+              "region_size": 53248,
+              "protection": 3,
+              "max_protection": 7,
+              "shared": 0,
+              "reserved": 0,
+              "object_offset": 0,
+              "inheritance": 1,
+              "extended_protection": 3,
+              "user_tag": 7,
+              "external_pager": 0,
+              "share_mode": 1,
+              "shadow_depth": 1
+            }
+          }
+        ],
+        "errors": 0,
+        "region_metadata_not_object_identity": true
+      },
+      "metadata_changed_before_reread": false,
+      "after_query": {
+        "schema": 1,
+        "pid": 279,
+        "fixture": false,
+        "payload_reads": 0,
+        "vm_mutations": 0,
+        "regions": [
+          {
+            "address": 4244368,
+            "bytes": 164,
+            "covered_stable": true,
+            "before": {
+              "basic_status": 0,
+              "extended_status": 0,
+              "basic_count": 8,
+              "extended_count": 8,
+              "region_low": 4198400,
+              "region_size": 53248,
+              "protection": 3,
+              "max_protection": 7,
+              "shared": 0,
+              "reserved": 0,
+              "object_offset": 0,
+              "inheritance": 1,
+              "extended_protection": 3,
+              "user_tag": 7,
+              "external_pager": 0,
+              "share_mode": 1,
+              "shadow_depth": 1
+            },
+            "after": {
+              "basic_status": 0,
+              "extended_status": 0,
+              "basic_count": 8,
+              "extended_count": 8,
+              "region_low": 4198400,
+              "region_size": 53248,
+              "protection": 3,
+              "max_protection": 7,
+              "shared": 0,
+              "reserved": 0,
+              "object_offset": 0,
+              "inheritance": 1,
+              "extended_protection": 3,
+              "user_tag": 7,
+              "external_pager": 0,
+              "share_mode": 1,
+              "shadow_depth": 1
+            }
+          }
+        ],
+        "errors": 0,
+        "region_metadata_not_object_identity": true
+      }
+    },
+    {
+      "role": "hw",
+      "address": 4482272,
+      "bytes": 44,
+      "before_query": {
+        "schema": 1,
+        "pid": 279,
+        "fixture": false,
+        "payload_reads": 0,
+        "vm_mutations": 0,
+        "regions": [
+          {
+            "address": 4482272,
+            "bytes": 44,
+            "covered_stable": true,
+            "before": {
+              "basic_status": 0,
+              "extended_status": 0,
+              "basic_count": 8,
+              "extended_count": 8,
+              "region_low": 4280320,
+              "region_size": 327680,
+              "protection": 3,
+              "max_protection": 7,
+              "shared": 0,
+              "reserved": 0,
+              "object_offset": 0,
+              "inheritance": 1,
+              "extended_protection": 3,
+              "user_tag": 7,
+              "external_pager": 0,
+              "share_mode": 1,
+              "shadow_depth": 1
+            },
+            "after": {
+              "basic_status": 0,
+              "extended_status": 0,
+              "basic_count": 8,
+              "extended_count": 8,
+              "region_low": 4280320,
+              "region_size": 327680,
+              "protection": 3,
+              "max_protection": 7,
+              "shared": 0,
+              "reserved": 0,
+              "object_offset": 0,
+              "inheritance": 1,
+              "extended_protection": 3,
+              "user_tag": 7,
+              "external_pager": 0,
+              "share_mode": 1,
+              "shadow_depth": 1
+            }
+          }
+        ],
+        "errors": 0,
+        "region_metadata_not_object_identity": true
+      },
+      "metadata_changed_before_reread": false,
+      "after_query": {
+        "schema": 1,
+        "pid": 279,
+        "fixture": false,
+        "payload_reads": 0,
+        "vm_mutations": 0,
+        "regions": [
+          {
+            "address": 4482272,
+            "bytes": 44,
+            "covered_stable": true,
+            "before": {
+              "basic_status": 0,
+              "extended_status": 0,
+              "basic_count": 8,
+              "extended_count": 8,
+              "region_low": 4280320,
+              "region_size": 327680,
+              "protection": 3,
+              "max_protection": 7,
+              "shared": 0,
+              "reserved": 0,
+              "object_offset": 0,
+              "inheritance": 1,
+              "extended_protection": 3,
+              "user_tag": 7,
+              "external_pager": 0,
+              "share_mode": 1,
+              "shadow_depth": 1
+            },
+            "after": {
+              "basic_status": 0,
+              "extended_status": 0,
+              "basic_count": 8,
+              "extended_count": 8,
+              "region_low": 4280320,
+              "region_size": 327680,
+              "protection": 3,
+              "max_protection": 7,
+              "shared": 0,
+              "reserved": 0,
+              "object_offset": 0,
+              "inheritance": 1,
+              "extended_protection": 3,
+              "user_tag": 7,
+              "external_pager": 0,
+              "share_mode": 1,
+              "shadow_depth": 1
+            }
+          }
+        ],
+        "errors": 0,
+        "region_metadata_not_object_identity": true
+      }
+    },
+    {
+      "role": "list",
+      "address": 4310288,
+      "bytes": 12,
+      "before_query": {
+        "schema": 1,
+        "pid": 279,
+        "fixture": false,
+        "payload_reads": 0,
+        "vm_mutations": 0,
+        "regions": [
+          {
+            "address": 4310288,
+            "bytes": 12,
+            "covered_stable": true,
+            "before": {
+              "basic_status": 0,
+              "extended_status": 0,
+              "basic_count": 8,
+              "extended_count": 8,
+              "region_low": 4280320,
+              "region_size": 327680,
+              "protection": 3,
+              "max_protection": 7,
+              "shared": 0,
+              "reserved": 0,
+              "object_offset": 0,
+              "inheritance": 1,
+              "extended_protection": 3,
+              "user_tag": 7,
+              "external_pager": 0,
+              "share_mode": 1,
+              "shadow_depth": 1
+            },
+            "after": {
+              "basic_status": 0,
+              "extended_status": 0,
+              "basic_count": 8,
+              "extended_count": 8,
+              "region_low": 4280320,
+              "region_size": 327680,
+              "protection": 3,
+              "max_protection": 7,
+              "shared": 0,
+              "reserved": 0,
+              "object_offset": 0,
+              "inheritance": 1,
+              "extended_protection": 3,
+              "user_tag": 7,
+              "external_pager": 0,
+              "share_mode": 1,
+              "shadow_depth": 1
+            }
+          }
+        ],
+        "errors": 0,
+        "region_metadata_not_object_identity": true
+      },
+      "metadata_changed_before_reread": false,
+      "after_query": {
+        "schema": 1,
+        "pid": 279,
+        "fixture": false,
+        "payload_reads": 0,
+        "vm_mutations": 0,
+        "regions": [
+          {
+            "address": 4310288,
+            "bytes": 12,
+            "covered_stable": true,
+            "before": {
+              "basic_status": 0,
+              "extended_status": 0,
+              "basic_count": 8,
+              "extended_count": 8,
+              "region_low": 4280320,
+              "region_size": 327680,
+              "protection": 3,
+              "max_protection": 7,
+              "shared": 0,
+              "reserved": 0,
+              "object_offset": 0,
+              "inheritance": 1,
+              "extended_protection": 3,
+              "user_tag": 7,
+              "external_pager": 0,
+              "share_mode": 1,
+              "shadow_depth": 1
+            },
+            "after": {
+              "basic_status": 0,
+              "extended_status": 0,
+              "basic_count": 8,
+              "extended_count": 8,
+              "region_low": 4280320,
+              "region_size": 327680,
+              "protection": 3,
+              "max_protection": 7,
+              "shared": 0,
+              "reserved": 0,
+              "object_offset": 0,
+              "inheritance": 1,
+              "extended_protection": 3,
+              "user_tag": 7,
+              "external_pager": 0,
+              "share_mode": 1,
+              "shadow_depth": 1
+            }
+          }
+        ],
+        "errors": 0,
+        "region_metadata_not_object_identity": true
+      }
+    },
+    {
+      "role": "bridge",
+      "address": 4376352,
+      "bytes": 16,
+      "before_query": {
+        "schema": 1,
+        "pid": 279,
+        "fixture": false,
+        "payload_reads": 0,
+        "vm_mutations": 0,
+        "regions": [
+          {
+            "address": 4376352,
+            "bytes": 16,
+            "covered_stable": true,
+            "before": {
+              "basic_status": 0,
+              "extended_status": 0,
+              "basic_count": 8,
+              "extended_count": 8,
+              "region_low": 4280320,
+              "region_size": 327680,
+              "protection": 3,
+              "max_protection": 7,
+              "shared": 0,
+              "reserved": 0,
+              "object_offset": 0,
+              "inheritance": 1,
+              "extended_protection": 3,
+              "user_tag": 7,
+              "external_pager": 0,
+              "share_mode": 1,
+              "shadow_depth": 1
+            },
+            "after": {
+              "basic_status": 0,
+              "extended_status": 0,
+              "basic_count": 8,
+              "extended_count": 8,
+              "region_low": 4280320,
+              "region_size": 327680,
+              "protection": 3,
+              "max_protection": 7,
+              "shared": 0,
+              "reserved": 0,
+              "object_offset": 0,
+              "inheritance": 1,
+              "extended_protection": 3,
+              "user_tag": 7,
+              "external_pager": 0,
+              "share_mode": 1,
+              "shadow_depth": 1
+            }
+          }
+        ],
+        "errors": 0,
+        "region_metadata_not_object_identity": true
+      },
+      "metadata_changed_before_reread": false,
+      "after_query": {
+        "schema": 1,
+        "pid": 279,
+        "fixture": false,
+        "payload_reads": 0,
+        "vm_mutations": 0,
+        "regions": [
+          {
+            "address": 4376352,
+            "bytes": 16,
+            "covered_stable": true,
+            "before": {
+              "basic_status": 0,
+              "extended_status": 0,
+              "basic_count": 8,
+              "extended_count": 8,
+              "region_low": 4280320,
+              "region_size": 327680,
+              "protection": 3,
+              "max_protection": 7,
+              "shared": 0,
+              "reserved": 0,
+              "object_offset": 0,
+              "inheritance": 1,
+              "extended_protection": 3,
+              "user_tag": 7,
+              "external_pager": 0,
+              "share_mode": 1,
+              "shadow_depth": 1
+            },
+            "after": {
+              "basic_status": 0,
+              "extended_status": 0,
+              "basic_count": 8,
+              "extended_count": 8,
+              "region_low": 4280320,
+              "region_size": 327680,
+              "protection": 3,
+              "max_protection": 7,
+              "shared": 0,
+              "reserved": 0,
+              "object_offset": 0,
+              "inheritance": 1,
+              "extended_protection": 3,
+              "user_tag": 7,
+              "external_pager": 0,
+              "share_mode": 1,
+              "shadow_depth": 1
+            }
+          }
+        ],
+        "errors": 0,
+        "region_metadata_not_object_identity": true
+      }
+    }
+  ],
+  "stack_helper": {
+    "schema": 2,
+    "provenance": "coherent-suspended-stack",
+    "pid": 279,
+    "range_low": 371896320,
+    "range_high": 372133888,
+    "sm_return": 371918772,
+    "core_return": 2437327884,
+    "rounds": 385,
+    "errors": 0,
+    "drops": 0,
+    "suspend_successes": 6,
+    "resume_successes": 6,
+    "resume_errors": 0,
+    "self_thread_skips": 0,
+    "total_stack_bytes": 300,
+    "stop_requested": false,
+    "fixture": false,
+    "records": [
+      {
+        "round": 147,
+        "thread": 5455,
+        "pc": 4294935164,
+        "lr": 2415923748,
+        "sp": 4030227808,
+        "word": 0,
+        "word_ok": 0,
+        "r3": 4509140,
+        "r4": 0,
+        "r5": 1000,
+        "r6": 4294967295,
+        "r7": 1953984371,
+        "r8": 0,
+        "r9": 0,
+        "r24": 0,
+        "r25": 0,
+        "r26": 26508812,
+        "r28": 2684362660,
+        "r30": 1297437784,
+        "stack_lo": 0,
+        "stack_hi": 0,
+        "capture_begin_ticks": 3321297000,
+        "capture_end_ticks": 3321446675,
+        "capture_error": 0,
+        "suspend_ok": 1,
+        "resume_ok": 1,
+        "resume_status": 0,
+        "reads": [],
+        "frames": [],
+        "candidates": []
+      },
+      {
+        "round": 150,
+        "thread": 5723,
+        "pc": 2427389400,
+        "lr": 2437332160,
+        "sp": 4030228864,
+        "word": 0,
+        "word_ok": 0,
+        "r3": 0,
+        "r4": 0,
+        "r5": 3182,
+        "r6": 114,
+        "r7": 0,
+        "r8": 1,
+        "r9": 0,
+        "r24": 4384016,
+        "r25": 1,
+        "r26": 3182,
+        "r28": 26485760,
+        "r30": 114,
+        "stack_lo": 0,
+        "stack_hi": 0,
+        "capture_begin_ticks": 3323467775,
+        "capture_end_ticks": 3323583950,
+        "capture_error": 0,
+        "suspend_ok": 1,
+        "resume_ok": 1,
+        "resume_status": 0,
+        "reads": [],
+        "frames": [],
+        "candidates": []
+      },
+      {
+        "round": 281,
+        "thread": 5479,
+        "pc": 2416263048,
+        "lr": 2416379880,
+        "sp": 4030229248,
+        "word": 0,
+        "word_ok": 0,
+        "r3": 14595,
+        "r4": 13827,
+        "r5": 0,
+        "r6": 5614359,
+        "r7": 4030229848,
+        "r8": 2437323032,
+        "r9": 2684362660,
+        "r24": 0,
+        "r25": 2684356060,
+        "r26": 373223652,
+        "r28": 4030229424,
+        "r30": 2684362660,
+        "stack_lo": 0,
+        "stack_hi": 0,
+        "capture_begin_ticks": 3375788825,
+        "capture_end_ticks": 3375932925,
+        "capture_error": 0,
+        "suspend_ok": 1,
+        "resume_ok": 1,
+        "resume_status": 0,
+        "reads": [],
+        "frames": [],
+        "candidates": []
+      },
+      {
+        "round": 308,
+        "thread": 5843,
+        "pc": 2437275060,
+        "lr": 2437331224,
+        "sp": 4030229024,
+        "word": 0,
+        "word_ok": 0,
+        "r3": 373225440,
+        "r4": 512,
+        "r5": 0,
+        "r6": 375734336,
+        "r7": 375734336,
+        "r8": 512,
+        "r9": 373222124,
+        "r24": 4384016,
+        "r25": 1,
+        "r26": 4244368,
+        "r28": 512,
+        "r30": 0,
+        "stack_lo": 0,
+        "stack_hi": 0,
+        "capture_begin_ticks": 3387577800,
+        "capture_end_ticks": 3387592325,
+        "capture_error": 0,
+        "suspend_ok": 1,
+        "resume_ok": 1,
+        "resume_status": 0,
+        "reads": [],
+        "frames": [],
+        "candidates": []
+      },
+      {
+        "round": 340,
+        "thread": 5715,
+        "pc": 2416263048,
+        "lr": 2416379880,
+        "sp": 4030229248,
+        "word": 0,
+        "word_ok": 0,
+        "r3": 14339,
+        "r4": 13827,
+        "r5": 0,
+        "r6": 4350137,
+        "r7": 4030229848,
+        "r8": 2437323032,
+        "r9": 2684362660,
+        "r24": 0,
+        "r25": 2684356060,
+        "r26": 373223652,
+        "r28": 4030229424,
+        "r30": 2684362660,
+        "stack_lo": 0,
+        "stack_hi": 0,
+        "capture_begin_ticks": 3400173150,
+        "capture_end_ticks": 3400196250,
+        "capture_error": 0,
+        "suspend_ok": 1,
+        "resume_ok": 1,
+        "resume_status": 0,
+        "reads": [],
+        "frames": [],
+        "candidates": []
+      },
+      {
+        "round": 385,
+        "thread": 5383,
+        "pc": 372108340,
+        "lr": 371908076,
+        "sp": 4030228480,
+        "word": 2080899750,
+        "word_ok": 1,
+        "r3": 4506080,
+        "r4": 371919556,
+        "r5": 371905896,
+        "r6": 4030229344,
+        "r7": 4204656,
+        "r8": 4030229408,
+        "r9": 371919556,
+        "r24": 0,
+        "r25": 4204656,
+        "r26": 0,
+        "r28": 4482276,
+        "r30": 4506080,
+        "stack_lo": 4029706240,
+        "stack_hi": 4030230528,
+        "capture_begin_ticks": 3417015250,
+        "capture_end_ticks": 3417211400,
+        "capture_error": 0,
+        "suspend_ok": 1,
+        "resume_ok": 1,
+        "resume_status": 0,
+        "reads": [
+          {
+            "address": 372108340,
+            "bytes": 4,
+            "bytes_hex": "7c0802a6"
+          },
+          {
+            "address": 4030228480,
+            "bytes": 16,
+            "bytes_hex": "f038685000000000162ade1400000000"
+          },
+          {
+            "address": 4030228568,
+            "bytes": 4,
+            "bytes_hex": "162b0acc"
+          },
+          {
+            "address": 4030228560,
+            "bytes": 16,
+            "bytes_hex": "f03868a0f0386be0162b0accf0386930"
+          },
+          {
+            "address": 4030228648,
+            "bytes": 4,
+            "bytes_hex": "162ad568"
+          },
+          {
+            "address": 4030228640,
+            "bytes": 16,
+            "bytes_hex": "f03868f000000000162ad56800433890"
+          },
+          {
+            "address": 4030228728,
+            "bytes": 4,
+            "bytes_hex": "90bdeae8"
+          },
+          {
+            "address": 4030228720,
+            "bytes": 16,
+            "bytes_hex": "f03869400000000090bdeae800000000"
+          },
+          {
+            "address": 4030228808,
+            "bytes": 4,
+            "bytes_hex": "93263c38"
+          },
+          {
+            "address": 4030228800,
+            "bytes": 16,
+            "bytes_hex": "f03869a00000000093263c389146b2f4"
+          },
+          {
+            "address": 4030228904,
+            "bytes": 4,
+            "bytes_hex": "162b099c"
+          },
+          {
+            "address": 4030228896,
+            "bytes": 16,
+            "bytes_hex": "f0386a3000000000162b099cf0386d58"
+          },
+          {
+            "address": 4030229048,
+            "bytes": 4,
+            "bytes_hex": "162b07b4"
+          },
+          {
+            "address": 4030229040,
+            "bytes": 16,
+            "bytes_hex": "f0386a8044000024162b07b491469f1c"
+          },
+          {
+            "address": 4030229128,
+            "bytes": 4,
+            "bytes_hex": "9146ac0c"
+          },
+          {
+            "address": 4030229120,
+            "bytes": 16,
+            "bytes_hex": "f0386b20000000009146ac0c00b5f634"
+          },
+          {
+            "address": 4030229288,
+            "bytes": 4,
+            "bytes_hex": "9146a920"
+          },
+          {
+            "address": 4030229280,
+            "bytes": 16,
+            "bytes_hex": "f0386c5000b0dc859146a92000000000"
+          },
+          {
+            "address": 4030229592,
+            "bytes": 4,
+            "bytes_hex": "91468930"
+          },
+          {
+            "address": 4030229584,
+            "bytes": 16,
+            "bytes_hex": "f0386d90240000449146893000000000"
+          },
+          {
+            "address": 4030229912,
+            "bytes": 4,
+            "bytes_hex": "91468498"
+          },
+          {
+            "address": 4030229904,
+            "bytes": 16,
+            "bytes_hex": "f0386de0000000009146849800000000"
+          },
+          {
+            "address": 4030229992,
+            "bytes": 4,
+            "bytes_hex": "914592c4"
+          },
+          {
+            "address": 4030229984,
+            "bytes": 16,
+            "bytes_hex": "f0386e3000000000914592c400000000"
+          },
+          {
+            "address": 4030230072,
+            "bytes": 4,
+            "bytes_hex": "9002b908"
+          },
+          {
+            "address": 4030230064,
+            "bytes": 16,
+            "bytes_hex": "f0386f00000000009002b90800000000"
+          },
+          {
+            "address": 4030230280,
+            "bytes": 4,
+            "bytes_hex": "00000000"
+          },
+          {
+            "address": 4030230272,
+            "bytes": 16,
+            "bytes_hex": "00000000000000000000000000000000"
+          },
+          {
+            "address": 4030229028,
+            "bytes": 8,
+            "bytes_hex": "0040c390004464e0"
+          },
+          {
+            "address": 4030229112,
+            "bytes": 4,
+            "bytes_hex": "163eea60"
+          },
+          {
+            "address": 4030229048,
+            "bytes": 4,
+            "bytes_hex": "162b07b4"
+          },
+          {
+            "address": 4030229128,
+            "bytes": 4,
+            "bytes_hex": "9146ac0c"
+          }
+        ],
+        "frames": [
+          {
+            "frame": 4030228480,
+            "backchain": 4030228560,
+            "lr_address": 4030228568,
+            "lr": 371919564
+          },
+          {
+            "frame": 4030228560,
+            "backchain": 4030228640,
+            "lr_address": 4030228648,
+            "lr": 371905896
+          },
+          {
+            "frame": 4030228640,
+            "backchain": 4030228720,
+            "lr_address": 4030228728,
+            "lr": 2428365544
+          },
+          {
+            "frame": 4030228720,
+            "backchain": 4030228800,
+            "lr_address": 4030228808,
+            "lr": 2468756536
+          },
+          {
+            "frame": 4030228800,
+            "backchain": 4030228896,
+            "lr_address": 4030228904,
+            "lr": 371919260
+          },
+          {
+            "frame": 4030228896,
+            "backchain": 4030229040,
+            "lr_address": 4030229048,
+            "lr": 371918772
+          },
+          {
+            "frame": 4030229040,
+            "backchain": 4030229120,
+            "lr_address": 4030229128,
+            "lr": 2437327884
+          },
+          {
+            "frame": 4030229120,
+            "backchain": 4030229280,
+            "lr_address": 4030229288,
+            "lr": 2437327136
+          },
+          {
+            "frame": 4030229280,
+            "backchain": 4030229584,
+            "lr_address": 4030229592,
+            "lr": 2437318960
+          },
+          {
+            "frame": 4030229584,
+            "backchain": 4030229904,
+            "lr_address": 4030229912,
+            "lr": 2437317784
+          },
+          {
+            "frame": 4030229904,
+            "backchain": 4030229984,
+            "lr_address": 4030229992,
+            "lr": 2437255876
+          },
+          {
+            "frame": 4030229984,
+            "backchain": 4030230064,
+            "lr_address": 4030230072,
+            "lr": 2416097544
+          },
+          {
+            "frame": 4030230064,
+            "backchain": 4030230272,
+            "lr_address": 4030230280,
+            "lr": 0
+          }
+        ],
+        "candidates": [
+          {
+            "inner_frame": 4030228896,
+            "wrapper_frame": 4030229040,
+            "caller_frame": 4030229120,
+            "record": 4244368,
+            "hw": 4482272,
+            "device": 373221984,
+            "inner_return": 371918772,
+            "wrapper_return": 2437327884,
+            "rawslotshex": "0040c390004464e0163eea60162b07b49146ac0c"
+          }
+        ],
+        "pid": 279
+      }
+    ]
+  },
+  "snapshot": {
+    "round": 385,
+    "thread": 5383,
+    "pc": 372108340,
+    "lr": 371908076,
+    "sp": 4030228480,
+    "word": 2080899750,
+    "word_ok": 1,
+    "r3": 4506080,
+    "r4": 371919556,
+    "r5": 371905896,
+    "r6": 4030229344,
+    "r7": 4204656,
+    "r8": 4030229408,
+    "r9": 371919556,
+    "r24": 0,
+    "r25": 4204656,
+    "r26": 0,
+    "r28": 4482276,
+    "r30": 4506080,
+    "stack_lo": 4029706240,
+    "stack_hi": 4030230528,
+    "capture_begin_ticks": 3417015250,
+    "capture_end_ticks": 3417211400,
+    "capture_error": 0,
+    "suspend_ok": 1,
+    "resume_ok": 1,
+    "resume_status": 0,
+    "reads": [
+      {
+        "address": 372108340,
+        "bytes": 4,
+        "bytes_hex": "7c0802a6"
+      },
+      {
+        "address": 4030228480,
+        "bytes": 16,
+        "bytes_hex": "f038685000000000162ade1400000000"
+      },
+      {
+        "address": 4030228568,
+        "bytes": 4,
+        "bytes_hex": "162b0acc"
+      },
+      {
+        "address": 4030228560,
+        "bytes": 16,
+        "bytes_hex": "f03868a0f0386be0162b0accf0386930"
+      },
+      {
+        "address": 4030228648,
+        "bytes": 4,
+        "bytes_hex": "162ad568"
+      },
+      {
+        "address": 4030228640,
+        "bytes": 16,
+        "bytes_hex": "f03868f000000000162ad56800433890"
+      },
+      {
+        "address": 4030228728,
+        "bytes": 4,
+        "bytes_hex": "90bdeae8"
+      },
+      {
+        "address": 4030228720,
+        "bytes": 16,
+        "bytes_hex": "f03869400000000090bdeae800000000"
+      },
+      {
+        "address": 4030228808,
+        "bytes": 4,
+        "bytes_hex": "93263c38"
+      },
+      {
+        "address": 4030228800,
+        "bytes": 16,
+        "bytes_hex": "f03869a00000000093263c389146b2f4"
+      },
+      {
+        "address": 4030228904,
+        "bytes": 4,
+        "bytes_hex": "162b099c"
+      },
+      {
+        "address": 4030228896,
+        "bytes": 16,
+        "bytes_hex": "f0386a3000000000162b099cf0386d58"
+      },
+      {
+        "address": 4030229048,
+        "bytes": 4,
+        "bytes_hex": "162b07b4"
+      },
+      {
+        "address": 4030229040,
+        "bytes": 16,
+        "bytes_hex": "f0386a8044000024162b07b491469f1c"
+      },
+      {
+        "address": 4030229128,
+        "bytes": 4,
+        "bytes_hex": "9146ac0c"
+      },
+      {
+        "address": 4030229120,
+        "bytes": 16,
+        "bytes_hex": "f0386b20000000009146ac0c00b5f634"
+      },
+      {
+        "address": 4030229288,
+        "bytes": 4,
+        "bytes_hex": "9146a920"
+      },
+      {
+        "address": 4030229280,
+        "bytes": 16,
+        "bytes_hex": "f0386c5000b0dc859146a92000000000"
+      },
+      {
+        "address": 4030229592,
+        "bytes": 4,
+        "bytes_hex": "91468930"
+      },
+      {
+        "address": 4030229584,
+        "bytes": 16,
+        "bytes_hex": "f0386d90240000449146893000000000"
+      },
+      {
+        "address": 4030229912,
+        "bytes": 4,
+        "bytes_hex": "91468498"
+      },
+      {
+        "address": 4030229904,
+        "bytes": 16,
+        "bytes_hex": "f0386de0000000009146849800000000"
+      },
+      {
+        "address": 4030229992,
+        "bytes": 4,
+        "bytes_hex": "914592c4"
+      },
+      {
+        "address": 4030229984,
+        "bytes": 16,
+        "bytes_hex": "f0386e3000000000914592c400000000"
+      },
+      {
+        "address": 4030230072,
+        "bytes": 4,
+        "bytes_hex": "9002b908"
+      },
+      {
+        "address": 4030230064,
+        "bytes": 16,
+        "bytes_hex": "f0386f00000000009002b90800000000"
+      },
+      {
+        "address": 4030230280,
+        "bytes": 4,
+        "bytes_hex": "00000000"
+      },
+      {
+        "address": 4030230272,
+        "bytes": 16,
+        "bytes_hex": "00000000000000000000000000000000"
+      },
+      {
+        "address": 4030229028,
+        "bytes": 8,
+        "bytes_hex": "0040c390004464e0"
+      },
+      {
+        "address": 4030229112,
+        "bytes": 4,
+        "bytes_hex": "163eea60"
+      },
+      {
+        "address": 4030229048,
+        "bytes": 4,
+        "bytes_hex": "162b07b4"
+      },
+      {
+        "address": 4030229128,
+        "bytes": 4,
+        "bytes_hex": "9146ac0c"
+      }
+    ],
+    "frames": [
+      {
+        "frame": 4030228480,
+        "backchain": 4030228560,
+        "lr_address": 4030228568,
+        "lr": 371919564
+      },
+      {
+        "frame": 4030228560,
+        "backchain": 4030228640,
+        "lr_address": 4030228648,
+        "lr": 371905896
+      },
+      {
+        "frame": 4030228640,
+        "backchain": 4030228720,
+        "lr_address": 4030228728,
+        "lr": 2428365544
+      },
+      {
+        "frame": 4030228720,
+        "backchain": 4030228800,
+        "lr_address": 4030228808,
+        "lr": 2468756536
+      },
+      {
+        "frame": 4030228800,
+        "backchain": 4030228896,
+        "lr_address": 4030228904,
+        "lr": 371919260
+      },
+      {
+        "frame": 4030228896,
+        "backchain": 4030229040,
+        "lr_address": 4030229048,
+        "lr": 371918772
+      },
+      {
+        "frame": 4030229040,
+        "backchain": 4030229120,
+        "lr_address": 4030229128,
+        "lr": 2437327884
+      },
+      {
+        "frame": 4030229120,
+        "backchain": 4030229280,
+        "lr_address": 4030229288,
+        "lr": 2437327136
+      },
+      {
+        "frame": 4030229280,
+        "backchain": 4030229584,
+        "lr_address": 4030229592,
+        "lr": 2437318960
+      },
+      {
+        "frame": 4030229584,
+        "backchain": 4030229904,
+        "lr_address": 4030229912,
+        "lr": 2437317784
+      },
+      {
+        "frame": 4030229904,
+        "backchain": 4030229984,
+        "lr_address": 4030229992,
+        "lr": 2437255876
+      },
+      {
+        "frame": 4030229984,
+        "backchain": 4030230064,
+        "lr_address": 4030230072,
+        "lr": 2416097544
+      },
+      {
+        "frame": 4030230064,
+        "backchain": 4030230272,
+        "lr_address": 4030230280,
+        "lr": 0
+      }
+    ],
+    "candidates": [
+      {
+        "inner_frame": 4030228896,
+        "wrapper_frame": 4030229040,
+        "caller_frame": 4030229120,
+        "record": 4244368,
+        "hw": 4482272,
+        "device": 373221984,
+        "inner_return": 371918772,
+        "wrapper_return": 2437327884,
+        "rawslotshex": "0040c390004464e0163eea60162b07b49146ac0c"
+      }
+    ],
+    "pid": 279
+  },
+  "snapshot_errors": 0,
+  "snapshot_drops": 0,
+  "scoped_data_raw_queries": [
+    {
+      "name": "record_before",
+      "role": "record",
+      "phase": "before",
+      "address": 4244368,
+      "bytes": 164,
+      "path": "/tmp/pe9800/oct10-sm-scoped-retained.record_before.region-query.raw",
+      "exit_status": 0,
+      "stderr_path": "/tmp/pe9800/oct10-sm-scoped-retained.record_before.region-query.stderr",
+      "parsed": {
+        "schema": 1,
+        "pid": 279,
+        "fixture": false,
+        "payload_reads": 0,
+        "vm_mutations": 0,
+        "regions": [
+          {
+            "address": 4244368,
+            "bytes": 164,
+            "covered_stable": true,
+            "before": {
+              "basic_status": 0,
+              "extended_status": 0,
+              "basic_count": 8,
+              "extended_count": 8,
+              "region_low": 4198400,
+              "region_size": 53248,
+              "protection": 3,
+              "max_protection": 7,
+              "shared": 0,
+              "reserved": 0,
+              "object_offset": 0,
+              "inheritance": 1,
+              "extended_protection": 3,
+              "user_tag": 7,
+              "external_pager": 0,
+              "share_mode": 1,
+              "shadow_depth": 1
+            },
+            "after": {
+              "basic_status": 0,
+              "extended_status": 0,
+              "basic_count": 8,
+              "extended_count": 8,
+              "region_low": 4198400,
+              "region_size": 53248,
+              "protection": 3,
+              "max_protection": 7,
+              "shared": 0,
+              "reserved": 0,
+              "object_offset": 0,
+              "inheritance": 1,
+              "extended_protection": 3,
+              "user_tag": 7,
+              "external_pager": 0,
+              "share_mode": 1,
+              "shadow_depth": 1
+            }
+          }
+        ],
+        "errors": 0,
+        "region_metadata_not_object_identity": true
+      }
+    },
+    {
+      "name": "hw_before",
+      "role": "hw",
+      "phase": "before",
+      "address": 4482272,
+      "bytes": 44,
+      "path": "/tmp/pe9800/oct10-sm-scoped-retained.hw_before.region-query.raw",
+      "exit_status": 0,
+      "stderr_path": "/tmp/pe9800/oct10-sm-scoped-retained.hw_before.region-query.stderr",
+      "parsed": {
+        "schema": 1,
+        "pid": 279,
+        "fixture": false,
+        "payload_reads": 0,
+        "vm_mutations": 0,
+        "regions": [
+          {
+            "address": 4482272,
+            "bytes": 44,
+            "covered_stable": true,
+            "before": {
+              "basic_status": 0,
+              "extended_status": 0,
+              "basic_count": 8,
+              "extended_count": 8,
+              "region_low": 4280320,
+              "region_size": 327680,
+              "protection": 3,
+              "max_protection": 7,
+              "shared": 0,
+              "reserved": 0,
+              "object_offset": 0,
+              "inheritance": 1,
+              "extended_protection": 3,
+              "user_tag": 7,
+              "external_pager": 0,
+              "share_mode": 1,
+              "shadow_depth": 1
+            },
+            "after": {
+              "basic_status": 0,
+              "extended_status": 0,
+              "basic_count": 8,
+              "extended_count": 8,
+              "region_low": 4280320,
+              "region_size": 327680,
+              "protection": 3,
+              "max_protection": 7,
+              "shared": 0,
+              "reserved": 0,
+              "object_offset": 0,
+              "inheritance": 1,
+              "extended_protection": 3,
+              "user_tag": 7,
+              "external_pager": 0,
+              "share_mode": 1,
+              "shadow_depth": 1
+            }
+          }
+        ],
+        "errors": 0,
+        "region_metadata_not_object_identity": true
+      }
+    },
+    {
+      "name": "list_before",
+      "role": "list",
+      "phase": "before",
+      "address": 4310288,
+      "bytes": 12,
+      "path": "/tmp/pe9800/oct10-sm-scoped-retained.list_before.region-query.raw",
+      "exit_status": 0,
+      "stderr_path": "/tmp/pe9800/oct10-sm-scoped-retained.list_before.region-query.stderr",
+      "parsed": {
+        "schema": 1,
+        "pid": 279,
+        "fixture": false,
+        "payload_reads": 0,
+        "vm_mutations": 0,
+        "regions": [
+          {
+            "address": 4310288,
+            "bytes": 12,
+            "covered_stable": true,
+            "before": {
+              "basic_status": 0,
+              "extended_status": 0,
+              "basic_count": 8,
+              "extended_count": 8,
+              "region_low": 4280320,
+              "region_size": 327680,
+              "protection": 3,
+              "max_protection": 7,
+              "shared": 0,
+              "reserved": 0,
+              "object_offset": 0,
+              "inheritance": 1,
+              "extended_protection": 3,
+              "user_tag": 7,
+              "external_pager": 0,
+              "share_mode": 1,
+              "shadow_depth": 1
+            },
+            "after": {
+              "basic_status": 0,
+              "extended_status": 0,
+              "basic_count": 8,
+              "extended_count": 8,
+              "region_low": 4280320,
+              "region_size": 327680,
+              "protection": 3,
+              "max_protection": 7,
+              "shared": 0,
+              "reserved": 0,
+              "object_offset": 0,
+              "inheritance": 1,
+              "extended_protection": 3,
+              "user_tag": 7,
+              "external_pager": 0,
+              "share_mode": 1,
+              "shadow_depth": 1
+            }
+          }
+        ],
+        "errors": 0,
+        "region_metadata_not_object_identity": true
+      }
+    },
+    {
+      "name": "bridge_before",
+      "role": "bridge",
+      "phase": "before",
+      "address": 4376352,
+      "bytes": 16,
+      "path": "/tmp/pe9800/oct10-sm-scoped-retained.bridge_before.region-query.raw",
+      "exit_status": 0,
+      "stderr_path": "/tmp/pe9800/oct10-sm-scoped-retained.bridge_before.region-query.stderr",
+      "parsed": {
+        "schema": 1,
+        "pid": 279,
+        "fixture": false,
+        "payload_reads": 0,
+        "vm_mutations": 0,
+        "regions": [
+          {
+            "address": 4376352,
+            "bytes": 16,
+            "covered_stable": true,
+            "before": {
+              "basic_status": 0,
+              "extended_status": 0,
+              "basic_count": 8,
+              "extended_count": 8,
+              "region_low": 4280320,
+              "region_size": 327680,
+              "protection": 3,
+              "max_protection": 7,
+              "shared": 0,
+              "reserved": 0,
+              "object_offset": 0,
+              "inheritance": 1,
+              "extended_protection": 3,
+              "user_tag": 7,
+              "external_pager": 0,
+              "share_mode": 1,
+              "shadow_depth": 1
+            },
+            "after": {
+              "basic_status": 0,
+              "extended_status": 0,
+              "basic_count": 8,
+              "extended_count": 8,
+              "region_low": 4280320,
+              "region_size": 327680,
+              "protection": 3,
+              "max_protection": 7,
+              "shared": 0,
+              "reserved": 0,
+              "object_offset": 0,
+              "inheritance": 1,
+              "extended_protection": 3,
+              "user_tag": 7,
+              "external_pager": 0,
+              "share_mode": 1,
+              "shadow_depth": 1
+            }
+          }
+        ],
+        "errors": 0,
+        "region_metadata_not_object_identity": true
+      }
+    },
+    {
+      "name": "bridge_after",
+      "role": "bridge",
+      "phase": "after",
+      "address": 4376352,
+      "bytes": 16,
+      "path": "/tmp/pe9800/oct10-sm-scoped-retained.bridge_after.region-query.raw",
+      "exit_status": 0,
+      "stderr_path": "/tmp/pe9800/oct10-sm-scoped-retained.bridge_after.region-query.stderr",
+      "parsed": {
+        "schema": 1,
+        "pid": 279,
+        "fixture": false,
+        "payload_reads": 0,
+        "vm_mutations": 0,
+        "regions": [
+          {
+            "address": 4376352,
+            "bytes": 16,
+            "covered_stable": true,
+            "before": {
+              "basic_status": 0,
+              "extended_status": 0,
+              "basic_count": 8,
+              "extended_count": 8,
+              "region_low": 4280320,
+              "region_size": 327680,
+              "protection": 3,
+              "max_protection": 7,
+              "shared": 0,
+              "reserved": 0,
+              "object_offset": 0,
+              "inheritance": 1,
+              "extended_protection": 3,
+              "user_tag": 7,
+              "external_pager": 0,
+              "share_mode": 1,
+              "shadow_depth": 1
+            },
+            "after": {
+              "basic_status": 0,
+              "extended_status": 0,
+              "basic_count": 8,
+              "extended_count": 8,
+              "region_low": 4280320,
+              "region_size": 327680,
+              "protection": 3,
+              "max_protection": 7,
+              "shared": 0,
+              "reserved": 0,
+              "object_offset": 0,
+              "inheritance": 1,
+              "extended_protection": 3,
+              "user_tag": 7,
+              "external_pager": 0,
+              "share_mode": 1,
+              "shadow_depth": 1
+            }
+          }
+        ],
+        "errors": 0,
+        "region_metadata_not_object_identity": true
+      }
+    },
+    {
+      "name": "hw_after",
+      "role": "hw",
+      "phase": "after",
+      "address": 4482272,
+      "bytes": 44,
+      "path": "/tmp/pe9800/oct10-sm-scoped-retained.hw_after.region-query.raw",
+      "exit_status": 0,
+      "stderr_path": "/tmp/pe9800/oct10-sm-scoped-retained.hw_after.region-query.stderr",
+      "parsed": {
+        "schema": 1,
+        "pid": 279,
+        "fixture": false,
+        "payload_reads": 0,
+        "vm_mutations": 0,
+        "regions": [
+          {
+            "address": 4482272,
+            "bytes": 44,
+            "covered_stable": true,
+            "before": {
+              "basic_status": 0,
+              "extended_status": 0,
+              "basic_count": 8,
+              "extended_count": 8,
+              "region_low": 4280320,
+              "region_size": 327680,
+              "protection": 3,
+              "max_protection": 7,
+              "shared": 0,
+              "reserved": 0,
+              "object_offset": 0,
+              "inheritance": 1,
+              "extended_protection": 3,
+              "user_tag": 7,
+              "external_pager": 0,
+              "share_mode": 1,
+              "shadow_depth": 1
+            },
+            "after": {
+              "basic_status": 0,
+              "extended_status": 0,
+              "basic_count": 8,
+              "extended_count": 8,
+              "region_low": 4280320,
+              "region_size": 327680,
+              "protection": 3,
+              "max_protection": 7,
+              "shared": 0,
+              "reserved": 0,
+              "object_offset": 0,
+              "inheritance": 1,
+              "extended_protection": 3,
+              "user_tag": 7,
+              "external_pager": 0,
+              "share_mode": 1,
+              "shadow_depth": 1
+            }
+          }
+        ],
+        "errors": 0,
+        "region_metadata_not_object_identity": true
+      }
+    },
+    {
+      "name": "list_after",
+      "role": "list",
+      "phase": "after",
+      "address": 4310288,
+      "bytes": 12,
+      "path": "/tmp/pe9800/oct10-sm-scoped-retained.list_after.region-query.raw",
+      "exit_status": 0,
+      "stderr_path": "/tmp/pe9800/oct10-sm-scoped-retained.list_after.region-query.stderr",
+      "parsed": {
+        "schema": 1,
+        "pid": 279,
+        "fixture": false,
+        "payload_reads": 0,
+        "vm_mutations": 0,
+        "regions": [
+          {
+            "address": 4310288,
+            "bytes": 12,
+            "covered_stable": true,
+            "before": {
+              "basic_status": 0,
+              "extended_status": 0,
+              "basic_count": 8,
+              "extended_count": 8,
+              "region_low": 4280320,
+              "region_size": 327680,
+              "protection": 3,
+              "max_protection": 7,
+              "shared": 0,
+              "reserved": 0,
+              "object_offset": 0,
+              "inheritance": 1,
+              "extended_protection": 3,
+              "user_tag": 7,
+              "external_pager": 0,
+              "share_mode": 1,
+              "shadow_depth": 1
+            },
+            "after": {
+              "basic_status": 0,
+              "extended_status": 0,
+              "basic_count": 8,
+              "extended_count": 8,
+              "region_low": 4280320,
+              "region_size": 327680,
+              "protection": 3,
+              "max_protection": 7,
+              "shared": 0,
+              "reserved": 0,
+              "object_offset": 0,
+              "inheritance": 1,
+              "extended_protection": 3,
+              "user_tag": 7,
+              "external_pager": 0,
+              "share_mode": 1,
+              "shadow_depth": 1
+            }
+          }
+        ],
+        "errors": 0,
+        "region_metadata_not_object_identity": true
+      }
+    },
+    {
+      "name": "record_after",
+      "role": "record",
+      "phase": "after",
+      "address": 4244368,
+      "bytes": 164,
+      "path": "/tmp/pe9800/oct10-sm-scoped-retained.record_after.region-query.raw",
+      "exit_status": 0,
+      "stderr_path": "/tmp/pe9800/oct10-sm-scoped-retained.record_after.region-query.stderr",
+      "parsed": {
+        "schema": 1,
+        "pid": 279,
+        "fixture": false,
+        "payload_reads": 0,
+        "vm_mutations": 0,
+        "regions": [
+          {
+            "address": 4244368,
+            "bytes": 164,
+            "covered_stable": true,
+            "before": {
+              "basic_status": 0,
+              "extended_status": 0,
+              "basic_count": 8,
+              "extended_count": 8,
+              "region_low": 4198400,
+              "region_size": 53248,
+              "protection": 3,
+              "max_protection": 7,
+              "shared": 0,
+              "reserved": 0,
+              "object_offset": 0,
+              "inheritance": 1,
+              "extended_protection": 3,
+              "user_tag": 7,
+              "external_pager": 0,
+              "share_mode": 1,
+              "shadow_depth": 1
+            },
+            "after": {
+              "basic_status": 0,
+              "extended_status": 0,
+              "basic_count": 8,
+              "extended_count": 8,
+              "region_low": 4198400,
+              "region_size": 53248,
+              "protection": 3,
+              "max_protection": 7,
+              "shared": 0,
+              "reserved": 0,
+              "object_offset": 0,
+              "inheritance": 1,
+              "extended_protection": 3,
+              "user_tag": 7,
+              "external_pager": 0,
+              "share_mode": 1,
+              "shadow_depth": 1
+            }
+          }
+        ],
+        "errors": 0,
+        "region_metadata_not_object_identity": true
+      }
+    }
+  ],
+  "vmmap_after": "Virtual Memory Map of process 279 (Warcraft III)\nOutput report format:  2.0\n\n==== Non-writable regions for process 279\n__PAGEZERO             00000000-00001000 [    4K] ---/--- SM=NUL  /System/Library/Frameworks/Carbon.framework/Versions/A/Support/LaunchCFMApp\n__TEXT                 00001000-00003000 [    8K] r-x/rwx SM=COW  /System/Library/Frameworks/Carbon.framework/Versions/A/Support/LaunchCFMApp\n__LINKEDIT             00004000-00006000 [    8K] r--/rwx SM=COW  /System/Library/Frameworks/Carbon.framework/Versions/A/Support/LaunchCFMApp\nshared memory          00006000-00008000 [    8K] r--/rw- SM=SHM  \nmapped file            0001e000-00032000 [   80K] r--/rwx SM=COW  /System/Library/CoreServices/CharacterSets/CFUnicodeData-B.mapping\nmapped file            00032000-00089000 [  348K] r--/rwx SM=COW  /System/Library/CoreServices/CharacterSets/CFCharacterSetBitmaps.bitmap\nmapped file            0009e000-000c0000 [  136K] r--/rwx SM=COW  ...bon.framework/Versions/A/Frameworks/HIToolbox.framework/Versions/A/Resources/HIToolbox.rsrc\nIOKit                  000c1000-000c2000 [    4K] r--/r-- SM=SHM  \nPEF binary             000c8000-000d1000 [   36K] r--/rwx SM=COW  /System/Library/CFMSupport/OpenGLLib [OpenGLMemory]\n__TEXT                 00205000-002f4000 [  956K] r-x/rwx SM=COW  /usr/lib/libxml2.2.dylib\n__LINKEDIT             00302000-00320000 [  120K] r--/rwx SM=COW  /usr/lib/libxml2.2.dylib\nmapped file            00320000-0039a000 [  488K] r--/rwx SM=COW  ...Versions/A/Frameworks/HIToolbox.framework/Versions/A/Resources/English.lproj/Localized.rsrc\nPEF binary             00505000-00570000 [  428K] r--/rwx SM=COW  /System/Library/CFMSupport/CarbonLib [Apple;Carbon;Networking]\nPEF binary             00570000-005ea000 [  488K] r--/rwx SM=COW  /Applications/Warcraft III Folder/Miles Carbon Library [Miles Carbon Library]\nmapped file            007e6000-007eb000 [   20K] r--/rwx SM=COW  /Library/Caches/com.apple.IntlDataCache.sbdl.501\nmapped file            007eb000-007f0000 [   20K] r--/rwx SM=COW  /System/Library/Caches/com.apple.IntlDataCache.tecx\nmapped file            007f0000-007fe000 [   56K] r--/rwx SM=COW  ...em/Library/Frameworks/QuickTime.framework/Versions/A/Resources/English.lproj/Localized.rsrc\nshared memory          007ff000-00800000 [    4K] r--/r-- SM=SHM  \nPEF binary             0103b000-0103e000 [   12K] r--/rwx SM=COW  /Applications/Warcraft III Folder/Miles/Reverb3.flt []\nIOKit                  0103e000-01040000 [    8K] r--/r-- SM=SHM  \n__TEXT                 01040000-01042000 [    8K] r-x/rwx SM=COW  ...ensions/IOAudioFamily.kext/Contents/PlugIns/AOAHALPlugin.bundle/Contents/MacOS/AOAHALPlugin\n__LINKEDIT             01043000-01044000 [    4K] r--/rwx SM=COW  ...ensions/IOAudioFamily.kext/Contents/PlugIns/AOAHALPlugin.bundle/Contents/MacOS/AOAHALPlugin\nPEF binary             0104a000-0105b000 [   68K] r--/rwx SM=COW  /Applications/Warcraft III Folder/Miles/MP3Dec.asi []\nPEF binary             0105b000-01061000 [   24K] r--/rwx SM=COW  /Applications/Warcraft III Folder/Miles/MSSDolby.m3d []\nmapped file            01061000-01084000 [  140K] r--/rwx SM=COW  /System/Library/Frameworks/QuickTime.framework/Versions/A/Resources/QuickTime.rsrc\nshared memory          0108b000-010cb000 [  256K] r--/r-- SM=SHM  \n__TEXT                 01134000-0113a000 [   24K] r-x/rwx SM=COW  /Library/QuickTime/LiveType.component/Contents/MacOS/LiveType\n__LINKEDIT             0113b000-0113d000 [    8K] r--/rwx SM=COW  /Library/QuickTime/LiveType.component/Contents/MacOS/LiveType\nshared memory          01145000-0114d000 [   32K] r--/r-- SM=SHM  \n__TEXT                 0116f000-011d5000 [  408K] r-x/rwx SM=COW  /System/Library/PrivateFrameworks/LiveType.framework/Versions/A/LiveType\n__LINKEDIT             011da000-011f6000 [  112K] r--/rwx SM=COW  /System/Library/PrivateFrameworks/LiveType.framework/Versions/A/LiveType\nmapped file            011f6000-0127c000 [  536K] r--/rwx SM=COW  /System/Library/Caches/com.apple.IntlDataCache.kbdx\nmapped file            0127c000-017a9000 [ 5300K] r--/rwx SM=COW  ...Carbon.framework/Versions/A/Frameworks/HIToolbox.framework/Versions/A/Resources/Extras.rsrc\nPEF binary             02008000-02ae3000 [11116K] r--/rwx SM=COW  /Applications/Warcraft III Folder/Warcraft III [CursorDeviceLib]\n__TEXT                 15efa000-1600a000 [ 1088K] r-x/rwx SM=COW  /System/Library/Frameworks/OpenGL.framework/Resources/GLEngine.bundle/GLEngine\n__LINKEDIT             1600f000-16038000 [  164K] r--/rwx SM=COW  /System/Library/Frameworks/OpenGL.framework/Resources/GLEngine.bundle/GLEngine\n__TEXT                 16038000-16129000 [  964K] r-x/rwx SM=COW  /System/Library/Extensions/ATIRadeon9700GLDriver.bundle/Contents/MacOS/ATIRadeon9700GLDriver\n__LINKEDIT             16133000-16136000 [   12K] r--/rwx SM=COW  /System/Library/Extensions/ATIRadeon9700GLDriver.bundle/Contents/MacOS/ATIRadeon9700GLDriver\n__TEXT                 16136000-16150000 [  104K] r-x/rwx SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Resources/GLDriver.bundle/GLDriver\n__LINKEDIT             16151000-16155000 [   16K] r--/rwx SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Resources/GLDriver.bundle/GLDriver\n__TEXT                 16155000-16171000 [  112K] r-x/rwx SM=COW  ...ary/Frameworks/OpenGL.framework/Versions/A/Resources/GLRendererFloat.bundle/GLRendererFloat\n__LINKEDIT             16172000-16176000 [   16K] r--/rwx SM=COW  ...ary/Frameworks/OpenGL.framework/Versions/A/Resources/GLRendererFloat.bundle/GLRendererFloat\nPEF binary             16284000-16289000 [   20K] r--/rwx SM=COW  /Applications/Warcraft III Folder/Miles/MSSFast.m3d []\n__TEXT                 162ab000-162e5000 [  232K] r-x/rwx SM=COW  ...m/Library/Components/SoundManagerComponents.component/Contents/MacOS/SoundManagerComponents\n__LINKEDIT             162e7000-162ea000 [   12K] r--/rwx SM=COW  ...m/Library/Components/SoundManagerComponents.component/Contents/MacOS/SoundManagerComponents\n__TEXT                 8fe00000-8fe53000 [  332K] r-x/rwx SM=COW  /usr/lib/dyld\n__LINKEDIT             8fe5d000-8fe71000 [   80K] r--/rwx SM=COW  /usr/lib/dyld\n__TEXT                 90000000-901bd000 [ 1780K] r-x/r-x SM=COW  /usr/lib/libSystem.B.dylib\n__LINKEDIT             901bd000-90214000 [  348K] r--/r-- SM=COW  /usr/lib/libSystem.B.dylib\n__TEXT                 90214000-9021a000 [   24K] r-x/r-x SM=COW  /usr/lib/system/libmathCommon.A.dylib\n__LINKEDIT             9021a000-9021b000 [    4K] r--/r-- SM=COW  /usr/lib/system/libmathCommon.A.dylib\n__TEXT                 9021b000-90269000 [  312K] r-x/r-x SM=COW  .../ApplicationServices.framework/Versions/A/Frameworks/CoreText.framework/Versions/A/CoreText\n__LINKEDIT             90269000-90293000 [  168K] r--/r-- SM=COW  .../ApplicationServices.framework/Versions/A/Frameworks/CoreText.framework/Versions/A/CoreText\n__TEXT                 90293000-90345000 [  712K] r-x/r-x SM=COW  ...Frameworks/ApplicationServices.framework/Versions/A/Frameworks/ATS.framework/Versions/A/ATS\n__LINKEDIT             90345000-90373000 [  184K] r--/r-- SM=COW  ...Frameworks/ApplicationServices.framework/Versions/A/Frameworks/ATS.framework/Versions/A/ATS\n__TEXT                 90373000-9072f000 [ 3824K] r-x/r-x SM=COW  ...tionServices.framework/Versions/A/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics\n__LINKEDIT             9072f000-907bb000 [  560K] r--/r-- SM=COW  ...tionServices.framework/Versions/A/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics\n__TEXT                 907bb000-90896000 [  876K] r-x/r-x SM=COW  /System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation\n__LINKEDIT             90896000-908de000 [  288K] r--/r-- SM=COW  /System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation\n__TEXT                 908de000-908df000 [    4K] r-x/r-x SM=COW  /System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices\n__LINKEDIT             908df000-908e0000 [    4K] r--/r-- SM=COW  /System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices\n__TEXT                 908e0000-909e3000 [ 1036K] r-x/r-x SM=COW  /usr/lib/libicucore.A.dylib\n__LINKEDIT             909e3000-90a3c000 [  356K] r--/r-- SM=COW  /usr/lib/libicucore.A.dylib\n__TEXT                 90a3c000-90ac1000 [  532K] r-x/r-x SM=COW  /usr/lib/libobjc.A.dylib\n__LINKEDIT             90ac1000-90aea000 [  164K] r--/r-- SM=COW  /usr/lib/libobjc.A.dylib\n__TEXT                 90aea000-90b5d000 [  460K] r-x/r-x SM=COW  /System/Library/Frameworks/IOKit.framework/Versions/A/IOKit\n__LINKEDIT             90b5d000-90b72000 [   84K] r--/r-- SM=COW  /System/Library/Frameworks/IOKit.framework/Versions/A/IOKit\n__TEXT                 90b72000-90b85000 [   76K] r-x/r-x SM=COW  /usr/lib/libauto.dylib\n__LINKEDIT             90b85000-90b8b000 [   24K] r--/r-- SM=COW  /usr/lib/libauto.dylib\n__TEXT                 90b8b000-90e63000 [ 2912K] r-x/r-x SM=COW  ...rks/CoreServices.framework/Versions/A/Frameworks/CarbonCore.framework/Versions/A/CarbonCore\n__LINKEDIT             90e63000-90ec8000 [  404K] r--/r-- SM=COW  ...rks/CoreServices.framework/Versions/A/Frameworks/CarbonCore.framework/Versions/A/CarbonCore\n__TEXT                 90ec8000-90f49000 [  516K] r-x/r-x SM=COW  ...rks/CoreServices.framework/Versions/A/Frameworks/OSServices.framework/Versions/A/OSServices\n__LINKEDIT             90f49000-90f92000 [  292K] r--/r-- SM=COW  ...rks/CoreServices.framework/Versions/A/Frameworks/OSServices.framework/Versions/A/OSServices\n__TEXT                 90f92000-90fd5000 [  268K] r-x/r-x SM=COW  ...works/CoreServices.framework/Versions/A/Frameworks/CFNetwork.framework/Versions/A/CFNetwork\n__LINKEDIT             90fd5000-90fe9000 [   80K] r--/r-- SM=COW  ...works/CoreServices.framework/Versions/A/Frameworks/CFNetwork.framework/Versions/A/CFNetwork\n__TEXT                 90fe9000-91002000 [  100K] r-x/r-x SM=COW  ...rvices.framework/Versions/A/Frameworks/WebServicesCore.framework/Versions/A/WebServicesCore\n__LINKEDIT             91002000-91011000 [   60K] r--/r-- SM=COW  ...rvices.framework/Versions/A/Frameworks/WebServicesCore.framework/Versions/A/WebServicesCore\n__TEXT                 91011000-91093000 [  520K] r-x/r-x SM=COW  ...works/CoreServices.framework/Versions/A/Frameworks/SearchKit.framework/Versions/A/SearchKit\n__LINKEDIT             91093000-910d8000 [  276K] r--/r-- SM=COW  ...works/CoreServices.framework/Versions/A/Frameworks/SearchKit.framework/Versions/A/SearchKit\n__TEXT                 910d8000-91102000 [  168K] r-x/r-x SM=COW  ...meworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Metadata\n__LINKEDIT             91102000-91112000 [   64K] r--/r-- SM=COW  ...meworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Metadata\n__TEXT                 91112000-91121000 [   60K] r-x/r-x SM=COW  /usr/lib/libz.1.dylib\n__LINKEDIT             91121000-91123000 [    8K] r--/r-- SM=COW  /usr/lib/libz.1.dylib\n__TEXT                 91123000-912df000 [ 1776K] r-x/r-x SM=COW  /System/Library/Frameworks/Security.framework/Versions/A/Security\n__LINKEDIT             912df000-913dd000 [ 1016K] r--/r-- SM=COW  /System/Library/Frameworks/Security.framework/Versions/A/Security\n__TEXT                 913dd000-913e7000 [   40K] r-x/r-x SM=COW  /System/Library/Frameworks/DiskArbitration.framework/Versions/A/DiskArbitration\n__LINKEDIT             913e7000-913ed000 [   24K] r--/r-- SM=COW  /System/Library/Frameworks/DiskArbitration.framework/Versions/A/DiskArbitration\n__TEXT                 913ed000-913f6000 [   36K] r-x/r-x SM=COW  /usr/lib/libbsm.dylib\n__LINKEDIT             913f6000-913f9000 [   12K] r--/r-- SM=COW  /usr/lib/libbsm.dylib\n__TEXT                 913f9000-91422000 [  164K] r-x/r-x SM=COW  /System/Library/Frameworks/SystemConfiguration.framework/Versions/A/SystemConfiguration\n__LINKEDIT             91422000-91434000 [   72K] r--/r-- SM=COW  /System/Library/Frameworks/SystemConfiguration.framework/Versions/A/SystemConfiguration\n__TEXT                 91434000-91440000 [   48K] r-x/r-x SM=COW  /usr/lib/libgcc_s.1.dylib\n__LINKEDIT             91440000-91444000 [   16K] r--/r-- SM=COW  /usr/lib/libgcc_s.1.dylib\n__TEXT                 91444000-914c0000 [  496K] r-x/r-x SM=COW  /System/Library/Frameworks/CoreAudio.framework/Versions/A/CoreAudio\n__LINKEDIT             914c0000-914fc000 [  240K] r--/r-- SM=COW  /System/Library/Frameworks/CoreAudio.framework/Versions/A/CoreAudio\n__TEXT                 914fc000-914fd000 [    4K] r-x/r-x SM=COW  /System/Library/Frameworks/ApplicationServices.framework/Versions/A/ApplicationServices\n__LINKEDIT             914fd000-914fe000 [    4K] r--/r-- SM=COW  /System/Library/Frameworks/ApplicationServices.framework/Versions/A/ApplicationServices\n__TEXT                 914fe000-91537000 [  228K] r-x/r-x SM=COW  ...y/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/AE.framework/Versions/A/AE\n__LINKEDIT             91537000-91551000 [  104K] r--/r-- SM=COW  ...y/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/AE.framework/Versions/A/AE\n__TEXT                 91551000-91624000 [  844K] r-x/r-x SM=COW  ...pplicationServices.framework/Versions/A/Frameworks/ColorSync.framework/Versions/A/ColorSync\n__LINKEDIT             91624000-91676000 [  328K] r--/r-- SM=COW  ...pplicationServices.framework/Versions/A/Frameworks/ColorSync.framework/Versions/A/ColorSync\n__TEXT                 91676000-91708000 [  584K] r-x/r-x SM=COW  ...pplicationServices.framework/Versions/A/Frameworks/PrintCore.framework/Versions/A/PrintCore\n__LINKEDIT             91708000-9174e000 [  280K] r--/r-- SM=COW  ...pplicationServices.framework/Versions/A/Frameworks/PrintCore.framework/Versions/A/PrintCore\n__TEXT                 9174e000-91806000 [  736K] r-x/r-x SM=COW  ...y/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/QD.framework/Versions/A/QD\n__LINKEDIT             91806000-91842000 [  240K] r--/r-- SM=COW  ...y/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/QD.framework/Versions/A/QD\n__TEXT                 91842000-918a1000 [  380K] r-x/r-x SM=COW  ...licationServices.framework/Versions/A/Frameworks/HIServices.framework/Versions/A/HIServices\n__LINKEDIT             918a1000-918cf000 [  184K] r--/r-- SM=COW  ...licationServices.framework/Versions/A/Frameworks/HIServices.framework/Versions/A/HIServices\n__TEXT                 918cf000-918f1000 [  136K] r-x/r-x SM=COW  ...tionServices.framework/Versions/A/Frameworks/LangAnalysis.framework/Versions/A/LangAnalysis\n__LINKEDIT             918f1000-91904000 [   76K] r--/r-- SM=COW  ...tionServices.framework/Versions/A/Frameworks/LangAnalysis.framework/Versions/A/LangAnalysis\n__TEXT                 91904000-9192a000 [  152K] r-x/r-x SM=COW  ...onServices.framework/Versions/A/Frameworks/FindByContent.framework/Versions/A/FindByContent\n__LINKEDIT             9192a000-9193c000 [   72K] r--/r-- SM=COW  ...onServices.framework/Versions/A/Frameworks/FindByContent.framework/Versions/A/FindByContent\n__TEXT                 9193c000-9197f000 [  268K] r-x/r-x SM=COW  ...Services.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/LaunchServices\n__LINKEDIT             9197f000-9199a000 [  108K] r--/r-- SM=COW  ...Services.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/LaunchServices\n__TEXT                 9199a000-919af000 [   84K] r-x/r-x SM=COW  ...rvices.framework/Versions/A/Frameworks/SpeechSynthesis.framework/Versions/A/SpeechSynthesis\n__LINKEDIT             919af000-919bc000 [   52K] r--/r-- SM=COW  ...rvices.framework/Versions/A/Frameworks/SpeechSynthesis.framework/Versions/A/SpeechSynthesis\n__TEXT                 919bc000-91a03000 [  284K] r-x/r-x SM=COW  ...ks/ApplicationServices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/ImageIO\n__LINKEDIT             91a03000-91a19000 [   88K] r--/r-- SM=COW  ...ks/ApplicationServices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/ImageIO\n__TEXT                 91a19000-91ae1000 [  800K] r-x/r-x SM=COW  /usr/lib/libcrypto.0.9.7.dylib\n__LINKEDIT             91ae1000-91b2e000 [  308K] r--/r-- SM=COW  /usr/lib/libcrypto.0.9.7.dylib\n__TEXT                 91b2e000-91b44000 [   88K] r-x/r-x SM=COW  /usr/lib/libcups.2.dylib\n__LINKEDIT             91b44000-91b48000 [   16K] r--/r-- SM=COW  /usr/lib/libcups.2.dylib\n__TEXT                 91b48000-91b67000 [  124K] r-x/r-x SM=COW  ...rvices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libJPEG.dylib\n__LINKEDIT             91b67000-91b6c000 [   20K] r--/r-- SM=COW  ...rvices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libJPEG.dylib\n__TEXT                 91b6c000-91c24000 [  736K] r-x/r-x SM=COW  ...ervices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libJP2.dylib\n__LINKEDIT             91c24000-91c72000 [  312K] r--/r-- SM=COW  ...ervices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libJP2.dylib\n__TEXT                 91c72000-91c77000 [   20K] r-x/r-x SM=COW  ...ervices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libGIF.dylib\n__LINKEDIT             91c77000-91c78000 [    4K] r--/r-- SM=COW  ...ervices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libGIF.dylib\n__TEXT                 91c78000-91ce3000 [  428K] r-x/r-x SM=COW  ...ervices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libRaw.dylib\n__LINKEDIT             91ce3000-91ce7000 [   16K] r--/r-- SM=COW  ...ervices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libRaw.dylib\n__TEXT                 91ce7000-91d03000 [  112K] r-x/r-x SM=COW  ...ervices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libPng.dylib\n__LINKEDIT             91d03000-91d07000 [   16K] r--/r-- SM=COW  ...ervices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libPng.dylib\n__TEXT                 91d07000-91d0b000 [   16K] r-x/r-x SM=COW  ...es.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libRadiance.dylib\n__LINKEDIT             91d0b000-91d0c000 [    4K] r--/r-- SM=COW  ...es.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libRadiance.dylib\n__TEXT                 91e0a000-91e49000 [  252K] r-x/r-x SM=COW  ...rvices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libTIFF.dylib\n__LINKEDIT             91e49000-91e4f000 [   24K] r--/r-- SM=COW  ...rvices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libTIFF.dylib\n__TEXT                 91e4f000-91e50000 [    4K] r-x/r-x SM=COW  /System/Library/Frameworks/Accelerate.framework/Versions/A/Accelerate\n__LINKEDIT             91e50000-91e51000 [    4K] r--/r-- SM=COW  /System/Library/Frameworks/Accelerate.framework/Versions/A/Accelerate\n__TEXT                 91e51000-91f37000 [  920K] r-x/r-x SM=COW  ...ry/Frameworks/Accelerate.framework/Versions/A/Frameworks/vImage.framework/Versions/A/vImage\n__LINKEDIT             91f37000-91f3e000 [   28K] r--/r-- SM=COW  ...ry/Frameworks/Accelerate.framework/Versions/A/Frameworks/vImage.framework/Versions/A/vImage\n__TEXT                 91f3e000-91f5e000 [  128K] r-x/r-x SM=COW  ...ry/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/vecLib\n__LINKEDIT             91f5e000-91fc9000 [  428K] r--/r-- SM=COW  ...ry/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/vecLib\n__TEXT                 91fc9000-92038000 [  444K] r-x/r-x SM=COW  ...works/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libvMisc.dylib\n__LINKEDIT             92038000-92042000 [   40K] r--/r-- SM=COW  ...works/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libvMisc.dylib\n__TEXT                 92042000-920d8000 [  600K] r-x/r-x SM=COW  ...eworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libvDSP.dylib\n__LINKEDIT             920d8000-920f1000 [  100K] r--/r-- SM=COW  ...eworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libvDSP.dylib\n__TEXT                 920f1000-9267a000 [ 5668K] r-x/r-x SM=COW  ...eworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib\n__LINKEDIT             9267a000-926ac000 [  200K] r--/r-- SM=COW  ...eworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib\n__TEXT                 926ac000-929d8000 [ 3248K] r-x/r-x SM=COW  ...orks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libLAPACK.dylib\n__LINKEDIT             929d8000-92a07000 [  188K] r--/r-- SM=COW  ...orks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libLAPACK.dylib\n__TEXT                 92a07000-92af6000 [  956K] r-x/r-x SM=COW  /usr/lib/libiconv.2.dylib\n__LINKEDIT             92af6000-92af8000 [    8K] r--/r-- SM=COW  /usr/lib/libiconv.2.dylib\n__TEXT                 92af8000-92b81000 [  548K] r-x/r-x SM=COW  /System/Library/PrivateFrameworks/DesktopServicesPriv.framework/Versions/A/DesktopServicesPriv\n__LINKEDIT             92b81000-92bc1000 [  256K] r--/r-- SM=COW  /System/Library/PrivateFrameworks/DesktopServicesPriv.framework/Versions/A/DesktopServicesPriv\n__TEXT                 92bc1000-92df5000 [ 2256K] r-x/r-x SM=COW  /System/Library/Frameworks/Foundation.framework/Versions/C/Foundation\n__LINKEDIT             92df5000-92f18000 [ 1164K] r--/r-- SM=COW  /System/Library/Frameworks/Foundation.framework/Versions/C/Foundation\n__TEXT                 92f27000-92f46000 [  124K] r-x/r-x SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib\n__LINKEDIT             92f46000-92f50000 [   40K] r--/r-- SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib\n__TEXT                 92f50000-92fab000 [  364K] r-x/r-x SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGLU.dylib\n__LINKEDIT             92fab000-92fc8000 [  116K] r--/r-- SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGLU.dylib\n__TEXT                 92fc8000-92fc9000 [    4K] r-x/r-x SM=COW  /System/Library/Frameworks/Carbon.framework/Versions/A/Carbon\n__LINKEDIT             92fc9000-92fca000 [    4K] r--/r-- SM=COW  /System/Library/Frameworks/Carbon.framework/Versions/A/Carbon\n__TEXT                 92fca000-92fdf000 [   84K] r-x/r-x SM=COW  ...works/Carbon.framework/Versions/A/Frameworks/ImageCapture.framework/Versions/A/ImageCapture\n__LINKEDIT             92fdf000-92ff6000 [   92K] r--/r-- SM=COW  ...works/Carbon.framework/Versions/A/Frameworks/ImageCapture.framework/Versions/A/ImageCapture\n__TEXT                 92ff6000-93007000 [   68K] r-x/r-x SM=COW  ...on.framework/Versions/A/Frameworks/SpeechRecognition.framework/Versions/A/SpeechRecognition\n__LINKEDIT             93007000-93012000 [   44K] r--/r-- SM=COW  ...on.framework/Versions/A/Frameworks/SpeechRecognition.framework/Versions/A/SpeechRecognition\n__TEXT                 93012000-93028000 [   88K] r-x/r-x SM=COW  ...rameworks/Carbon.framework/Versions/A/Frameworks/SecurityHI.framework/Versions/A/SecurityHI\n__LINKEDIT             93028000-93039000 [   68K] r--/r-- SM=COW  ...rameworks/Carbon.framework/Versions/A/Frameworks/SecurityHI.framework/Versions/A/SecurityHI\n__TEXT                 93039000-930c1000 [  544K] r-x/r-x SM=COW  /System/Library/Frameworks/Carbon.framework/Versions/A/Frameworks/Ink.framework/Versions/A/Ink\n__LINKEDIT             930c1000-930d4000 [   76K] r--/r-- SM=COW  /System/Library/Frameworks/Carbon.framework/Versions/A/Frameworks/Ink.framework/Versions/A/Ink\n__TEXT                 930d4000-930e0000 [   48K] r-x/r-x SM=COW  ...em/Library/Frameworks/Carbon.framework/Versions/A/Frameworks/Help.framework/Versions/A/Help\n__LINKEDIT             930e0000-930e9000 [   36K] r--/r-- SM=COW  ...em/Library/Frameworks/Carbon.framework/Versions/A/Frameworks/Help.framework/Versions/A/Help\n__TEXT                 930e9000-93118000 [  188K] r-x/r-x SM=COW  ...rks/Carbon.framework/Versions/A/Frameworks/OpenScripting.framework/Versions/A/OpenScripting\n__LINKEDIT             93118000-93131000 [  100K] r--/r-- SM=COW  ...rks/Carbon.framework/Versions/A/Frameworks/OpenScripting.framework/Versions/A/OpenScripting\n__TEXT                 93131000-93141000 [   64K] r-x/r-x SM=COW  .../Library/Frameworks/Carbon.framework/Versions/A/Frameworks/Print.framework/Versions/A/Print\n__LINKEDIT             93141000-9314c000 [   44K] r--/r-- SM=COW  .../Library/Frameworks/Carbon.framework/Versions/A/Frameworks/Print.framework/Versions/A/Print\n__TEXT                 9314c000-931b3000 [  412K] r-x/r-x SM=COW  ...rks/Carbon.framework/Versions/A/Frameworks/HTMLRendering.framework/Versions/A/HTMLRendering\n__LINKEDIT             931b3000-931e3000 [  192K] r--/r-- SM=COW  ...rks/Carbon.framework/Versions/A/Frameworks/HTMLRendering.framework/Versions/A/HTMLRendering\n__TEXT                 931e3000-93233000 [  320K] r-x/r-x SM=COW  ....framework/Versions/A/Frameworks/NavigationServices.framework/Versions/A/NavigationServices\n__LINKEDIT             93233000-93260000 [  180K] r--/r-- SM=COW  ....framework/Versions/A/Frameworks/NavigationServices.framework/Versions/A/NavigationServices\n__TEXT                 93260000-9327e000 [  120K] r-x/r-x SM=COW  ...meworks/Carbon.framework/Versions/A/Frameworks/CarbonSound.framework/Versions/A/CarbonSound\n__LINKEDIT             9327e000-9328f000 [   68K] r--/r-- SM=COW  ...meworks/Carbon.framework/Versions/A/Frameworks/CarbonSound.framework/Versions/A/CarbonSound\n__TEXT                 9328f000-9329d000 [   56K] r-x/r-x SM=COW  ...works/Carbon.framework/Versions/A/Frameworks/CommonPanels.framework/Versions/A/CommonPanels\n__LINKEDIT             9329d000-932a5000 [   32K] r--/r-- SM=COW  ...works/Carbon.framework/Versions/A/Frameworks/CommonPanels.framework/Versions/A/CommonPanels\n__TEXT                 932a5000-935b4000 [ 3132K] r-x/r-x SM=COW  .../Frameworks/Carbon.framework/Versions/A/Frameworks/HIToolbox.framework/Versions/A/HIToolbox\n__LINKEDIT             935b4000-93703000 [ 1340K] r--/r-- SM=COW  .../Frameworks/Carbon.framework/Versions/A/Frameworks/HIToolbox.framework/Versions/A/HIToolbox\n__TEXT                 93703000-93710000 [   52K] r-x/r-x SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/OpenGL\n__LINKEDIT             93710000-93714000 [   16K] r--/r-- SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/OpenGL\n__TEXT                 94149000-941bc000 [  460K] r-x/r-x SM=COW  /System/Library/Frameworks/CoreData.framework/Versions/A/CoreData\n__LINKEDIT             941bc000-941f4000 [  224K] r--/r-- SM=COW  /System/Library/Frameworks/CoreData.framework/Versions/A/CoreData\n__TEXT                 941f4000-942ba000 [  792K] r-x/r-x SM=COW  /System/Library/Frameworks/AudioToolbox.framework/Versions/A/AudioToolbox\n__LINKEDIT             942ba000-9430c000 [  328K] r--/r-- SM=COW  /System/Library/Frameworks/AudioToolbox.framework/Versions/A/AudioToolbox\n__TEXT                 9430c000-9430d000 [    4K] r-x/r-x SM=COW  /System/Library/Frameworks/AudioUnit.framework/Versions/A/AudioUnit\n__LINKEDIT             9430d000-9430e000 [    4K] r--/r-- SM=COW  /System/Library/Frameworks/AudioUnit.framework/Versions/A/AudioUnit\n__TEXT                 9430e000-944cf000 [ 1796K] r-x/r-x SM=COW  /System/Library/Frameworks/QuartzCore.framework/Versions/A/QuartzCore\n__LINKEDIT             944cf000-94518000 [  292K] r--/r-- SM=COW  /System/Library/Frameworks/QuartzCore.framework/Versions/A/QuartzCore\n__TEXT                 94518000-94556000 [  248K] r-x/r-x SM=COW  /usr/lib/libsqlite3.0.dylib\n__LINKEDIT             94556000-9455d000 [   28K] r--/r-- SM=COW  /usr/lib/libsqlite3.0.dylib\n__TEXT                 9455d000-945ae000 [  324K] r-x/r-x SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGLImage.dylib\n__LINKEDIT             945ae000-945b6000 [   32K] r--/r-- SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGLImage.dylib\n__TEXT                 945b6000-945d0000 [  104K] r-x/r-x SM=COW  /System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo\n__LINKEDIT             945d0000-945df000 [   60K] r--/r-- SM=COW  /System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo\n__TEXT                 9477d000-9478d000 [   64K] r-x/r-x SM=COW  ...ramework/Versions/A/Frameworks/CoreGraphics.framework/Versions/A/Resources/libCGATS.A.dylib\n__LINKEDIT             9478d000-94794000 [   28K] r--/r-- SM=COW  ...ramework/Versions/A/Frameworks/CoreGraphics.framework/Versions/A/Resources/libCGATS.A.dylib\n__TEXT                 94794000-947a2000 [   56K] r-x/r-x SM=COW  ...ramework/Versions/A/Frameworks/CoreGraphics.framework/Versions/A/Resources/libCSync.A.dylib\n__LINKEDIT             947a2000-947a7000 [   20K] r--/r-- SM=COW  ...ramework/Versions/A/Frameworks/CoreGraphics.framework/Versions/A/Resources/libCSync.A.dylib\n__TEXT                 947e7000-94801000 [  104K] r-x/r-x SM=COW  ....framework/Versions/A/Frameworks/CoreGraphics.framework/Versions/A/Resources/libRIP.A.dylib\n__LINKEDIT             94801000-94807000 [   24K] r--/r-- SM=COW  ....framework/Versions/A/Frameworks/CoreGraphics.framework/Versions/A/Resources/libRIP.A.dylib\n__TEXT                 94807000-94b3b000 [ 3280K] r-x/r-x SM=COW  /System/Library/Frameworks/QuickTime.framework/Versions/A/QuickTime\n__LINKEDIT             94b3b000-94c22000 [  924K] r--/r-- SM=COW  /System/Library/Frameworks/QuickTime.framework/Versions/A/QuickTime\n__TEXT                 94c22000-94c94000 [  456K] r-x/r-x SM=COW  /usr/lib/libstdc++.6.dylib\n__LINKEDIT             94c94000-94d06000 [  456K] r--/r-- SM=COW  /usr/lib/libstdc++.6.dylib\n__TEXT                 9506a000-95088000 [  120K] r-x/r-x SM=COW  /usr/lib/libresolv.9.dylib\n__LINKEDIT             95088000-9508f000 [   28K] r--/r-- SM=COW  /usr/lib/libresolv.9.dylib\n__TEXT                 97b9d000-97c5f000 [  776K] r-x/r-x SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGLProgrammability.dylib\n__LINKEDIT             97c5f000-97c89000 [  168K] r--/r-- SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGLProgrammability.dylib\n__TEXT                 97c89000-97c8b000 [    8K] r-x/r-x SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGLSystem.dylib\n__LINKEDIT             97c8b000-97c8c000 [    4K] r--/r-- SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGLSystem.dylib\n__TEXT                 97c8c000-97c9a000 [   56K] r-x/r-x SM=COW  /System/Library/Frameworks/AGL.framework/Versions/A/AGL\n__LINKEDIT             97c9a000-97cb1000 [   92K] r--/r-- SM=COW  /System/Library/Frameworks/AGL.framework/Versions/A/AGL\n__TEXT                 9ac67000-9ac86000 [  124K] r-x/r-x SM=COW  /System/Library/PrivateFrameworks/OpenTransport.framework/OpenTransport\n__LINKEDIT             9ac86000-9ac8f000 [   36K] r--/r-- SM=COW  /System/Library/PrivateFrameworks/OpenTransport.framework/OpenTransport\n__TEXT                 9ac8f000-9ac95000 [   24K] r-x/r-x SM=COW  /System/Library/Frameworks/DrawSprocket.framework/Versions/A/DrawSprocket\n__LINKEDIT             9ac95000-9ac99000 [   16K] r--/r-- SM=COW  /System/Library/Frameworks/DrawSprocket.framework/Versions/A/DrawSprocket\n__TEXT                 9ad00000-9ad02000 [    8K] r-x/r-x SM=COW  /System/Library/Frameworks/DVComponentGlue.framework/Versions/A/DVComponentGlue\n__LINKEDIT             9ad02000-9ad03000 [    4K] r--/r-- SM=COW  /System/Library/Frameworks/DVComponentGlue.framework/Versions/A/DVComponentGlue\n__TEXT                 9ffb8000-9fff8000 [  256K] r-x/r-x SM=COW  /System/Library/QuickTime/QuickTimeFireWireDV.component/Contents/MacOS/QuickTimeFireWireDV\n__LINKEDIT             9fff8000-a0000000 [   32K] r--/r-- SM=COW  /System/Library/QuickTime/QuickTimeFireWireDV.component/Contents/MacOS/QuickTimeFireWireDV\n__DATA                 a0214000-a0215000 [    4K] r--/r-- SM=COW  /usr/lib/system/libmathCommon.A.dylib\n__DATA                 a08de000-a08df000 [    4K] r--/r-- SM=COW  /System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices\n__DATA                 a08e0000-a08e8000 [   32K] r--/r-- SM=COW  /usr/lib/libicucore.A.dylib\n__DATA                 a08e8000-a08e9000 [    4K] r--/r-- SM=COW  /usr/lib/libicucore.A.dylib\n__DATA                 a0aea000-a0aed000 [   12K] r--/r-- SM=COW  /System/Library/Frameworks/IOKit.framework/Versions/A/IOKit\n__DATA                 a0aed000-a0aee000 [    4K] r--/r-- SM=COW  /System/Library/Frameworks/IOKit.framework/Versions/A/IOKit\n__DATA                 a0ed0000-a0ed1000 [    4K] r--/r-- SM=COW  ...rks/CoreServices.framework/Versions/A/Frameworks/OSServices.framework/Versions/A/OSServices\n__DATA                 a0f92000-a0f95000 [   12K] r--/r-- SM=COW  ...works/CoreServices.framework/Versions/A/Frameworks/CFNetwork.framework/Versions/A/CFNetwork\n__DATA                 a0fe9000-a0feb000 [    8K] r--/r-- SM=COW  ...rvices.framework/Versions/A/Frameworks/WebServicesCore.framework/Versions/A/WebServicesCore\n__DATA                 a0feb000-a0fec000 [    4K] r--/r-- SM=NUL  ...rvices.framework/Versions/A/Frameworks/WebServicesCore.framework/Versions/A/WebServicesCore\n__DATA                 a1011000-a1021000 [   64K] r--/r-- SM=COW  ...works/CoreServices.framework/Versions/A/Frameworks/SearchKit.framework/Versions/A/SearchKit\n__DATA                 a10d8000-a10db000 [   12K] r--/r-- SM=COW  ...meworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Metadata\n__DATA                 a1112000-a1113000 [    4K] r--/r-- SM=COW  /usr/lib/libz.1.dylib\n__DATA                 a13ed000-a13ee000 [    4K] r--/r-- SM=COW  /usr/lib/libbsm.dylib\n__DATA                 a13f9000-a13fd000 [   16K] r--/r-- SM=COW  /System/Library/Frameworks/SystemConfiguration.framework/Versions/A/SystemConfiguration\n__DATA                 a1676000-a1683000 [   52K] r--/r-- SM=COW  ...pplicationServices.framework/Versions/A/Frameworks/PrintCore.framework/Versions/A/PrintCore\n__DATA                 a1683000-a1684000 [    4K] r--/r-- SM=NUL  ...pplicationServices.framework/Versions/A/Frameworks/PrintCore.framework/Versions/A/PrintCore\n__DATA                 a18cf000-a18d1000 [    8K] r--/r-- SM=COW  ...tionServices.framework/Versions/A/Frameworks/LangAnalysis.framework/Versions/A/LangAnalysis\n__DATA                 a1904000-a1907000 [   12K] r--/r-- SM=COW  ...onServices.framework/Versions/A/Frameworks/FindByContent.framework/Versions/A/FindByContent\n__DATA                 a193c000-a193f000 [   12K] r--/r-- SM=COW  ...Services.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/LaunchServices\n__DATA                 a193f000-a1940000 [    4K] r--/r-- SM=COW  ...Services.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/LaunchServices\n__DATA                 a199a000-a199c000 [    8K] r--/r-- SM=COW  ...rvices.framework/Versions/A/Frameworks/SpeechSynthesis.framework/Versions/A/SpeechSynthesis\n__DATA                 a1a19000-a1a2b000 [   72K] r--/r-- SM=COW  /usr/lib/libcrypto.0.9.7.dylib\n__DATA                 a1a2b000-a1a2e000 [   12K] r--/r-- SM=COW  /usr/lib/libcrypto.0.9.7.dylib\n__DATA                 a1b2e000-a1b2f000 [    4K] r--/r-- SM=COW  /usr/lib/libcups.2.dylib\n__DATA                 a1b48000-a1b49000 [    4K] r--/r-- SM=COW  ...rvices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libJPEG.dylib\n__DATA                 a1c72000-a1c73000 [    4K] r--/r-- SM=COW  ...ervices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libGIF.dylib\n__DATA                 a1c78000-a1c79000 [    4K] r--/r-- SM=COW  ...ervices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libRaw.dylib\n__DATA                 a1ce7000-a1ce8000 [    4K] r--/r-- SM=COW  ...ervices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libPng.dylib\n__DATA                 a1d07000-a1d08000 [    4K] r--/r-- SM=COW  ...es.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libRadiance.dylib\n__DATA                 a1e0a000-a1e0c000 [    8K] r--/r-- SM=COW  ...rvices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libTIFF.dylib\n__DATA                 a1e0c000-a1e0d000 [    4K] r--/r-- SM=NUL  ...rvices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libTIFF.dylib\n__DATA                 a1e4f000-a1e50000 [    4K] r--/r-- SM=COW  /System/Library/Frameworks/Accelerate.framework/Versions/A/Accelerate\n__DATA                 a1e51000-a1e52000 [    4K] r--/r-- SM=COW  ...ry/Frameworks/Accelerate.framework/Versions/A/Frameworks/vImage.framework/Versions/A/vImage\n__DATA                 a1f3e000-a1f45000 [   28K] r--/r-- SM=COW  ...ry/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/vecLib\n__DATA                 a1fc9000-a1fca000 [    4K] r--/r-- SM=COW  ...works/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libvMisc.dylib\n__DATA                 a2042000-a2043000 [    4K] r--/r-- SM=COW  ...eworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libvDSP.dylib\n__DATA                 a2043000-a2049000 [   24K] r--/r-- SM=NUL  ...eworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libvDSP.dylib\n__DATA                 a20f1000-a20f3000 [    8K] r--/r-- SM=COW  ...eworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib\n__DATA                 a26ac000-a26ad000 [    4K] r--/r-- SM=COW  ...orks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libLAPACK.dylib\n__DATA                 a2a07000-a2a08000 [    4K] r--/r-- SM=COW  /usr/lib/libiconv.2.dylib\n__DATA                 a2f50000-a2f52000 [    8K] r--/r-- SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGLU.dylib\n__DATA                 a303b000-a3040000 [   20K] r--/r-- SM=NUL  /System/Library/Frameworks/Carbon.framework/Versions/A/Frameworks/Ink.framework/Versions/A/Ink\n__DATA                 a30d5000-a30d6000 [    4K] r--/r-- SM=NUL  ...em/Library/Frameworks/Carbon.framework/Versions/A/Frameworks/Help.framework/Versions/A/Help\n__DATA                 a30ee000-a30ef000 [    4K] r--/r-- SM=NUL  ...rks/Carbon.framework/Versions/A/Frameworks/OpenScripting.framework/Versions/A/OpenScripting\n__DATA                 a41f4000-a4208000 [   80K] r--/r-- SM=COW  /System/Library/Frameworks/AudioToolbox.framework/Versions/A/AudioToolbox\n__DATA                 a430c000-a430d000 [    4K] r--/r-- SM=COW  /System/Library/Frameworks/AudioUnit.framework/Versions/A/AudioUnit\n__DATA                 a4316000-a4317000 [    4K] r--/r-- SM=PRV  /System/Library/Frameworks/QuartzCore.framework/Versions/A/QuartzCore\n__DATA                 a4518000-a4519000 [    4K] r--/r-- SM=COW  /usr/lib/libsqlite3.0.dylib\n__DATA                 a506a000-a506b000 [    4K] r--/r-- SM=COW  /usr/lib/libresolv.9.dylib\n__DATA                 a506b000-a506c000 [    4K] r--/r-- SM=NUL  /usr/lib/libresolv.9.dylib\n__DATA                 a7b9d000-a7ba1000 [   16K] r--/r-- SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGLProgrammability.dylib\n__DATA                 aac69000-aac6c000 [   12K] r--/r-- SM=NUL  /System/Library/PrivateFrameworks/OpenTransport.framework/OpenTransport\nCoreGraphics           b0003000-b000b000 [   32K] r--/r-- SM=SHM  \nCoreGraphics           b0015000-b001d000 [   32K] r--/r-- SM=SHM  \nSTACK GUARD            f0000000-f0001000 [    4K] ---/rwx SM=NUL  \nSTACK GUARD            f0081000-f0082000 [    4K] ---/rwx SM=NUL  \nSTACK GUARD            f0102000-f0103000 [    4K] ---/rwx SM=NUL  \nSTACK GUARD            f0183000-f0184000 [    4K] ---/rwx SM=NUL  \nSTACK GUARD            f0204000-f0205000 [    4K] ---/rwx SM=NUL  \nSTACK GUARD            f0285000-f0286000 [    4K] ---/rwx SM=NUL  \nSTACK GUARD            f0306000-f0307000 [    4K] ---/rwx SM=NUL  \nSTACK GUARD            f0387000-f0388000 [    4K] ---/rwx SM=NUL  \nSTACK GUARD            f0408000-f0409000 [    4K] ---/rwx SM=NUL  \nSTACK GUARD            f0489000-f048a000 [    4K] ---/rwx SM=NUL  \nSTACK GUARD            f050a000-f050b000 [    4K] ---/rwx SM=NUL  \nSTACK GUARD            f058b000-f058c000 [    4K] ---/rwx SM=NUL  \nSTACK GUARD            f060c000-f060d000 [    4K] ---/rwx SM=NUL  \nsystem                 fffec000-fffef000 [   12K] ---/rwx SM=NUL  commpage [libobjc.A.dylib]\nsystem                 fffef000-ffff0000 [    4K] r-x/rwx SM=PRV  commpage [libobjc.A.dylib]\nsystem                 ffff8000-ffffa000 [    8K] r--/r-- SM=SHM  commpage [libSystem.B.dylib]\n\n==== Writable regions for process 279\n__DATA                 00003000-00004000 [    4K] rw-/rwx SM=COW  /System/Library/Frameworks/Carbon.framework/Versions/A/Support/LaunchCFMApp\nMALLOC_LARGE           00008000-0000e000 [   24K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nVM_ALLOCATE ?          0000e000-0001e000 [   64K] rw-/rwx SM=PRV  \nVM_ALLOCATE ?          00089000-00099000 [   64K] rw-/rwx SM=PRV  \nMALLOC_LARGE           00099000-0009a000 [    4K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nVM_ALLOCATE ?          0009a000-0009e000 [   16K] rw-/rwx SM=COW  \nVM_ALLOCATE ?          000c0000-000c1000 [    4K] rw-/rwx SM=PRV  \nMALLOC_LARGE           000c2000-000c8000 [   24K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           000d1000-000ec000 [  108K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nVM_ALLOCATE ?          000ec000-000ed000 [    4K] rw-/rwx SM=PRV  \nATS (font support)     000ed000-000ee000 [    4K] rw-/rwx SM=SHM  \nATS (font support)     000ee000-000ef000 [    4K] rw-/rwx SM=COW  \nVM_ALLOCATE ?          000ef000-000fd000 [   56K] rw-/rwx SM=NUL  \nATS (font support)     000fd000-000ff000 [    8K] rw-/rwx SM=COW  \nMALLOC_LARGE           000ff000-00100000 [    4K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_TINY (freed?)   00100000-00205000 [ 1044K] rw-/rwx SM=COW  \n__DATA                 002f4000-002f9000 [   20K] rw-/rwx SM=COW  /usr/lib/libxml2.2.dylib\n__DATA                 002f9000-00302000 [   36K] rw-/rwx SM=NUL  /usr/lib/libxml2.2.dylib\nMALLOC_LARGE           0039a000-003a5000 [   44K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nVM_ALLOCATE ?          003a5000-003fd000 [  352K] rw-/rwx SM=PRV  \nATS (font support)     003fd000-003ff000 [    8K] rw-/rwx SM=COW  \nVM_ALLOCATE ?          003ff000-00400000 [    4K] rw-/rwx SM=PRV  \nMALLOC_TINY            00400000-0040e000 [   56K] rw-/rwx SM=COW  DefaultMallocZone_0x400000\nPEF binary             0040e000-0040f000 [    4K] rw-/rwx SM=COW  CFMPriv_AGL\nPEF binary             0040f000-00410000 [    4K] rw-/rwx SM=COW  CFMPriv_SpeechRecognition\nPEF binary             00410000-00411000 [    4K] rw-/rwx SM=PRV  CFMPriv_SpeechSynthesis\nMALLOC_TINY            00411000-00414000 [   12K] rw-/rwx SM=COW  DefaultMallocZone_0x400000\nMALLOC_TINY            00414000-00415000 [    4K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_TINY            00415000-00465000 [  320K] rw-/rwx SM=COW  DefaultMallocZone_0x400000\nMALLOC_TINY            00465000-00466000 [    4K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_TINY            00466000-00505000 [  636K] rw-/rwx SM=COW  DefaultMallocZone_0x400000\nMALLOC_LARGE           005ea000-006d9000 [  956K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nVM_ALLOCATE ?          006d9000-00701000 [  160K] rw-/rwx SM=PRV  \nMALLOC_LARGE           00701000-0070d000 [   48K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nATS (font support)     0070d000-0078d000 [  512K] rw-/rwx SM=COW  \nVM_ALLOCATE ?          0078d000-00795000 [   32K] rw-/rwx SM=PRV  \nMALLOC_LARGE           00795000-007e6000 [  324K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nshared memory          007fe000-007ff000 [    4K] rw-/rw- SM=SHM  \nMALLOC (freed?)        00800000-01008000 [ 8224K] rw-/rwx SM=PRV  \nIOKit                  01008000-0100c000 [   16K] rw-/rw- SM=SHM  \nIOKit                  0100c000-0100e000 [    8K] rw-/rw- SM=ALI  \nMALLOC_LARGE           0100e000-01017000 [   36K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_REALLOC         01017000-01019000 [    8K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           01019000-0103b000 [  136K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\n__DATA                 01042000-01043000 [    4K] rw-/rwx SM=COW  ...ensions/IOAudioFamily.kext/Contents/PlugIns/AOAHALPlugin.bundle/Contents/MacOS/AOAHALPlugin\nMALLOC_LARGE           01045000-0104a000 [   20K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           01084000-0108b000 [   28K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nVM_ALLOCATE ?          010cb000-010cc000 [    4K] rw-/rwx SM=PRV  \nMALLOC_LARGE           010cc000-010d0000 [   16K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  010d0000-010d1000 [    4K] rw-/rw- SM=ALI  \nVM_ALLOCATE ?          010d1000-0110a000 [  228K] rw-/rwx SM=COW  \nMALLOC_LARGE           0110a000-01134000 [  168K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\n__DATA                 0113a000-0113b000 [    4K] rw-/rwx SM=COW  /Library/QuickTime/LiveType.component/Contents/MacOS/LiveType\nVM_ALLOCATE ?          0113d000-01145000 [   32K] rw-/rwx SM=PRV  \nVM_ALLOCATE ?          0114d000-01155000 [   32K] rw-/rwx SM=PRV  \nMALLOC_LARGE           01155000-0115a000 [   20K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nshared memory          0115a000-01161000 [   28K] rw-/rwx SM=SHM  \nMALLOC_LARGE           01161000-0116f000 [   56K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\n__DATA                 011d5000-011d8000 [   12K] rw-/rwx SM=COW  /System/Library/PrivateFrameworks/LiveType.framework/Versions/A/LiveType\n__DATA                 011d8000-011d9000 [    4K] rw-/rwx SM=NUL  /System/Library/PrivateFrameworks/LiveType.framework/Versions/A/LiveType\n__OBJC                 011d9000-011da000 [    4K] rw-/rwx SM=COW  /System/Library/PrivateFrameworks/LiveType.framework/Versions/A/LiveType\nVM_ALLOCATE ?          017a9000-017b1000 [   32K] rw-/rwx SM=PRV  \nMALLOC_LARGE           017b1000-01800000 [  316K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC                 01800000-01801000 [    4K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC                 01801000-01b99000 [ 3680K] rw-/rwx SM=COW  DefaultMallocZone_0x400000\nMALLOC                 01b99000-01b9c000 [   12K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC                 01b9c000-02008000 [ 4528K] rw-/rwx SM=COW  DefaultMallocZone_0x400000\nIOKit                  02ae3000-12ae3000 [262144K] rw-/rw- SM=NUL  \nATS (font support)     12ae3000-14a63000 [32256K] rw-/rwx SM=COW  \nshared memory          14a63000-15a5f000 [16368K] rw-/rw- SM=SHM  \nmapped file            15a5f000-15c83000 [ 2192K] rw-/rwx SM=COW  /System/Library/Fonts/LucidaGrande.dfont\nATS (font support)     15c83000-15d83000 [ 1024K] rw-/rwx SM=SHM  \nVM_ALLOCATE ?          15d83000-15e7a000 [  988K] rw-/rwx SM=COW  \nMALLOC_LARGE           15e7a000-15efa000 [  512K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\n__DATA                 1600a000-1600e000 [   16K] rw-/rwx SM=COW  /System/Library/Frameworks/OpenGL.framework/Resources/GLEngine.bundle/GLEngine\n__DATA                 1600e000-1600f000 [    4K] rw-/rwx SM=PRV  /System/Library/Frameworks/OpenGL.framework/Resources/GLEngine.bundle/GLEngine\n__DATA                 16129000-1612e000 [   20K] rw-/rwx SM=COW  /System/Library/Extensions/ATIRadeon9700GLDriver.bundle/Contents/MacOS/ATIRadeon9700GLDriver\n__DATA                 1612e000-16133000 [   20K] rw-/rwx SM=PRV  /System/Library/Extensions/ATIRadeon9700GLDriver.bundle/Contents/MacOS/ATIRadeon9700GLDriver\n__DATA                 16150000-16151000 [    4K] rw-/rwx SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Resources/GLDriver.bundle/GLDriver\n__DATA                 16171000-16172000 [    4K] rw-/rwx SM=COW  ...ary/Frameworks/OpenGL.framework/Versions/A/Resources/GLRendererFloat.bundle/GLRendererFloat\nMALLOC_LARGE           16176000-16189000 [   76K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  16189000-161a7000 [  120K] rw-/rw- SM=SHM  \nIOKit                  161a9000-161b1000 [   32K] rw-/rw- SM=ALI  \nVM_ALLOCATE ?          161b1000-161b9000 [   32K] rw-/rwx SM=PRV  \nMALLOC_LARGE           161b9000-161c3000 [   40K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  161c3000-161dc000 [  100K] rw-/rw- SM=SHM  \nMALLOC_LARGE           161dc000-161ee000 [   72K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  161ee000-16204000 [   88K] rw-/rw- SM=SHM  \nMALLOC_LARGE           1620a000-16263000 [  356K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  16263000-16266000 [   12K] rw-/rw- SM=SHM  \nMALLOC_LARGE           16266000-16284000 [  120K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16289000-162ab000 [  136K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\n__DATA                 162e5000-162e7000 [    8K] rw-/rwx SM=COW  ...m/Library/Components/SoundManagerComponents.component/Contents/MacOS/SoundManagerComponents\nshared memory          162ea000-162fc000 [   72K] rw-/rwx SM=SHM  \nMALLOC_LARGE           162fc000-16300000 [   16K] rw-/rwx SM=NUL  DefaultMallocZone_0x400000\nMALLOC_TINY            16300000-16405000 [ 1044K] rw-/rwx SM=COW  DefaultMallocZone_0x400000\nMALLOC_LARGE           16405000-165da000 [ 1876K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nVM_ALLOCATE ?          165da000-1663a000 [  384K] rw-/rwx SM=PRV  \nMALLOC_LARGE           1663a000-167f6000 [ 1776K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           167f7000-16810000 [  100K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16810000-16830000 [  128K] rw-/rwx SM=NUL  DefaultMallocZone_0x400000\nMALLOC_LARGE           16830000-16840000 [   64K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16840000-1687c000 [  240K] rw-/rwx SM=NUL  DefaultMallocZone_0x400000\nMALLOC_LARGE           1687c000-1688c000 [   64K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           1688c000-168a4000 [   96K] rw-/rwx SM=NUL  DefaultMallocZone_0x400000\nMALLOC_LARGE           168a4000-168e2000 [  248K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           168e2000-168e8000 [   24K] rw-/rwx SM=ZER  DefaultMallocZone_0x400000\nMALLOC_LARGE           168e8000-168ec000 [   16K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           168ec000-168f6000 [   40K] rw-/rwx SM=ZER  DefaultMallocZone_0x400000\nMALLOC_LARGE           168f8000-16900000 [   32K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_TINY            16900000-16a05000 [ 1044K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16a05000-16b2d000 [ 1184K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16b2f000-16b37000 [   32K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16b3b000-16b4b000 [   64K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  16b4b000-16b52000 [   28K] rw-/rw- SM=SHM  \nMALLOC_LARGE           16b55000-16b65000 [   64K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  16b65000-16b83000 [  120K] rw-/rw- SM=SHM  \nMALLOC_LARGE           16b84000-16c0d000 [  548K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  16c0d000-16c10000 [   12K] rw-/rw- SM=SHM  \nMALLOC_LARGE           16c10000-16c64000 [  336K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16c66000-16ce0000 [  488K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16ce2000-16cea000 [   32K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  16cea000-16ced000 [   12K] rw-/rw- SM=SHM  \nMALLOC_LARGE           16ced000-16d0a000 [  116K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16d0b000-16d13000 [   32K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16d16000-16d3a000 [  144K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16d3c000-16d5c000 [  128K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16d5d000-16d75000 [   96K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16d76000-16dae000 [  224K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16db1000-16e78000 [  796K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16e79000-16e93000 [  104K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16e94000-16ea2000 [   56K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16ea3000-16ed7000 [  208K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16ed8000-16f6c000 [  592K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16f6e000-16fe0000 [  456K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           16fe1000-170ad000 [  816K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           170ae000-171ae000 [ 1024K] rw-/rwx SM=NUL  DefaultMallocZone_0x400000\nMALLOC_LARGE           171ae000-174ba000 [ 3120K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           174ba000-174c4000 [   40K] rw-/rwx SM=ZER  DefaultMallocZone_0x400000\nMALLOC_LARGE           174c4000-174c8000 [   16K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           174ca000-174ce000 [   16K] rw-/rwx SM=ZER  DefaultMallocZone_0x400000\nMALLOC_LARGE           174ce000-174d2000 [   16K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           174d4000-174ec000 [   96K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           174ef000-17649000 [ 1384K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  17649000-17660000 [   92K] rw-/rw- SM=PRV  \nMALLOC_LARGE           17660000-17682000 [  136K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  17682000-17689000 [   28K] rw-/rw- SM=SHM  \nMALLOC_LARGE           17689000-17833000 [ 1704K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           17835000-1789e000 [  420K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           178a0000-178ca000 [  168K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           178cb000-179d6000 [ 1068K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  179d6000-179fd000 [  156K] rw-/rw- SM=SHM  \nMALLOC_TINY            17a00000-17b05000 [ 1044K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  17b05000-17c8a000 [ 1556K] rw-/rw- SM=SHM  \nMALLOC_LARGE           17c8a000-17c9a000 [   64K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  17ca9000-18337000 [ 6712K] rw-/rw- SM=SHM  \nMALLOC_LARGE           18337000-1834b000 [   80K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  1834b000-18362000 [   92K] rw-/rw- SM=SHM  \nIOKit                  18362000-18379000 [   92K] rw-/rw- SM=PRV  \nIOKit                  18379000-18425000 [  688K] rw-/rw- SM=SHM  \nMALLOC_LARGE           18425000-18449000 [  144K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  18449000-1870a000 [ 2820K] rw-/rw- SM=SHM  \nMALLOC_LARGE           1870a000-18710000 [   24K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nMALLOC_LARGE           18710000-18733000 [  140K] rw-/rwx SM=COW  DefaultMallocZone_0x400000\nMALLOC_LARGE           18733000-1877b000 [  288K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\nIOKit                  18790000-1886c000 [  880K] rw-/rw- SM=SHM  \nMALLOC_LARGE           18886000-18950000 [  808K] rw-/rwx SM=PRV  DefaultMallocZone_0x400000\n__DATA                 8fe53000-8fe54000 [    4K] rw-/rwx SM=COW  /usr/lib/dyld\n__DATA                 8fe54000-8fe5a000 [   24K] rw-/rwx SM=COW  /usr/lib/dyld\n__DATA                 8fe5a000-8fe5d000 [   12K] rw-/rwx SM=PRV  /usr/lib/dyld\n__DATA                 a0000000-a0004000 [   16K] rw-/rw- SM=COW  /usr/lib/libSystem.B.dylib\n__DATA                 a0004000-a0005000 [    4K] rw-/rw- SM=COW  /usr/lib/libSystem.B.dylib\n__DATA                 a0005000-a000b000 [   24K] rw-/rw- SM=COW  /usr/lib/libSystem.B.dylib\n__DATA                 a000b000-a0010000 [   20K] rw-/rw- SM=ZER  /usr/lib/libSystem.B.dylib\n__DATA                 a0010000-a0011000 [    4K] rw-/rw- SM=COW  /usr/lib/libSystem.B.dylib\n__DATA                 a0011000-a0012000 [    4K] rw-/rw- SM=ZER  /usr/lib/libSystem.B.dylib\n__DATA                 a021b000-a0220000 [   20K] rw-/rw- SM=COW  .../ApplicationServices.framework/Versions/A/Frameworks/CoreText.framework/Versions/A/CoreText\n__OBJC                 a0220000-a0221000 [    4K] rw-/rw- SM=COW  .../ApplicationServices.framework/Versions/A/Frameworks/CoreText.framework/Versions/A/CoreText\n__DATA                 a0293000-a0297000 [   16K] rw-/rw- SM=COW  ...Frameworks/ApplicationServices.framework/Versions/A/Frameworks/ATS.framework/Versions/A/ATS\n__DATA                 a0297000-a0298000 [    4K] rw-/rw- SM=COW  ...Frameworks/ApplicationServices.framework/Versions/A/Frameworks/ATS.framework/Versions/A/ATS\n__DATA                 a0373000-a0390000 [  116K] rw-/rw- SM=COW  ...tionServices.framework/Versions/A/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics\n__DATA                 a0390000-a0391000 [    4K] rw-/rw- SM=PRV  ...tionServices.framework/Versions/A/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics\n__DATA                 a07bb000-a07c5000 [   40K] rw-/rw- SM=COW  /System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation\n__DATA                 a0a3c000-a0a51000 [   84K] rw-/rw- SM=COW  /usr/lib/libobjc.A.dylib\n__OBJC                 a0a51000-a0a52000 [    4K] rw-/rw- SM=COW  /usr/lib/libobjc.A.dylib\n__DATA                 a0b72000-a0b73000 [    4K] rw-/rw- SM=COW  /usr/lib/libauto.dylib\n__DATA                 a0b8b000-a0b95000 [   40K] rw-/rw- SM=COW  ...rks/CoreServices.framework/Versions/A/Frameworks/CarbonCore.framework/Versions/A/CarbonCore\n__DATA                 a0b95000-a0b96000 [    4K] rw-/rw- SM=PRV  ...rks/CoreServices.framework/Versions/A/Frameworks/CarbonCore.framework/Versions/A/CarbonCore\n__DATA                 a0ec8000-a0ed0000 [   32K] rw-/rw- SM=COW  ...rks/CoreServices.framework/Versions/A/Frameworks/OSServices.framework/Versions/A/OSServices\n__DATA                 a1123000-a1168000 [  276K] rw-/rw- SM=COW  /System/Library/Frameworks/Security.framework/Versions/A/Security\n__DATA                 a13dd000-a13de000 [    4K] rw-/rw- SM=COW  /System/Library/Frameworks/DiskArbitration.framework/Versions/A/DiskArbitration\n__DATA                 a1434000-a1435000 [    4K] rw-/rw- SM=COW  /usr/lib/libgcc_s.1.dylib\n__DATA                 a1444000-a144f000 [   44K] rw-/rw- SM=COW  /System/Library/Frameworks/CoreAudio.framework/Versions/A/CoreAudio\n__DATA                 a14fc000-a14fd000 [    4K] rw-/rw- SM=COW  /System/Library/Frameworks/ApplicationServices.framework/Versions/A/ApplicationServices\n__DATA                 a14fe000-a1500000 [    8K] rw-/rw- SM=COW  ...y/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/AE.framework/Versions/A/AE\n__DATA                 a1551000-a155c000 [   44K] rw-/rw- SM=COW  ...pplicationServices.framework/Versions/A/Frameworks/ColorSync.framework/Versions/A/ColorSync\n__DATA                 a174e000-a1752000 [   16K] rw-/rw- SM=COW  ...y/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/QD.framework/Versions/A/QD\n__DATA                 a1842000-a1846000 [   16K] rw-/rw- SM=COW  ...licationServices.framework/Versions/A/Frameworks/HIServices.framework/Versions/A/HIServices\n__DATA                 a1846000-a1847000 [    4K] rw-/rw- SM=COW  ...licationServices.framework/Versions/A/Frameworks/HIServices.framework/Versions/A/HIServices\n__DATA                 a19bc000-a19c3000 [   28K] rw-/rw- SM=COW  ...ks/ApplicationServices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/ImageIO\n__DATA                 a1b6c000-a1b7e000 [   72K] rw-/rw- SM=COW  ...ervices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libJP2.dylib\n__DATA                 a1b7e000-a1b7f000 [    4K] rw-/rw- SM=COW  ...ervices.framework/Versions/A/Frameworks/ImageIO.framework/Versions/A/Resources/libJP2.dylib\n__DATA                 a2af8000-a2b0a000 [   72K] rw-/rw- SM=COW  /System/Library/PrivateFrameworks/DesktopServicesPriv.framework/Versions/A/DesktopServicesPriv\n__DATA                 a2bc1000-a2bde000 [  116K] rw-/rw- SM=COW  /System/Library/Frameworks/Foundation.framework/Versions/C/Foundation\n__OBJC                 a2bde000-a2be5000 [   28K] rw-/rw- SM=COW  /System/Library/Frameworks/Foundation.framework/Versions/C/Foundation\n__OBJC                 a2be5000-a2c10000 [  172K] rw-/rw- SM=COW  /System/Library/Frameworks/Foundation.framework/Versions/C/Foundation\n__DATA                 a2f27000-a2f28000 [    4K] rw-/rw- SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib\n__DATA                 a2fc8000-a2fc9000 [    4K] rw-/rw- SM=COW  /System/Library/Frameworks/Carbon.framework/Versions/A/Carbon\n__DATA                 a2fca000-a2fcd000 [   12K] rw-/rw- SM=COW  ...works/Carbon.framework/Versions/A/Frameworks/ImageCapture.framework/Versions/A/ImageCapture\n__DATA                 a2ff6000-a2ff8000 [    8K] rw-/rw- SM=COW  ...on.framework/Versions/A/Frameworks/SpeechRecognition.framework/Versions/A/SpeechRecognition\n__DATA                 a3012000-a3014000 [    8K] rw-/rw- SM=COW  ...rameworks/Carbon.framework/Versions/A/Frameworks/SecurityHI.framework/Versions/A/SecurityHI\n__DATA                 a3039000-a303b000 [    8K] rw-/rw- SM=COW  /System/Library/Frameworks/Carbon.framework/Versions/A/Frameworks/Ink.framework/Versions/A/Ink\n__DATA                 a30d4000-a30d5000 [    4K] rw-/rw- SM=COW  ...em/Library/Frameworks/Carbon.framework/Versions/A/Frameworks/Help.framework/Versions/A/Help\n__DATA                 a30e9000-a30ee000 [   20K] rw-/rw- SM=COW  ...rks/Carbon.framework/Versions/A/Frameworks/OpenScripting.framework/Versions/A/OpenScripting\n__DATA                 a3131000-a3133000 [    8K] rw-/rw- SM=COW  .../Library/Frameworks/Carbon.framework/Versions/A/Frameworks/Print.framework/Versions/A/Print\n__DATA                 a314c000-a3156000 [   40K] rw-/rw- SM=COW  ...rks/Carbon.framework/Versions/A/Frameworks/HTMLRendering.framework/Versions/A/HTMLRendering\n__DATA                 a31e3000-a31e8000 [   20K] rw-/rw- SM=COW  ....framework/Versions/A/Frameworks/NavigationServices.framework/Versions/A/NavigationServices\n__DATA                 a3260000-a3262000 [    8K] rw-/rw- SM=COW  ...meworks/Carbon.framework/Versions/A/Frameworks/CarbonSound.framework/Versions/A/CarbonSound\n__DATA                 a328f000-a3290000 [    4K] rw-/rw- SM=COW  ...works/Carbon.framework/Versions/A/Frameworks/CommonPanels.framework/Versions/A/CommonPanels\n__DATA                 a32a5000-a32c4000 [  124K] rw-/rw- SM=COW  .../Frameworks/Carbon.framework/Versions/A/Frameworks/HIToolbox.framework/Versions/A/HIToolbox\n__DATA                 a32c4000-a32c6000 [    8K] rw-/rw- SM=PRV  .../Frameworks/Carbon.framework/Versions/A/Frameworks/HIToolbox.framework/Versions/A/HIToolbox\n__OBJC                 a32c6000-a32c7000 [    4K] rw-/rw- SM=COW  .../Frameworks/Carbon.framework/Versions/A/Frameworks/HIToolbox.framework/Versions/A/HIToolbox\n__DATA                 a3703000-a3704000 [    4K] rw-/rw- SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/OpenGL\n__DATA                 a4149000-a414d000 [   16K] rw-/rw- SM=COW  /System/Library/Frameworks/CoreData.framework/Versions/A/CoreData\n__OBJC                 a414d000-a415a000 [   52K] rw-/rw- SM=COW  /System/Library/Frameworks/CoreData.framework/Versions/A/CoreData\n__DATA                 a430e000-a4316000 [   32K] rw-/rw- SM=COW  /System/Library/Frameworks/QuartzCore.framework/Versions/A/QuartzCore\n__OBJC                 a4317000-a4325000 [   56K] rw-/rw- SM=COW  /System/Library/Frameworks/QuartzCore.framework/Versions/A/QuartzCore\n__DATA                 a455d000-a455e000 [    4K] rw-/rw- SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGLImage.dylib\n__DATA                 a45b6000-a45b8000 [    8K] rw-/rw- SM=COW  /System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo\n__DATA                 a477d000-a477e000 [    4K] rw-/rw- SM=COW  ...ramework/Versions/A/Frameworks/CoreGraphics.framework/Versions/A/Resources/libCGATS.A.dylib\n__DATA                 a4794000-a4795000 [    4K] rw-/rw- SM=COW  ...ramework/Versions/A/Frameworks/CoreGraphics.framework/Versions/A/Resources/libCSync.A.dylib\n__DATA                 a47e7000-a47e8000 [    4K] rw-/rw- SM=COW  ....framework/Versions/A/Frameworks/CoreGraphics.framework/Versions/A/Resources/libRIP.A.dylib\n__DATA                 a4807000-a482b000 [  144K] rw-/rw- SM=COW  /System/Library/Frameworks/QuickTime.framework/Versions/A/QuickTime\n__DATA                 a482b000-a482d000 [    8K] rw-/rw- SM=COW  /System/Library/Frameworks/QuickTime.framework/Versions/A/QuickTime\n__DATA                 a4c22000-a4c2f000 [   52K] rw-/rw- SM=COW  /usr/lib/libstdc++.6.dylib\n__DATA                 a4c2f000-a4c32000 [   12K] rw-/rw- SM=COW  /usr/lib/libstdc++.6.dylib\n__DATA                 a7c89000-a7c8a000 [    4K] rw-/rw- SM=COW  /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGLSystem.dylib\n__DATA                 a7c8c000-a7c8e000 [    8K] rw-/rw- SM=COW  /System/Library/Frameworks/AGL.framework/Versions/A/AGL\n__DATA                 aac67000-aac69000 [    8K] rw-/rw- SM=COW  /System/Library/PrivateFrameworks/OpenTransport.framework/OpenTransport\n__DATA                 aac8f000-aac90000 [    4K] rw-/rw- SM=COW  /System/Library/Frameworks/DrawSprocket.framework/Versions/A/DrawSprocket\n__DATA                 aad00000-aad01000 [    4K] rw-/rw- SM=COW  /System/Library/Frameworks/DVComponentGlue.framework/Versions/A/DVComponentGlue\n__DATA                 affb8000-affba000 [    8K] rw-/rw- SM=COW  /System/Library/QuickTime/QuickTimeFireWireDV.component/Contents/MacOS/QuickTimeFireWireDV\nCoreGraphics           b000c000-b0014000 [   32K] rw-/rw- SM=SHM  \nCoreGraphics           b0734000-b073c000 [   32K] rw-/rw- SM=SHM  \nCoreGraphics           b073d000-b076b000 [  184K] rw-/rw- SM=SHM  \nStack                  bf800000-bffff000 [ 8188K] rw-/rwx SM=PRV  \nStack                  bffff000-c0000000 [    4K] rw-/rwx SM=COW  thread 0\nStack                  f0001000-f0081000 [  512K] rw-/rwx SM=PRV  thread 1\nStack                  f0082000-f0102000 [  512K] rw-/rwx SM=PRV  thread 2\nStack                  f0103000-f0183000 [  512K] rw-/rwx SM=PRV  thread 3\nStack                  f0184000-f0204000 [  512K] rw-/rwx SM=PRV  thread 4\nStack                  f0205000-f0285000 [  512K] rw-/rwx SM=PRV  thread 5\nStack                  f0286000-f0306000 [  512K] rw-/rwx SM=PRV  thread 6\nStack                  f0307000-f0387000 [  512K] rw-/rwx SM=PRV  thread 7\nStack                  f0388000-f0408000 [  512K] rw-/rwx SM=PRV  thread 8\nStack                  f0409000-f0489000 [  512K] rw-/rwx SM=PRV  thread 9\nStack                  f048a000-f050a000 [  512K] rw-/rwx SM=PRV  thread 10\nStack                  f050b000-f058b000 [  512K] rw-/rwx SM=PRV  thread 11\nStack                  f058c000-f060c000 [  512K] rw-/rwx SM=PRV  thread 12\nStack                  f060d000-f068d000 [  512K] rw-/rwx SM=PRV  thread 13\n\n==== Legend\nSM=sharing mode:  \n\tCOW=copy_on_write PRV=private NUL=empty ALI=aliased \n\tSHM=shared ZER=zero_filled S/A=shared_alias\n\n==== Summary for process 279\nReadOnly portion of Libraries: Total=71972KB resident=33440KB(46%) swapped_out_or_unallocated=38532KB(54%)\nWritable regions: Total=391408KB written=26352KB(7%) resident=48644KB(12%) swapped_out=0KB(0%) unallocated=342764KB(88%)\n\nREGION TYPE             [ VIRTUAL]\n===========             [ =======]\nATS (font support)      [  33816K]\nCoreGraphics            [    312K]\nIOKit                   [ 275824K]\nMALLOC                  [  47300K]\nPEF binary              [  12204K]\nSTACK GUARD             [     52K]\nStack                   [  14848K]\nVM_ALLOCATE ?           [   2488K]\n__DATA                  [   2612K]\n__LINKEDIT              [  15220K]\n__OBJC                  [    324K]\n__PAGEZERO              [      4K]\n__TEXT                  [  56752K]\nmapped file             [   9316K]\nshared memory           [  16772K]\nsystem                  [     24K]\n",
+  "process_after": "279 /Applications/Warcraft III Folder/Warcraft III /Applications/Warcraft III",
+  "collection_finished_ns": 540418577565000,
+  "collection_error": "DATA not exact private writable PEF span"
+}

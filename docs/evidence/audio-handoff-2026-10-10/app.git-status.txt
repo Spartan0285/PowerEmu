@@ -1,0 +1,6 @@
+ M docs/AUDIO-PACING-FIX-2026-10-08.md
+?? docs/evidence/audio-handoff-2026-10-10/
+?? docs/evidence/fcp-launch-2026-10-07/
+?? docs/evidence/fcp-preview-2026-10-07/
+?? docs/evidence/r350-2026-10-05/
+?? docs/evidence/r350-performance-2026-10-06/

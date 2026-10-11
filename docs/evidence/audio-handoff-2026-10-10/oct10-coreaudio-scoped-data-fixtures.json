@@ -1,0 +1,24 @@
+{
+  "synthetic_only": true,
+  "tests": {
+    "valid_file_backed_private_PEF_DATA_no_anonymous_or_x_claim": true,
+    "shared_reserved_sharemode_retained_not_DATA_permission_predicates": true,
+    "stable_kernel_metadata_PEF_to_existing_ordinary_RAM_endpoint": true,
+    "unsupported_after_kind": true,
+    "readonly_after_endpoint": true,
+    "untyped_PEF_span": true,
+    "wrong_coherent_address": true,
+    "arbitrary_role": true,
+    "oversized_span": true,
+    "readonly_PEF": true,
+    "shared_metadata_changed": true,
+    "reserved_metadata_changed": true,
+    "metadata_changed": true,
+    "missing_exact_query": true,
+    "kernel_lacks_write": true,
+    "unsupported_ABI": true,
+    "payload_read_query": true,
+    "graph_disagrees_with_stack": true,
+    "stale_sampling_epoch": true
+  }
+}

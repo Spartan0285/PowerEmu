@@ -1,0 +1,14 @@
+{
+  "prepared": true,
+  "guest_pid": 302,
+  "entry": "0x162b0794",
+  "exit": "0x162b07e4",
+  "stack_extents": 16,
+  "context_address": "0x163deb30",
+  "staged": "/tmp/pe9800/oct11-trace7.sm-prepare.json"
+}
+
+--- stderr ---
+attempt 1: no coherent validated saved-stack pair
+attempt 2: no coherent validated saved-stack pair
+collector accepted on attempt 3

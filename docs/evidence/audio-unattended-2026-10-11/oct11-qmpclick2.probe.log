@@ -1,0 +1,17 @@
+[   0.1s] card switched to "9200"; config backed up
+[   1.9s] guard registered: 23141
+[  48.7s] guest up at 49s
+[  56.5s] desktop ready at 56s
+[  56.5s] open "/Applications/Warcraft III Folder/Maps/Prologue01.w3m"
+[  67.8s]   started, cpu 1.3
+[  84.6s]   cpu=1.3 CD dialog Cancel at (936,563) 72x20 -> injecting real click at (972,573)
+[  91.3s]    dialog after click: GONE
+[  92.2s]   shot after-click1  cpu=None
+[ 105.3s]   process gone
+[ 106.2s]   shot end  cpu=None
+[ 106.2s] peak cpu during the window: 1.3  clicks injected: 1
+[ 106.2s] --- stopping the identified owned VM ---
+[ 106.2s] QMP quit sent
+[ 109.3s] emulator gone
+[ 109.7s] app restored and re-signed
+[ 109.7s] config restored; card now 9800

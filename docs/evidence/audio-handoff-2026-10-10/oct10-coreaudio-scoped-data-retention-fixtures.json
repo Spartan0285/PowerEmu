@@ -1,0 +1,10 @@
+{
+  "synthetic_only": true,
+  "tests": {
+    "nonzero_query_raw_stdout_stderr_retained_before_status_gate": true,
+    "rejected_query_exact_field_retained_before_predicate": true,
+    "nonzero_partial_payload_retained_before_status_gate": true,
+    "zero_exit_partial_payload_retained_before_length_gate": true,
+    "observed_shared_reserved_sharemode_not_DATA_permission_predicate": true
+  }
+}

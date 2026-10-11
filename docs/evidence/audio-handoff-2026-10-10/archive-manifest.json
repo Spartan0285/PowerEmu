@@ -1,0 +1,957 @@
+[
+  {
+    "file": "oct10-miles-sample-provenance-review.md",
+    "bytes": 5053,
+    "sha256": "cedff41910ecd4681bb15b8cea7a7078ada2b8831f616c38857a985934664fa3"
+  },
+  {
+    "file": "oct10-miles-sample-provenance-review.json",
+    "bytes": 2010,
+    "sha256": "80140d39ad6fe90c64aa5d8c221a1a82466ee91a2561d84f99e9280586a2939f"
+  },
+  {
+    "file": "oct10-task-region-query.ppc-fixture.json",
+    "bytes": 793,
+    "sha256": "024d7e1698ea36b5f0da63f286683630dfd344422f2065df2bbd5d88cb7f87ef"
+  },
+  {
+    "file": "oct10-existing-ioproc-timestamp-independent-review.md",
+    "bytes": 4122,
+    "sha256": "c5586cf666e4f677ac351821d82451e7d0644c1314bc9cb067372a52c81af37c"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.bridge_before.bin",
+    "bytes": 16,
+    "sha256": "17d1647436818db77b6d70d1956a103f5c3ac664629185f82a176f2e33f21359"
+  },
+  {
+    "file": "oct10-sm-ioproc-visibility.independent-validation.stdout",
+    "bytes": 240998,
+    "sha256": "ccec97f8daf211d217c9dc370da63ed972ce1e3712050403077beac1bf9ae47a"
+  },
+  {
+    "file": "oct10-coreaudio-scoped-data-retention-fixtures.json",
+    "bytes": 395,
+    "sha256": "63f6aaaefbc09dd22bdde21a36d4cc2d3e9aa2180758fd3261d460f246d6a05c"
+  },
+  {
+    "file": "oct10-guest-SoundManagerComponents.macho",
+    "bytes": 254680,
+    "sha256": "bbc7308fc42d9105cc811d1ef67252a4680605a6c43d887056bd91dd817a22cf"
+  },
+  {
+    "file": "oct10-sm-ioproc-readiness.json",
+    "bytes": 512,
+    "sha256": "3bdac877d4f948cdfe8d1ff0ef33465374f461d1d4a5009b51956b51732cbae9"
+  },
+  {
+    "file": "oct10-miles-produced-plugin-README.md",
+    "bytes": 5734,
+    "sha256": "22b34105410f6406c5038f2e7c4dda934ef11433a1f5afc5799e47eb75d011dd"
+  },
+  {
+    "file": "oct10-minimal-miles-reversed.47405.1-44100.f32.callbacks",
+    "bytes": 816416,
+    "sha256": "34a367d5b9fbb5a12ac5a0e7855a9c2ae1947f09760985d1047bd8b4ec5921b6"
+  },
+  {
+    "file": "oct10-miles-read-memory",
+    "bytes": 9692,
+    "sha256": "75e125eea0716fbbc8c70b7988bca7f3cc0133c88af1539ac83d67a0fa02eada"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.sm_prologues_before.bin",
+    "bytes": 136,
+    "sha256": "0b796e093c8584224329f2afa3b6e40287e510574495e5066eb035c61c751a07"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.core_callsite_after.bin",
+    "bytes": 12,
+    "sha256": "12ef5c3162710f4359f970b1cc41548b7bf72fef2ace52187110cc6484f4acaf"
+  },
+  {
+    "file": "oct10-miles-read-memory.c",
+    "bytes": 1486,
+    "sha256": "8ab37b1655124e1ed93b946efbfb0d4a2579d92a63e04e893080cff6b8b94fda"
+  },
+  {
+    "file": "oct10-minimal-miles-reversed.map-score.md",
+    "bytes": 963,
+    "sha256": "4e093284f17b703797e4bd6aa4f398c1e3163bb6efd007587b784bf5a31fc7b7"
+  },
+  {
+    "file": "oct10-sm-ioproc-visibility.sites",
+    "bytes": 126,
+    "sha256": "38b7e959cd1e76e1255df9b5c38569dec8112a89b7c71d1c0277564a58c0bd81"
+  },
+  {
+    "file": "oct10-guest-CarbonSound.macho",
+    "bytes": 199604,
+    "sha256": "d29c4475d7b0d0dcc496c0d448e8a81960da89bccc0d4f50ea3adf42a302390e"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.list_after.region-query.stderr",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.core_call_after.bin",
+    "bytes": 256,
+    "sha256": "93e8b16b02bb3d88aea8f783f8ecb50f8902fb9db7e9bf3c8f07e461ad0c852d"
+  },
+  {
+    "file": "oct10-minimal-miles-lifecycle-on.clock-pair.json",
+    "bytes": 65,
+    "sha256": "007f4181e5b97ba71fa48cfe712b31e7f5e53c1cc31edb09e21c3d03a50ba298"
+  },
+  {
+    "file": "oct10-setup-admission-core.py",
+    "bytes": 8813,
+    "sha256": "3651a55d9c4b65638b10a0e501b95fc4160f472a6e59a138da1bb9ccbe9e7997"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.bridge_before.region-query.raw",
+    "bytes": 802,
+    "sha256": "b3c0bb01b0f4594fca4e6f3c9c138ee4f7f4cd8dfcbbfa70410ca32dcb0c43dd"
+  },
+  {
+    "file": "oct10-miles-produced-plugin.c",
+    "bytes": 18251,
+    "sha256": "041693b5abb81f0f2a60139efae6b96a219dec9fb9c72b8b4d5244db1c9f98b6"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.sm_callback_before.stderr",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.sm_callback_after.bin",
+    "bytes": 84,
+    "sha256": "b2a378c4709a9ba5cf027e0859474f91406a1b463b788c0100fabb6a4420d79e"
+  },
+  {
+    "file": "oct10-coreaudio-stack-collect.py",
+    "bytes": 12081,
+    "sha256": "ed8ca8b4da4bf8d9a185eeaf9e36b46db13fd663eda22fa0d95d92adfb36bb26"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.list_before.region-query.raw",
+    "bytes": 802,
+    "sha256": "f2b3a8c68b52b929fc20ba6bb23585be27a98bd8966e8859ba548fd33f0fb5c5"
+  },
+  {
+    "file": "oct10-sm-ioproc-plugin.dylib",
+    "bytes": 72112,
+    "sha256": "8edd085c3a5aedc1f7c5374b3b1fccbad29fbf1f50cfb351ff66d8c5929bbe68"
+  },
+  {
+    "file": "oct10-miles-callback-plugin-test.py",
+    "bytes": 7045,
+    "sha256": "3f859f9bd4eb3b3f8497432a6a570c4d5dec14569216bb58d4c00bbb1a12cb1f"
+  },
+  {
+    "file": "oct10-coreaudio-stack-snapshot",
+    "bytes": 23588,
+    "sha256": "9ed823e1d47e7d3e39042303882ed7c9114328b828fa964e2178e2b6f0ffdbee"
+  },
+  {
+    "file": "oct10-sm-ioproc-visibility.config",
+    "bytes": 368,
+    "sha256": "82089dfab540724ca626cd660c3f736eb9852d60ff416b908441483d5679b17b"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.bridge_after.region-query.stderr",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.sm_callback_before.bin",
+    "bytes": 84,
+    "sha256": "b2a378c4709a9ba5cf027e0859474f91406a1b463b788c0100fabb6a4420d79e"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.record_after.region-query.stderr",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.list_after.bin",
+    "bytes": 12,
+    "sha256": "00e4c88a107bb3fc9aa308e5fbffcfc11b00e4541f9186bc9264c81f7b89ba48"
+  },
+  {
+    "file": "oct10-minimal-miles-lifecycle-on.map-score.md",
+    "bytes": 961,
+    "sha256": "a657f6dd43d8a2a213a45a7c175768a06ae7d092b438df75ee729ed2c64d4cf8"
+  },
+  {
+    "file": "oct10-coreaudio-scoped-data-retention-fixtures.py",
+    "bytes": 2857,
+    "sha256": "d1b2aa4176c54e742cfb18d513fcf62879dc258483d2ee24a9c98371d449f934"
+  },
+  {
+    "file": "oct10-task-region-query-handoff.md",
+    "bytes": 4313,
+    "sha256": "a3e10a4f3e6925a6d5c545f2af346dc78dc9097623b600671c93cb9776b2ff4b"
+  },
+  {
+    "file": "oct10-miles-callback-plugin.c",
+    "bytes": 8785,
+    "sha256": "bd050a5ab637bc72adba3778716ad1ca64cef52adb5d88cfc371476361a8e0d0"
+  },
+  {
+    "file": "oct10-coreaudio-stack-collector-README.md",
+    "bytes": 3519,
+    "sha256": "b15ee42239c1688261180e07f2c047e1ba9874a920252a7a659a40178b02a69f"
+  },
+  {
+    "file": "oct10-soundmanager-downstream-scheduling-second-opinion.md",
+    "bytes": 5357,
+    "sha256": "3925a01272eed2997172161499a4948c6dd485ae536666818727e53f4061031d"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.produced-guard.json",
+    "bytes": 5662,
+    "sha256": "07bc466760bfb75def10cee60dcb579d7b3884478811cce9d758cdf355b18a96"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.bridge_after.region-query.raw",
+    "bytes": 802,
+    "sha256": "b3c0bb01b0f4594fca4e6f3c9c138ee4f7f4cd8dfcbbfa70410ca32dcb0c43dd"
+  },
+  {
+    "file": "oct10-minimal-miles-lifecycle-on.51399.1-44100.f32.callbacks",
+    "bytes": 620352,
+    "sha256": "9292457a61929b3e05c10b6f4c678feeb3d0ce5ab41261ab56a8213fc81b8df9"
+  },
+  {
+    "file": "oct10-analyze-soundmanager-admission-reviewed.py",
+    "bytes": 3748,
+    "sha256": "a6a5a5e66dced73d262965cdbf271a8bf1359f7cac6b21eddbd6d5995ed4e042"
+  },
+  {
+    "file": "oct10-minimal-miles-repeat-watch.py",
+    "bytes": 924,
+    "sha256": "ecf275cd2dd5f5d839ab35fe97064b705e1a0161abb37acbe02132b7aa700ce6"
+  },
+  {
+    "file": "oct10-sm-ioproc-validator-review.md",
+    "bytes": 4143,
+    "sha256": "7c8a441a8edc4831f3329e7aa2c7a17ea44b3fb8abf4ad45538d16cfef7d78f1"
+  },
+  {
+    "file": "oct10-coreaudio-stack-helper-handoff.md",
+    "bytes": 4794,
+    "sha256": "e42e5178bbb70f712cf918fb9314224799990afda26bfb027cfded9bb88bea99"
+  },
+  {
+    "file": "oct10-sm-ioproc-visibility.elf",
+    "bytes": 4340,
+    "sha256": "1e4c6cdceffcf6124c88700a4e619d2db8054ad59b3a927a2fb70a9b9795cba1"
+  },
+  {
+    "file": "oct10-coreaudio-stack-snapshot.c",
+    "bytes": 12270,
+    "sha256": "f48b22b782e728fbd671928125bf6cde3e7520598279836906ec67c4b69d5b33"
+  },
+  {
+    "file": "oct10-test-sm-ioproc-validator.py",
+    "bytes": 3244,
+    "sha256": "80bee6d750e99005f66e1a58c8ce09eb16fd69af2281336029e929dbec9e1277"
+  },
+  {
+    "file": "oct10-analyze-soundmanager-admission.py",
+    "bytes": 3337,
+    "sha256": "7ae8c674fe3178f56e60d96e5a19e959cd01c19698f1165bdf5b34052a1c3016"
+  },
+  {
+    "file": "oct10-setup-admission-retry.py",
+    "bytes": 8680,
+    "sha256": "2e72494232d304e987cc5a07ace554e784c9b7910675066931688d53807330c6"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.list_after.region-query.raw",
+    "bytes": 802,
+    "sha256": "f2b3a8c68b52b929fc20ba6bb23585be27a98bd8966e8859ba548fd33f0fb5c5"
+  },
+  {
+    "file": "oct10-minimal-miles-repeat.opening-marker.json",
+    "bytes": 372,
+    "sha256": "0ce9d099a30383c51f299a380f2c60ec9861f38631593cdcf9ae274477f339fb"
+  },
+  {
+    "file": "oct10-miles-callback-plugin.dylib",
+    "bytes": 71184,
+    "sha256": "e7f9f905734345bd4a09b1a22cf2d0d99cf33f2d472466ac47af2666eee90a6a"
+  },
+  {
+    "file": "oct10-coreaudio-dispatch-proof.md",
+    "bytes": 5606,
+    "sha256": "b57af8b8b22e3ab810353e3781c579f39b37c725ad58ae1079e6e3ec69d2359d"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.device_after.stderr",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.record_after.region-query.raw",
+    "bytes": 801,
+    "sha256": "bc5f7609db7203162b46bb8b8e9cc67d30456c195e6c7f594841326ea41ff5af"
+  },
+  {
+    "file": "oct10-validate-sm-ioproc.py",
+    "bytes": 6449,
+    "sha256": "16596104fa352273eda6a5fbea877e55014be19730821889343af2a77442390f"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.hw_before.region-query.stderr",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.device_after.bin",
+    "bytes": 108,
+    "sha256": "ddf149c801b78f723b21dd1dce1f37b4cb7a2f4fdfb4773f79c3a306fb11d5e6"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.hw_after.bin",
+    "bytes": 44,
+    "sha256": "4369bdbf55cf73b23f3c2f759d7752a8173329face144e270a1ec9dc5fa7ab13"
+  },
+  {
+    "file": "oct10-minimal-miles-repeat.map-score.json",
+    "bytes": 27458,
+    "sha256": "64b84575380626883c8d704e0842a353cc4ed0cd4e45bd5ac1d8aab46140b795"
+  },
+  {
+    "file": "oct10-coreaudio-stack-fixtures.json",
+    "bytes": 568,
+    "sha256": "8007b2e433023a51236026c547a7952ccada5b9be62963da2d26942c4118a5ad"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.bridge_before.region-query.stderr",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.list_after.stderr",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "oct10-coreaudio-stack-fixtures.py",
+    "bytes": 4354,
+    "sha256": "0fddd3007e747f55e11f8a951e436035e89eb72562160d8ade07eb034f0e60d8"
+  },
+  {
+    "file": "oct10-minimal-miles-reversed.independent-audit.json",
+    "bytes": 7244,
+    "sha256": "0fa072b7e6fee52c7e50a5ff4f874899457b38ec170d29f9725cafd2bd88f781"
+  },
+  {
+    "file": "oct08-stop-depthwait-owned.py",
+    "bytes": 1117,
+    "sha256": "c6e9733554a1e154cec0989d35451f5df466fc59e5794d3cf9a14c7b0efd9b84"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.record_before.stderr",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "oct10-sm-ioproc-visibility.records",
+    "bytes": 113280,
+    "sha256": "c336321934e94839dd3efc46575e3cbc8d487ce79f334efd0b2929821ccaec8c"
+  },
+  {
+    "file": "oct10-sm-ioproc-disabled-load.json",
+    "bytes": 552,
+    "sha256": "aba8cf9068fb5d8238ca16ffe22c0e33c8e34e711d4250e7e194544822147960"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.sm_prologues_after.bin",
+    "bytes": 136,
+    "sha256": "0b796e093c8584224329f2afa3b6e40287e510574495e5066eb035c61c751a07"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.device_before.bin",
+    "bytes": 108,
+    "sha256": "ddf149c801b78f723b21dd1dce1f37b4cb7a2f4fdfb4773f79c3a306fb11d5e6"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.list_before.region-query.stderr",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.record_before.region-query.stderr",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "oct10-coreaudio-discovery.copies.json",
+    "bytes": 1170,
+    "sha256": "38da16ce6a2863458414f1a104dc3efd9d090cb7478619cf67d43534ac104fa4"
+  },
+  {
+    "file": "oct10-task-region-query.actual-proof.json",
+    "bytes": 1063,
+    "sha256": "a102aa451078a9fee44a11cf1a5cb820d239edf40d643534cb4d9124472c603d"
+  },
+  {
+    "file": "oct10-guest-CoreAudio.macho",
+    "bytes": 797908,
+    "sha256": "238414b621f28a11d719ef77a2b140d6249821fd73001f95e073143db15c68ba"
+  },
+  {
+    "file": "oct10-coreaudio-stack-ownership-next.md",
+    "bytes": 6219,
+    "sha256": "2a75d35e3e252fd764a23a426c517f39e24f850fc35b064fe991c88e6e569383"
+  },
+  {
+    "file": "oct10-minimal-miles-map.opening-marker.json",
+    "bytes": 212,
+    "sha256": "2a176ea778e54b6fece99d073c411d3c5cf7b46568194931a6daf96260ff9ceb"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.bridge_after.stderr",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "oct10-minimal-miles-map.44887.1-44100.f32.callbacks",
+    "bytes": 1139712,
+    "sha256": "e3dab45442f24b3f1af17951d7a6591d6bb7004723e03fcf4a479c13dcd49512"
+  },
+  {
+    "file": "oct10-minimal-miles-map.clock-pair.json",
+    "bytes": 65,
+    "sha256": "5db8ff66f49db36b62bae142a00e8170f24fdf27549223bcbb5cc2d8bf4f88ab"
+  },
+  {
+    "file": "oct10-coreaudio-stack-collector-fixtures.json",
+    "bytes": 464,
+    "sha256": "44675dcea811ea2a06dd16e5c564f27a306f511bbd0447f5068dd31d6d2c4b9d"
+  },
+  {
+    "file": "oct10-sm-ioproc-visibility.control",
+    "bytes": 368,
+    "sha256": "82089dfab540724ca626cd660c3f736eb9852d60ff416b908441483d5679b17b"
+  },
+  {
+    "file": "oct10-coreaudio-stack.ppc-fixture.json",
+    "bytes": 5471,
+    "sha256": "99f92b0c6a10e8f6edf9fc5d5f9766f079b365e7100f56845b2f289db57f96f9"
+  },
+  {
+    "file": "oct10-sm-ioproc-visibility.S",
+    "bytes": 847,
+    "sha256": "b08888556560b9f791b31a5ce47c51a7a26f61680e2aa9f9c2142e807e16bd9e"
+  },
+  {
+    "file": "oct10-coreaudio-thread-registers-fast.c",
+    "bytes": 5966,
+    "sha256": "90e7009f16effdeeb4fa8660fcc8beb76f7d8f3f1844c111070e93897795960b"
+  },
+  {
+    "file": "oct10-coreaudio-stack-synthetic-receipt.json",
+    "bytes": 10445,
+    "sha256": "5d1cd86e2bd054f9c228db1fad81a27c35204536e3b3212229e8c12da643f15f"
+  },
+  {
+    "file": "oct10-sm-ioproc-visibility.flush.json",
+    "bytes": 24,
+    "sha256": "d6be1ba54f8db04a13135477e5f9f0760077972bbba0f4d22f72c2d340cfa688"
+  },
+  {
+    "file": "oct10-guest-Miles-Carbon-Library.pef",
+    "bytes": 496660,
+    "sha256": "7a9dbeefbef77537097e8cec822014fe6bb40073b5d11de256cdd3cc426f3e41"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.reanalysis.json",
+    "bytes": 1767,
+    "sha256": "a3bfbf6f06586a21424437198eba13da89da6a049d81a887915de8ff1744d4be"
+  },
+  {
+    "file": "oct10-minimal-miles-reversed.independent-review.md",
+    "bytes": 3470,
+    "sha256": "fa8f1c1cf98a8e8fab89a2c64fd512104fb90048861ae8d61bc783b955416343"
+  },
+  {
+    "file": "oct10-select-callback-stack.py",
+    "bytes": 2313,
+    "sha256": "57f6ad22bc13b075edb5375552d3783cffe1fff97bad0571d61d8369793cbb13"
+  },
+  {
+    "file": "oct10-coreaudio-thread-registers-fast",
+    "bytes": 14300,
+    "sha256": "17b8cfb4b0247f2e30a9efe5ced3cb5d6532d4e7f0af1a21753b35a73a49c066"
+  },
+  {
+    "file": "oct10-coreaudio-boundary-next.md",
+    "bytes": 4893,
+    "sha256": "f49ce987a6ae3acec081cdaef4561a1b4b7da9da96ffe311bf2bb048a2fc9b4f"
+  },
+  {
+    "file": "oct10-minimal-miles-lifecycle-on.opening-marker.json",
+    "bytes": 278,
+    "sha256": "34c40c47fa432d248ed2a700c1be4949eff7b6b22df94f87a2cf206cb1d1599a"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.hw_before.region-query.raw",
+    "bytes": 802,
+    "sha256": "d8c4c2cf13f51dd63be77958d86b692d355a123e20bbc7ea34e3199645e3fe16"
+  },
+  {
+    "file": "oct10-coreaudio-scoped-data-README.md",
+    "bytes": 5413,
+    "sha256": "7f902593c220d17bf693f2b7180288e050e2dec4b7bd1b7eb42f5564b769d14e"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.core_callsite_before.stderr",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "oct10-sm-ioproc-visibility.json",
+    "bytes": 788,
+    "sha256": "bbd7d49dbf30a00b8a559ac4747dc5ae68df6906e0b0e64472b68b56e549ac87"
+  },
+  {
+    "file": "oct10-setup-admission.py",
+    "bytes": 7386,
+    "sha256": "0e9670f0afbf2db726d5b9c61f3aac499d5cb0244161228edbab53db3e021f70"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.verification.json",
+    "bytes": 153,
+    "sha256": "4168a117ea95a34b8eccbbf02863be5ebc85cc71ecdc069d753e296bfac7cffd"
+  },
+  {
+    "file": "oct10-coreaudio-scoped-data-fixtures.json",
+    "bytes": 798,
+    "sha256": "c7bce9665f3e7d65fce00164ed1a69f97de9514b4d9c5a7ae16561a867c46922"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.stack-helper.stderr",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "oct10-sm-ioproc-visibility.independent-validation.stdout.json",
+    "bytes": 240998,
+    "sha256": "ccec97f8daf211d217c9dc370da63ed972ce1e3712050403077beac1bf9ae47a"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.record_after.stderr",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.independent-review.json",
+    "bytes": 3555,
+    "sha256": "8d9c3a69e0409128b75b5b77faf394d6521e160dbffdc9c364856c2cedde06b3"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.independent-review.py",
+    "bytes": 1595,
+    "sha256": "e47977c95cd8c9701b8370e49e35807dcc01f667b0dd4ea6788f64db65819a54"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.guestpid",
+    "bytes": 3,
+    "sha256": "efd96aedf377e20afd95285a7c751a864260bd6a149656a4040c5b7757bdbbb6"
+  },
+  {
+    "file": "oct10-minimal-miles-reversed.clock-pair.json",
+    "bytes": 65,
+    "sha256": "a419bffd26cd3b8ce58450c34272a18459c11e8137121606f2648eaa28cf524a"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.hw_before.stderr",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "oct10-minimal-miles-reversed-watch.py",
+    "bytes": 924,
+    "sha256": "773ffdb6b2d3a50501e8e7f55f3c8d6cc93f3472802f82bf2149f27b7900ab31"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.sm_prologues_before.stderr",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "oct10-validate-produced-chunks.py",
+    "bytes": 4984,
+    "sha256": "9f57cf06c6161f3807a1951616da93536d21d51c9a5911d090c8426fda24942a"
+  },
+  {
+    "file": "oct11-stage-ownership.py",
+    "bytes": 3504,
+    "sha256": "4aa002cda751c113155cef9f5eae3535d47306cef46a1b736fa4acf54e458a77"
+  },
+  {
+    "file": "oct10-minimal-miles-map.map-score.md",
+    "bytes": 967,
+    "sha256": "64c78e167a36a7c92337a1f5bbfa57c7ac751395e0df60314c43975c7af2b011"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.bridge_after.bin",
+    "bytes": 16,
+    "sha256": "17d1647436818db77b6d70d1956a103f5c3ac664629185f82a176f2e33f21359"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.record_before.bin",
+    "bytes": 164,
+    "sha256": "f15b73a4d17d6eec2e7f45dc2c590afae3a79be659200c68b3c63122194d5bef"
+  },
+  {
+    "file": "oct10-coreaudio-thread-registers.c",
+    "bytes": 5483,
+    "sha256": "10a3fa34621644829c4a98c4a8ec0f6adcf2886c3de4e4dc456f9b1fc3cafe32"
+  },
+  {
+    "file": "oct10-test-sm-ioproc-plugin.py",
+    "bytes": 8509,
+    "sha256": "cfc419b2a2b223d13a9cd4537843ad696b4baa3f507c109c71ba2bc983c8587d"
+  },
+  {
+    "file": "oct10-coreaudio-stack-collector-fixtures.py",
+    "bytes": 3082,
+    "sha256": "ae93d469ebe9e45beeaa4417682c7ae2981137bc662d485d8b86861bb6dae07c"
+  },
+  {
+    "file": "oct10-minimal-miles-repeat.45786.1-44100.f32.callbacks",
+    "bytes": 709440,
+    "sha256": "22c5df753a98613026bfbaa48e1bfa475edc244d7c0647fce5c9f2e8495a5d37"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.Info.plist.before",
+    "bytes": 2191,
+    "sha256": "0ca7b9b735cc2dc11b6ad8b4de37a89f71e8bc16f22fd3a695c4da7581db6d9d"
+  },
+  {
+    "file": "oct10-miles-produced-plugin.dylib",
+    "bytes": 88896,
+    "sha256": "13f6dfc4b596397bfb3fa78144ad2ece2e09d461b4aa8883278898eff4eaf604"
+  },
+  {
+    "file": "oct10-minimal-miles-map.map-score.json",
+    "bytes": 27693,
+    "sha256": "51fee5686c25366d926732ec98b30d1143349159e3dcb64570cd7c966969a01e"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.sm_prologues_after.stderr",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "oct10-minimal-miles-reversed.map-score.json",
+    "bytes": 27695,
+    "sha256": "492732ef246bcd8e008bf071f43ca862a5a1ca1a7f1c3395706337df6e2328f6"
+  },
+  {
+    "file": "oct10-sm-ioproc-plugin.c",
+    "bytes": 14889,
+    "sha256": "af79b75672f6dc2fe4744ca6dad7fe27a311b397a964bc527e7058db0691ace2"
+  },
+  {
+    "file": "oct10-produced-owned.py",
+    "bytes": 2976,
+    "sha256": "8ddbbbf8d0e5e713646505dcdf258f849e4fb0c9dd929b0636c7fbdd4c3de42b"
+  },
+  {
+    "file": "oct10-setup-admission-publication.py",
+    "bytes": 9396,
+    "sha256": "af0028aa07220f169e156093389fe04714d65aad26f36b84e1577b2cae8369b2"
+  },
+  {
+    "file": "oct10-coreaudio-scoped-data-fixtures.py",
+    "bytes": 4491,
+    "sha256": "5c998f0643a9c84109aeb7ce35c592f7f5a846da0ac4454ea9b021a849897775"
+  },
+  {
+    "file": "oct10-coreaudio-thread-registers",
+    "bytes": 14300,
+    "sha256": "4eb31b8b51f3fe91b48e773f97d6b89260fb308f03140b6f48f822c1b5b2aa4a"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.list_before.stderr",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "oct10-minimal-miles-reversed.opening-marker.json",
+    "bytes": 370,
+    "sha256": "20eacc4785f9a389bf3b0796789276cb2a60ef955c6a022f95477abd2315f6a6"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.list_before.bin",
+    "bytes": 12,
+    "sha256": "00e4c88a107bb3fc9aa308e5fbffcfc11b00e4541f9186bc9264c81f7b89ba48"
+  },
+  {
+    "file": "oct10-sm-ioproc-visibility.actual-proof.json",
+    "bytes": 2684,
+    "sha256": "158e8371de3096b5818ce49dfea67f125be11cf3c95297209b90e6d537b28dbb"
+  },
+  {
+    "file": "oct10-minimal-miles-map.deadline.json",
+    "bytes": 79,
+    "sha256": "d073e30454ce623acf08e9758b4f1f7a3d6ee658746d0f392918e095b536f797"
+  },
+  {
+    "file": "oct10-miles-callback-plugin-README.md",
+    "bytes": 13983,
+    "sha256": "e0ad81c863828397b410d4c69257bb58278e11628f4d09f1dead28e2fef74c2a"
+  },
+  {
+    "file": "oct10-task-region-query.c",
+    "bytes": 4022,
+    "sha256": "db3202fc59eabfbe27df10f0520402ca4fa3fc74622e5c0b7e7a4806047df012"
+  },
+  {
+    "file": "oct10-analyze-soundmanager-admission-ordered.py",
+    "bytes": 4446,
+    "sha256": "b11ec3ade7f0dc36d7fa851722b794c9d2066b57b73fb9bc3f750bb288296fad"
+  },
+  {
+    "file": "oct10-minimal-miles-lifecycle-on-watch.py",
+    "bytes": 924,
+    "sha256": "81629fc7824fccb5f020f3bdce52ed085ab2ddda7c611726e9b8156fb24d2706"
+  },
+  {
+    "file": "oct10-minimal-miles-lifecycle-on.independent-audit.json",
+    "bytes": 23172,
+    "sha256": "dac23c65c01bfd247a1f855403b87a914e0ea275fbb1420d1a1af6c30df4e294"
+  },
+  {
+    "file": "oct10-admission-split-pcm.index2-independent-handback.md",
+    "bytes": 1865,
+    "sha256": "eec20147edcda262f0152e58f3af6da0c6d2c5a36a84792a437717d8ee2aa5e0"
+  },
+  {
+    "file": "oct10-minimal-miles-lifecycle-on.map-score.json",
+    "bytes": 27874,
+    "sha256": "0b5a67b28d5560b288fc1b7f267f54086f08b166c9092d6923cc3e431ecee8b8"
+  },
+  {
+    "file": "oct10-minimal-miles-reversed.independent-local-audit.json",
+    "bytes": 27717,
+    "sha256": "e3ca33011744402afd92161a362b94fb4694d9f0b2fb865270cb7026506b22df"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.core_call_after.stderr",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.core_callsite_after.stderr",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "oct10-audio-clock-domain-review.md",
+    "bytes": 5046,
+    "sha256": "02d813393779b4bb525089344f984f75e06f75f0c6d9e96eb7df59d78f604cca"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.stack-extents.txt",
+    "bytes": 252,
+    "sha256": "a4e8b85e80f33d1d725d8e656bb809d286afcfc2a4c39c0946d00178986a0835"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.hw_after.region-query.raw",
+    "bytes": 802,
+    "sha256": "d8c4c2cf13f51dd63be77958d86b692d355a123e20bbc7ea34e3199645e3fe16"
+  },
+  {
+    "file": "oct10-coreaudio-stack.actual-proof.json",
+    "bytes": 882,
+    "sha256": "af47f391b6decea480d5c7aec25f891bbfd697d91830084e26d6809255152019"
+  },
+  {
+    "file": "oct10-coreaudio-scoped-data-synthetic-receipt.json",
+    "bytes": 23132,
+    "sha256": "cf4f512b54d04524caf323172f6586bf2bc0c54fb738c8133d75b8b8bbf4fcd3"
+  },
+  {
+    "file": "oct10-read-sm-ownership.py",
+    "bytes": 5898,
+    "sha256": "f8e8352e6de9ddaf75e4ab92e0181bef1235e11c12daf4170f817ec58e65133e"
+  },
+  {
+    "file": "oct10-sm-ioproc-second-opinion.md",
+    "bytes": 4083,
+    "sha256": "c2dfeb599c9f5f0a1373a3c0d2b572d632f32e0f634fef972bfa1d45f1a9550e"
+  },
+  {
+    "file": "oct10-stage-produced.py",
+    "bytes": 3935,
+    "sha256": "4b24fdfa684f2f469e95d5bcdde258b4411797c4703b95ddf8d5bd1b19ea5ae8"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.stage.json",
+    "bytes": 346,
+    "sha256": "4fd023d8b6912647be8d6e305eb4fc81def1608c6ccb95f0f226b1768312580d"
+  },
+  {
+    "file": "oct10-sm-ioproc-visibility.addresses.json",
+    "bytes": 152,
+    "sha256": "28f3cec395e5f07c73e54d7c5953fd68ec981bd0c1ed478208a7e611734383c4"
+  },
+  {
+    "file": "oct10-coreaudio-scoped-data-verify.py",
+    "bytes": 5073,
+    "sha256": "b111a24961ccfd95cc3e4a7bb2a10c151228cd40b7a336f4db92c7e226100621"
+  },
+  {
+    "file": "oct10-minimal-miles-repeat.pcm-local-audit.json",
+    "bytes": 27440,
+    "sha256": "03046184e75fc3528c0ad31bffe1ad524709455565f4d26d57cd5c17f32d04f7"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.hw_after.region-query.stderr",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "oct10-task-region-query",
+    "bytes": 13940,
+    "sha256": "cf2b4f1ca3d1b5581d5a918048ad9b9b089b7e8ef5c50b2764556b869bfa3113"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.bridge_before.stderr",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "oct10-minimal-miles-repeat.map-score.md",
+    "bytes": 963,
+    "sha256": "bfb7dfa31b55d092ca65d4c8d47e091fb6b8288cd352f48d1bb7e0b6782ff360"
+  },
+  {
+    "file": "oct10-coreaudio-stack-verify.py",
+    "bytes": 7986,
+    "sha256": "dc5195b74badee165a0cbf046f7d9f679ecb6654082a76c09727396ad8c6d27a"
+  },
+  {
+    "file": "oct10-sm-ioproc-handoff.md",
+    "bytes": 9101,
+    "sha256": "99c44fe65a2e738ac03947030a4197ce449b2b94e896ca1abbae9c27649c9cc6"
+  },
+  {
+    "file": "oct10-sm-ioproc.fixtures.json",
+    "bytes": 595,
+    "sha256": "9d1e6926a6de75a77a3620b098f9ce0da7a7a7e1ef54b83abf22ee67e8b15ece"
+  },
+  {
+    "file": "oct10-coreaudio-stack-independent-review.md",
+    "bytes": 4624,
+    "sha256": "5ad8cf3258e4ae1564e73fd5c9b22e8c0572670df57f7b13c5c49ec469899b94"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.record_after.bin",
+    "bytes": 164,
+    "sha256": "f15b73a4d17d6eec2e7f45dc2c590afae3a79be659200c68b3c63122194d5bef"
+  },
+  {
+    "file": "oct10-read-miles-contract.py",
+    "bytes": 2958,
+    "sha256": "ba54768f50d2c64feeb062b6821bbcf060bf9f57be031b96fb4639e08e4b9c3b"
+  },
+  {
+    "file": "oct10-minimal-miles-repeat.clock-pair.json",
+    "bytes": 65,
+    "sha256": "9774553cc23aee3af0fb3d2eefea62e89d80dde1a0968b7f025ed6da8d064d50"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.core_callsite_before.bin",
+    "bytes": 12,
+    "sha256": "12ef5c3162710f4359f970b1cc41548b7bf72fef2ace52187110cc6484f4acaf"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.hw_before.bin",
+    "bytes": 44,
+    "sha256": "4369bdbf55cf73b23f3c2f759d7752a8173329face144e270a1ec9dc5fa7ab13"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.stack-helper.stdout",
+    "bytes": 6465,
+    "sha256": "55db610a152c85604ec25c9000782c9e20aed08021157fc62d8401c34dbd9dd9"
+  },
+  {
+    "file": "oct10-miles-callback-plugin-unarmed.c",
+    "bytes": 6679,
+    "sha256": "516a9deff09dbf2d725a5ae7a7c869940b33432c6dae5fe11813affc1da21b7e"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.core_call_before.bin",
+    "bytes": 256,
+    "sha256": "93e8b16b02bb3d88aea8f783f8ecb50f8902fb9db7e9bf3c8f07e461ad0c852d"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.record_before.region-query.raw",
+    "bytes": 801,
+    "sha256": "bc5f7609db7203162b46bb8b8e9cc67d30456c195e6c7f594841326ea41ff5af"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.device_before.stderr",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "oct10-coreaudio-scoped-data-collect.py",
+    "bytes": 15550,
+    "sha256": "ebdb96d7d565aebf57e2d58dc49da0781552761467d7a47d86bc3840af4ce480"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.core_call_before.stderr",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "oct10-minimal-miles-map-watch.py",
+    "bytes": 924,
+    "sha256": "c65d61458cea9906754af0bb98596f5e5a2d8f4ea3e2a9a20320a487f66b4906"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.sm_callback_after.stderr",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "oct10-miles-callback-plugin-unarmed.dylib",
+    "bytes": 70912,
+    "sha256": "9bb2b6029e4ed18a076c5a6a0423223fba75d6fd40d870d73c74dad8b5f54cb4"
+  },
+  {
+    "file": "oct10-miles-produced-plugin-test.py",
+    "bytes": 4567,
+    "sha256": "7c2e9b1b971276cefe244e6d38f0ee75f65b4a846d37c1ea96b06337643c2483"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.hw_after.stderr",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "oct10-sm-scoped-retained.receipt.json",
+    "bytes": 191144,
+    "sha256": "43580e37bb22ca46bd0a8fb76095fd488c2b7010395182ba0dcb7c0f8a3b2394"
+  },
+  {
+    "file": "oct10-coreaudio-scoped-data-collector-fixtures.json",
+    "bytes": 540,
+    "sha256": "4e7bc9ed9f648c4aedfef7318d9f703f4978d58a52494bc625a8953c25a6db4a"
+  },
+  {
+    "file": "oct10-sm-ioproc-visibility.independent-validation.json",
+    "bytes": 240997,
+    "sha256": "281f2bd25c2f1a826fd2ccebbd98b142277668dc34958caf4c95a2580c5c59d4"
+  }
+]

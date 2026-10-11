@@ -1,0 +1,33 @@
+[   0.0s] staging ownership and opening the app (autoStart boots the VM)
+[   0.5s] waiting for the emulator process
+[   1.7s] emulator pid 91636
+[   1.8s] guard registered: 91636 /var/folders/w4/jybr8qmd72z_fcvht4gbndmh0000gn/T/poweremu-bvvqf8.qmp
+[   1.8s] waiting for guest SSH on 2319
+[  30.9s] guest is up after 31s
+[  30.9s] --- guest inventory ---
+[  35.2s]   os: 10.4.11
+[  42.1s]   whoami: adam
+[  47.2s]   console: adam
+[  52.5s]   aqua: ps: comm: keyword not found
+[  55.3s]   launchctl_bsexec: 0
+[  57.2s]   w3_binary: -rw-r--r--   1 adam  admin  11382167 Jun  6  2002 /Applications/Warcraft III Folder/Warcraft III
+[  58.3s]   maps_dir: /Applications/Warcraft III Folder/Maps
+[  59.3s]   w3_folder: BNUpdate | Blizzard Video Support | Maps | Miles | Miles Carbon Library | Movies | ReadMe | Save | War3.mpq | Warcraft III | Warcraft III World Editor
+[  60.3s]   save_dir: ls: /Users/adam/Documents/Warcraft III: No such file or directory
+[  61.3s]   w3_prefs: Warcraft III Preferences | Warcraft III Preferences.bak-claude | com.apple.SoftwareUpdate.plist | com.blizzard.Installer | com.blizzard.Starcraft.plist | com.blizzard.WarcraftIII.plist
+[  62.9s]   lsregister_w3m: bindings:      .w3m, 'Ww3m' | 		bindings:      .w3m, 'Ww3m'
+[  62.9s] --- copying Prologue01.w3m into the guest ---
+[  65.0s]   in guest: -rw-r--r--   1 adam  adam  299288 Oct 11 01:14 /Users/adam/Prologue01.w3m | 0f5b80cce7f15e400b23d23c4d85dbab |
+[  65.0s]   md5 matches the host copy
+[  65.0s] --- route: open-document ---
+[  66.9s]   rc 0 output: (silent)
+[  72.0s]   Warcraft III is running: pid 299
+[  72.0s]   argv: 299 /Applications/Warcraft III Folder/Warcraft III /Applications/Warcraft III Folder/Warcraft III -psn_0_1703937
+[  72.0s] === winning route: open-document
+[  72.0s] letting it run to the cinematic, then a screendump
+[ 142.0s] screendump: /tmp/pe9800/oct11-maplaunch.screen.ppm 5292017
+[ 143.3s] guest processes: 299   0.2 /Applications/Warcraft III Folder/Warcraft III /Applications/Warcraft III Folder/Warcraft III -psn_0_1703937
+[ 143.3s] --- stopping the identified owned VM ---
+[ 143.3s] QMP quit sent
+[ 146.4s] emulator gone
+[ 146.8s] app restored and re-signed

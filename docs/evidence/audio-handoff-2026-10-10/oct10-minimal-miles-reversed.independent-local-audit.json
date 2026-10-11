@@ -1,0 +1,1011 @@
+{
+  "scope": "Read-only independent source-local diagnostics; local offsets do not correct fidelity, loss counts or prove clock drift. Unqualified candidates remain unscored.",
+  "retention": true,
+  "rows": [
+    {
+      "candidate": 1,
+      "mode": "EXACT-MP3",
+      "global_identity_qualified": true,
+      "zero_islands": [
+        {
+          "start": 0,
+          "frames": 4014,
+          "fixed_reference_rms": 3.978556890859911e-06
+        },
+        {
+          "start": 4015,
+          "frames": 74,
+          "fixed_reference_rms": 1.7515484397609054e-05
+        },
+        {
+          "start": 55296,
+          "frames": 567,
+          "fixed_reference_rms": 0.05365359664431775
+        },
+        {
+          "start": 61495,
+          "frames": 854,
+          "fixed_reference_rms": 0.025295510965396187
+        },
+        {
+          "start": 64397,
+          "frames": 871,
+          "fixed_reference_rms": 0.017527148124721836
+        },
+        {
+          "start": 68852,
+          "frames": 835,
+          "fixed_reference_rms": 0.1156138896540119
+        },
+        {
+          "start": 73271,
+          "frames": 815,
+          "fixed_reference_rms": 0.08152421036966041
+        },
+        {
+          "start": 92247,
+          "frames": 290,
+          "fixed_reference_rms": 0.0
+        },
+        {
+          "start": 92540,
+          "frames": 1924,
+          "fixed_reference_rms": 0.0
+        }
+      ],
+      "local_blocks": [
+        {
+          "capture_frame": 4096,
+          "best_source_offset": 0,
+          "corr": 0.999999664126189,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 8192,
+          "best_source_offset": 0,
+          "corr": 0.9999994754724307,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 12288,
+          "best_source_offset": 0,
+          "corr": 0.9994624728382279,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 16384,
+          "best_source_offset": 0,
+          "corr": 0.9999974309736114,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 20480,
+          "best_source_offset": 0,
+          "corr": 0.9999999531041994,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 24576,
+          "best_source_offset": 0,
+          "corr": 0.9999992104713216,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 28672,
+          "best_source_offset": 0,
+          "corr": 0.999998847223565,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 32768,
+          "best_source_offset": 0,
+          "corr": 0.9999999428248476,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 36864,
+          "best_source_offset": 0,
+          "corr": 0.9999994375071946,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 40960,
+          "best_source_offset": 0,
+          "corr": 0.9999997363953466,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 45056,
+          "best_source_offset": 0,
+          "corr": 0.9999996783719391,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 49152,
+          "best_source_offset": 0,
+          "corr": 0.999999933625675,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 53248,
+          "best_source_offset": 0,
+          "corr": 0.9865515846619999,
+          "qualified_local_identity": false
+        },
+        {
+          "capture_frame": 57344,
+          "best_source_offset": -567,
+          "corr": 0.9999996954618336,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 61440,
+          "best_source_offset": -909,
+          "corr": 0.7189595141742243,
+          "qualified_local_identity": false
+        },
+        {
+          "capture_frame": 65536,
+          "best_source_offset": -1268,
+          "corr": 0.9999805216996924,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 69632,
+          "best_source_offset": -1591,
+          "corr": 0.9985074996688744,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 73728,
+          "best_source_offset": -1894,
+          "corr": 0.8734144370516694,
+          "qualified_local_identity": false
+        },
+        {
+          "capture_frame": 77824,
+          "best_source_offset": -1894,
+          "corr": 0.9999997680988759,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 81920,
+          "best_source_offset": -1894,
+          "corr": 0.9999988034625079,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 86016,
+          "best_source_offset": -1894,
+          "corr": 0.9999978980195077,
+          "qualified_local_identity": true
+        }
+      ]
+    },
+    {
+      "candidate": 2,
+      "mode": "EXACT-MP3",
+      "global_identity_qualified": true,
+      "zero_islands": [
+        {
+          "start": 0,
+          "frames": 4014,
+          "fixed_reference_rms": 3.978556890859911e-06
+        },
+        {
+          "start": 4015,
+          "frames": 74,
+          "fixed_reference_rms": 1.7515484397609054e-05
+        },
+        {
+          "start": 90353,
+          "frames": 290,
+          "fixed_reference_rms": 1.8116014941149088e-05
+        },
+        {
+          "start": 90646,
+          "frames": 3818,
+          "fixed_reference_rms": 2.9666146378277987e-06
+        }
+      ],
+      "local_blocks": [
+        {
+          "capture_frame": 4096,
+          "best_source_offset": 0,
+          "corr": 0.999999664126189,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 8192,
+          "best_source_offset": 0,
+          "corr": 0.9999994754724307,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 12288,
+          "best_source_offset": 0,
+          "corr": 0.9994624728382279,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 16384,
+          "best_source_offset": 0,
+          "corr": 0.9999974309736114,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 20480,
+          "best_source_offset": 0,
+          "corr": 0.9999999531041994,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 24576,
+          "best_source_offset": 0,
+          "corr": 0.9999992104713216,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 28672,
+          "best_source_offset": 0,
+          "corr": 0.999998847223565,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 32768,
+          "best_source_offset": 0,
+          "corr": 0.9999999428248476,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 36864,
+          "best_source_offset": 0,
+          "corr": 0.9999994375071946,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 40960,
+          "best_source_offset": 0,
+          "corr": 0.9999997363953466,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 45056,
+          "best_source_offset": 0,
+          "corr": 0.9999996783719391,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 49152,
+          "best_source_offset": 0,
+          "corr": 0.999999933625675,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 53248,
+          "best_source_offset": 0,
+          "corr": 0.9999997251085707,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 57344,
+          "best_source_offset": 0,
+          "corr": 0.9999996757359516,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 61440,
+          "best_source_offset": 0,
+          "corr": 0.9999945605766423,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 65536,
+          "best_source_offset": 0,
+          "corr": 0.9999935131282913,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 69632,
+          "best_source_offset": 0,
+          "corr": 0.9999994398502063,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 73728,
+          "best_source_offset": 0,
+          "corr": 0.9999992756337375,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 77824,
+          "best_source_offset": 0,
+          "corr": 0.9999995347756497,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 81920,
+          "best_source_offset": 0,
+          "corr": 0.9999872648015111,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 86016,
+          "best_source_offset": 0,
+          "corr": 0.9999976588391876,
+          "qualified_local_identity": true
+        }
+      ]
+    },
+    {
+      "candidate": 3,
+      "mode": "EXACT-MP3",
+      "global_identity_qualified": false,
+      "zero_islands": [
+        {
+          "start": 0,
+          "frames": 3493,
+          "fixed_reference_rms": 5.625501118302811e-07
+        },
+        {
+          "start": 3494,
+          "frames": 74,
+          "fixed_reference_rms": 7.2693722603553184e-06
+        },
+        {
+          "start": 5623,
+          "frames": 1065,
+          "fixed_reference_rms": 0.053165293471428475
+        },
+        {
+          "start": 18976,
+          "frames": 1014,
+          "fixed_reference_rms": 0.1116433158906737
+        },
+        {
+          "start": 38934,
+          "frames": 958,
+          "fixed_reference_rms": 0.14821244609838183
+        },
+        {
+          "start": 52692,
+          "frames": 1012,
+          "fixed_reference_rms": 0.0614183140562777
+        },
+        {
+          "start": 57288,
+          "frames": 1049,
+          "fixed_reference_rms": 0.03868688160157961
+        },
+        {
+          "start": 87521,
+          "frames": 806,
+          "fixed_reference_rms": 0.006088138429276401
+        },
+        {
+          "start": 92423,
+          "frames": 989,
+          "fixed_reference_rms": 0.0
+        },
+        {
+          "start": 93415,
+          "frames": 1049,
+          "fixed_reference_rms": 0.0
+        }
+      ],
+      "local_blocks": [
+        {
+          "capture_frame": 4096,
+          "best_source_offset": 521,
+          "corr": 0.730304280324149,
+          "qualified_local_identity": false
+        },
+        {
+          "capture_frame": 8192,
+          "best_source_offset": -32,
+          "corr": 0.9999994472531283,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 12288,
+          "best_source_offset": -32,
+          "corr": 0.9994603545645939,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 16384,
+          "best_source_offset": -32,
+          "corr": 0.9999974353728148,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 20480,
+          "best_source_offset": -534,
+          "corr": 0.9999999450251044,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 24576,
+          "best_source_offset": -534,
+          "corr": 0.9999991821435354,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 28672,
+          "best_source_offset": -534,
+          "corr": 0.9999980882418897,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 32768,
+          "best_source_offset": -534,
+          "corr": 0.9999999415305223,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 36864,
+          "best_source_offset": -534,
+          "corr": 0.9999998931670668,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 40960,
+          "best_source_offset": -980,
+          "corr": 0.9999999580216409,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 45056,
+          "best_source_offset": -980,
+          "corr": 0.9999990491480323,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 49152,
+          "best_source_offset": -980,
+          "corr": 0.9999999208814608,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 53248,
+          "best_source_offset": -1480,
+          "corr": 0.906531613089079,
+          "qualified_local_identity": false
+        },
+        {
+          "capture_frame": 57344,
+          "best_source_offset": -3314,
+          "corr": 0.5911752778336947,
+          "qualified_local_identity": false
+        },
+        {
+          "capture_frame": 61440,
+          "best_source_offset": -2017,
+          "corr": 0.9999991876726707,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 65536,
+          "best_source_offset": -2017,
+          "corr": 0.9999986932220613,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 69632,
+          "best_source_offset": -2017,
+          "corr": 0.9999984352681233,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 73728,
+          "best_source_offset": -2017,
+          "corr": 0.9999997873969587,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 77824,
+          "best_source_offset": -2017,
+          "corr": 0.9999997740972234,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 81920,
+          "best_source_offset": -2017,
+          "corr": 0.9999988403510842,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 86016,
+          "best_source_offset": -2017,
+          "corr": 0.8208569687199508,
+          "qualified_local_identity": false
+        }
+      ]
+    },
+    {
+      "candidate": 4,
+      "mode": "PCM44100",
+      "global_identity_qualified": true,
+      "zero_islands": [
+        {
+          "start": 0,
+          "frames": 3840,
+          "fixed_reference_rms": 3.5512898874331007e-06
+        },
+        {
+          "start": 25600,
+          "frames": 798,
+          "fixed_reference_rms": 0.06616824838238164
+        },
+        {
+          "start": 50462,
+          "frames": 134,
+          "fixed_reference_rms": 0.04103563736549654
+        },
+        {
+          "start": 50974,
+          "frames": 581,
+          "fixed_reference_rms": 0.06783371153562262
+        },
+        {
+          "start": 64355,
+          "frames": 805,
+          "fixed_reference_rms": 0.0179808101968237
+        },
+        {
+          "start": 68744,
+          "frames": 1762,
+          "fixed_reference_rms": 0.10805385248163694
+        },
+        {
+          "start": 74602,
+          "frames": 988,
+          "fixed_reference_rms": 0.06317440370374824
+        },
+        {
+          "start": 93144,
+          "frames": 1320,
+          "fixed_reference_rms": 0.0
+        }
+      ],
+      "local_blocks": [
+        {
+          "capture_frame": 4096,
+          "best_source_offset": 0,
+          "corr": 0.9999997541984605,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 8192,
+          "best_source_offset": 0,
+          "corr": 0.9999997162398543,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 12288,
+          "best_source_offset": 0,
+          "corr": 0.9999999033025155,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 16384,
+          "best_source_offset": 0,
+          "corr": 0.9999999831850178,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 20480,
+          "best_source_offset": 0,
+          "corr": 0.9999999729635292,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 24576,
+          "best_source_offset": 2559,
+          "corr": 0.6964020574069394,
+          "qualified_local_identity": false
+        },
+        {
+          "capture_frame": 28672,
+          "best_source_offset": -286,
+          "corr": 0.9999998597771622,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 32768,
+          "best_source_offset": -286,
+          "corr": 0.9999999568805726,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 36864,
+          "best_source_offset": -286,
+          "corr": 0.9999999788762335,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 40960,
+          "best_source_offset": -286,
+          "corr": 0.9999999368721207,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 45056,
+          "best_source_offset": -286,
+          "corr": 0.9999998846280724,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 49152,
+          "best_source_offset": -286,
+          "corr": 0.9530330600633713,
+          "qualified_local_identity": false
+        },
+        {
+          "capture_frame": 53248,
+          "best_source_offset": -867,
+          "corr": 0.9805941753093138,
+          "qualified_local_identity": false
+        },
+        {
+          "capture_frame": 57344,
+          "best_source_offset": -867,
+          "corr": 0.9999998282905208,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 61440,
+          "best_source_offset": -867,
+          "corr": 0.9999996748937604,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 65536,
+          "best_source_offset": -1160,
+          "corr": 0.9999993052716205,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 69632,
+          "best_source_offset": -1898,
+          "corr": 0.7995044643646856,
+          "qualified_local_identity": false
+        },
+        {
+          "capture_frame": 73728,
+          "best_source_offset": -1898,
+          "corr": 0.7390914014086688,
+          "qualified_local_identity": false
+        },
+        {
+          "capture_frame": 77824,
+          "best_source_offset": -2374,
+          "corr": 0.9999998939894335,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 81920,
+          "best_source_offset": -2374,
+          "corr": 0.9999992905824037,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 86016,
+          "best_source_offset": -2374,
+          "corr": 0.9999982888904401,
+          "qualified_local_identity": true
+        }
+      ]
+    },
+    {
+      "candidate": 5,
+      "mode": "PCM44100",
+      "global_identity_qualified": false,
+      "zero_islands": [
+        {
+          "start": 0,
+          "frames": 3340,
+          "fixed_reference_rms": 0.0
+        },
+        {
+          "start": 9228,
+          "frames": 1012,
+          "fixed_reference_rms": 0.023071331404108966
+        },
+        {
+          "start": 24576,
+          "frames": 954,
+          "fixed_reference_rms": 0.07829994492456538
+        },
+        {
+          "start": 53178,
+          "frames": 555,
+          "fixed_reference_rms": 0.06269689635929965
+        },
+        {
+          "start": 71653,
+          "frames": 949,
+          "fixed_reference_rms": 0.11457562728773107
+        },
+        {
+          "start": 92204,
+          "frames": 2260,
+          "fixed_reference_rms": 0.0
+        }
+      ],
+      "local_blocks": [
+        {
+          "capture_frame": 4096,
+          "best_source_offset": 500,
+          "corr": 0.9999998690925784,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 8192,
+          "best_source_offset": 500,
+          "corr": 0.6592345466169698,
+          "qualified_local_identity": false
+        },
+        {
+          "capture_frame": 12288,
+          "best_source_offset": 0,
+          "corr": 0.9999999033025155,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 16384,
+          "best_source_offset": 0,
+          "corr": 0.9999999831850178,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 20480,
+          "best_source_offset": 0,
+          "corr": 0.9999999729635292,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 24576,
+          "best_source_offset": -442,
+          "corr": 0.764188779450488,
+          "qualified_local_identity": false
+        },
+        {
+          "capture_frame": 28672,
+          "best_source_offset": -442,
+          "corr": 0.9999998437411932,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 32768,
+          "best_source_offset": -442,
+          "corr": 0.9999999579076585,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 36864,
+          "best_source_offset": -442,
+          "corr": 0.9999999777108164,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 40960,
+          "best_source_offset": -442,
+          "corr": 0.9999999455602483,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 45056,
+          "best_source_offset": -442,
+          "corr": 0.9999998743834028,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 49152,
+          "best_source_offset": -442,
+          "corr": 0.999999945847404,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 53248,
+          "best_source_offset": -997,
+          "corr": 0.8502609390739442,
+          "qualified_local_identity": false
+        },
+        {
+          "capture_frame": 57344,
+          "best_source_offset": -997,
+          "corr": 0.9999998249706259,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 61440,
+          "best_source_offset": -997,
+          "corr": 0.9999997162338379,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 65536,
+          "best_source_offset": -997,
+          "corr": 0.9999993019991575,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 69632,
+          "best_source_offset": -997,
+          "corr": 0.9978141107891374,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 73728,
+          "best_source_offset": -1434,
+          "corr": 0.9999999701531959,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 77824,
+          "best_source_offset": -1434,
+          "corr": 0.9999997689655239,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 81920,
+          "best_source_offset": -1434,
+          "corr": 0.9999989194356768,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 86016,
+          "best_source_offset": -1434,
+          "corr": 0.9999980832851668,
+          "qualified_local_identity": true
+        }
+      ]
+    },
+    {
+      "candidate": 6,
+      "mode": "PCM44100",
+      "global_identity_qualified": true,
+      "zero_islands": [
+        {
+          "start": 0,
+          "frames": 3840,
+          "fixed_reference_rms": 3.5512898874331007e-06
+        },
+        {
+          "start": 90770,
+          "frames": 3694,
+          "fixed_reference_rms": 0.0
+        }
+      ],
+      "local_blocks": [
+        {
+          "capture_frame": 4096,
+          "best_source_offset": 0,
+          "corr": 0.9999997541984605,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 8192,
+          "best_source_offset": 0,
+          "corr": 0.9999997162398543,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 12288,
+          "best_source_offset": 0,
+          "corr": 0.9999999033025155,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 16384,
+          "best_source_offset": 0,
+          "corr": 0.9999999831850178,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 20480,
+          "best_source_offset": 0,
+          "corr": 0.9999999729635292,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 24576,
+          "best_source_offset": 0,
+          "corr": 0.9999999523503377,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 28672,
+          "best_source_offset": 0,
+          "corr": 0.9999998907919778,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 32768,
+          "best_source_offset": 0,
+          "corr": 0.9999999573471389,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 36864,
+          "best_source_offset": 0,
+          "corr": 0.9999999814505257,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 40960,
+          "best_source_offset": 0,
+          "corr": 0.9999998965655447,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 45056,
+          "best_source_offset": 0,
+          "corr": 0.9999999330713848,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 49152,
+          "best_source_offset": 0,
+          "corr": 0.9999999479696405,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 53248,
+          "best_source_offset": 0,
+          "corr": 0.9999999253139247,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 57344,
+          "best_source_offset": 0,
+          "corr": 0.9999998273744392,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 61440,
+          "best_source_offset": 0,
+          "corr": 0.9999997093769755,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 65536,
+          "best_source_offset": 0,
+          "corr": 0.9999997430904631,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 69632,
+          "best_source_offset": 0,
+          "corr": 0.9999999784903981,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 73728,
+          "best_source_offset": 0,
+          "corr": 0.999999952700842,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 77824,
+          "best_source_offset": 0,
+          "corr": 0.9999996765676159,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 81920,
+          "best_source_offset": 0,
+          "corr": 0.9999982331758684,
+          "qualified_local_identity": true
+        },
+        {
+          "capture_frame": 86016,
+          "best_source_offset": 0,
+          "corr": 0.9999979512273863,
+          "qualified_local_identity": true
+        }
+      ]
+    }
+  ]
+}

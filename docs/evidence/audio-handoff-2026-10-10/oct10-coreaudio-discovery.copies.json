@@ -1,0 +1,26 @@
+{
+  "CoreAudio": {
+    "guest_path": "/System/Library/Frameworks/CoreAudio.framework/Versions/A/CoreAudio",
+    "local_path": "/tmp/pe9800/oct10-guest-CoreAudio.macho",
+    "bytes": 797908,
+    "md5": "5bab1b02442102bb928d3748ace289d9",
+    "sha256": "238414b621f28a11d719ef77a2b140d6249821fd73001f95e073143db15c68ba",
+    "transfer_consistency": true
+  },
+  "SoundManagerComponents": {
+    "guest_path": "/System/Library/Components/SoundManagerComponents.component/Contents/MacOS/SoundManagerComponents",
+    "local_path": "/tmp/pe9800/oct10-guest-SoundManagerComponents.macho",
+    "bytes": 254680,
+    "md5": "40db28e232b0e8451774849209a4ccb3",
+    "sha256": "bbc7308fc42d9105cc811d1ef67252a4680605a6c43d887056bd91dd817a22cf",
+    "transfer_consistency": true
+  },
+  "CarbonSound": {
+    "guest_path": "/System/Library/Frameworks/Carbon.framework/Versions/A/Frameworks/CarbonSound.framework/Versions/A/CarbonSound",
+    "local_path": "/tmp/pe9800/oct10-guest-CarbonSound.macho",
+    "bytes": 199604,
+    "md5": "5bf35abebcc8306e1ea9dd9cc7c3b164",
+    "sha256": "d29c4475d7b0d0dcc496c0d448e8a81960da89bccc0d4f50ea3adf42a302390e",
+    "transfer_consistency": true
+  }
+}

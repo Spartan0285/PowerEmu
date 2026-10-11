@@ -1,0 +1,26 @@
+{
+  "valid": true,
+  "actual_physical_ppc": true,
+  "tests": [
+    "physical adjacent PPC frames/rawbytes",
+    "six exact successful suspend/resume pairs",
+    "five post-suspend kernel-state/read/candidate/signal/budget cleanup cases",
+    "self executing thread excluded",
+    "failed resume receipt",
+    "unaligned frame",
+    "backwards/cyclic link",
+    "over4KiBedge",
+    "64KiB span edge",
+    "callerLR outside current extent",
+    "wrong return",
+    "32frame cap exceeded",
+    "partial read",
+    "codeword absent",
+    "single-resume cleanup/static bounded implementation"
+  ],
+  "binary_sha256": "9ed823e1d47e7d3e39042303882ed7c9114328b828fa964e2178e2b6f0ffdbee",
+  "source_sha256": "f48b22b782e728fbd671928125bf6cde3e7520598279836906ec67c4b69d5b33",
+  "normal_guest_capture_not_yet_tested": true,
+  "no_vm_launched": true,
+  "fixture_expected_injected_errors": 5
+}

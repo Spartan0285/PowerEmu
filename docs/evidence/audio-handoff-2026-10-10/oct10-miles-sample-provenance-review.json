@@ -1,0 +1,55 @@
+{
+  "scope": "Static copied-code provenance; no live handle/cursor verified by this agent. PCs valid only with same-run mapping gate.",
+  "proof_sites": {
+    "driver_r3_saved": "0x590348",
+    "sample_array_load_driver_plus_0x40": "0x5903b8",
+    "sample_address_base_plus_loop_offset": "0x5903bc",
+    "status_plus_0x08_read": "0x5903c4",
+    "status_required_4": "0x5903c8",
+    "call_stream_with_sample_r3": "0x5903dc",
+    "sample_stride_608": "0x5903e0",
+    "sample_count_driver_plus_0x34": "0x5903e8",
+    "stream_parent_driver_sample_plus_0x04": "0x590778",
+    "merge_parent_driver_sample_plus_0x04": "0x590a50",
+    "merge_current_index_plus_0x40": "0x590c4c",
+    "index_times_4": "0x590c50",
+    "source_base_sample_plus_0x0c_plus_index4": "0x590c58",
+    "position_sample_plus_0x1c_plus_index4": "0x590c5c",
+    "source_base_plus_byte_position": "0x590c60",
+    "length_sample_plus_0x14_plus_index4": "0x5907a0",
+    "length_minus_position": "0x5907a4",
+    "alternate_index_xor1": "0x5908b0"
+  },
+  "handle_formula": "read_be32(driver+0x40)+608*i for 0<=i<read_be32(driver+0x34)",
+  "fields": {
+    "parent_driver": 4,
+    "status": 8,
+    "source_bases": [
+      12,
+      16
+    ],
+    "lengths": [
+      20,
+      24
+    ],
+    "positions": [
+      28,
+      32
+    ],
+    "current_index": 64,
+    "flags": 88,
+    "rate": 96,
+    "buffer_mode": 116
+  },
+  "snapshot_validity": [
+    "same owned run/PID/live code and TVector proof",
+    "actual fill r3 equals walked current driver",
+    "bounded count/multiplication/addition and readable region",
+    "inline slot backpointer equals driver",
+    "active status4, proven branch index0/1,position<=length",
+    "source pointer plus length readable/no overflow",
+    "re-read identity/index/length and reject torn snapshots",
+    "exact source bytes independently identified"
+  ],
+  "historical_35463_limit": "Only callback and fill entry sites retained; no stream/merge entries. Current50526 contract cannot retrofit35463 source handles."
+}
