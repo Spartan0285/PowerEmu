@@ -106,7 +106,22 @@ Navigation into the campaign still needs a human: QEMU-injected clicks move
 Warcraft's cursor to the right pixel but the game does not register them as
 presses, though Carbon dialogs do obey them.
 
-## Which build this measures — an open question
+## Which build this measures — SETTLED
+
+The emulator bundled in the app that was traced was built **10 Oct 15:24**.
+`hw/audio/screamer.c` was last modified 10 Oct 08:40 and `audio/coreaudio.m`
+9 Oct 22:02, and the committed audio fix `2d76be72d8d audio: preserve DMA
+pacing and avoid guest relay process stalls` landed 9 Oct 19:35 — all before
+that build.
+
+**So the trace measured a binary that already contained the DMA pacing fix and
+the diagnostic scaffolding.** 12.9 % is the figure *after* the pacing work that
+Adam confirmed by ear as "much better", not before it. The scaffolding is
+default-off and was off for this run, so it is present but not active.
+
+The original uncertainty is retained below for the record.
+
+## Which build this measures — the original open question
 
 At the time of the trace the `poweremu-qemu` working tree had **546 lines of
 uncommitted audio changes**: `hw/audio/screamer.c` (+329), `audio/coreaudio.m`
