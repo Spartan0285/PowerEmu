@@ -1,12 +1,18 @@
 {
-  "version": "0.4.0",
-  "build": 9,
-  "published": "2026-10-04T18:54:16Z",
+  "version": "0.4.1",
+  "build": 10,
+  "published": "2026-10-11T17:34:56Z",
   "minimumSystem": "14.0",
-  "notes": "A virtual Mac can now be given a second screen. With two displays each guest screen gets its own window; with one they stand side by side in a single window. Harmony spans both, so a guest window can be dragged from one of this Mac's screens to the other, and the guest's second screen is matched to the display showing it so its windows come out the right size rather than half size on a Retina display. The second guest screen has no 3D acceleration - there is one accelerated card, so OpenGL games have to run on the first screen. The performance overlay now shows a panel on each screen, each reading its own card, with a light style that shows just the frame rate and the processor. Also new: snapshots with rollback, duplicating a machine, reclaiming its disk space and running it isolated from the network; printing to a printer the guest already knows how to talk to; the microphone; opening a file from this Mac in the virtual Mac; and a USB device that is remembered and taken at every start. PowerEmu Tools 2.23 is included - update it inside the virtual Mac so Harmony can match the second screen. Fixes: a display pitch the guest could ask for would stop the emulator; the hardware cursor works with two screens; Command-W reaches the guest.",
-  "url": "https://github.com/Spartan0285/PowerEmu/releases/download/v0.4.0/PowerEmu-0.4.0.zip",
-  "sha256": "eeafa98bc9692de48d12285088a38213b220800d6794fb3c496e0a3f05714369",
+  "notes": "Sound in a virtual Mac is better. The emulator now keeps the sound hardware fed while a game is busy, keeps hold of pending audio when this Mac is under load, and follows the buffer size the sound system actually asks for. Games that used to drop out and stall when a new sound started are noticeably cleaner. Crackling on loud effects \u2014 a thunderclap, a sudden announcement \u2014 has not gone away. A measurement of Warcraft III taken for this release shows why: when a lot of sound has to be mixed at once the callback arrives late, and the card plays a moment that nothing filled. That is the next thing to fix, and it is not fixed here. New: Audio Relay sends this Mac's sound to an old Mac that cannot decode a stream itself. The old Mac keeps the clock and simply reads bytes as its own card calls for them, so a 1.5GHz G4 can play the music and still draw its windows. Also: a virtual Mac now reports its configured processor speed on every CPU, including older configurations, and guest clock connections are reused rather than remade.",
+  "url": "https://github.com/Spartan0285/PowerEmu/releases/download/v0.4.1/PowerEmu-0.4.1.zip",
+  "sha256": "76ddf5112f9358caba1228a1384a9f78ba46f2dde7d2843e4b7201c304d0458a",
   "history": [
+    {
+      "version": "0.4.0",
+      "build": 9,
+      "published": "2026-10-04T18:54:16Z",
+      "notes": "A virtual Mac can now be given a second screen. With two displays each guest screen gets its own window; with one they stand side by side in a single window. Harmony spans both, so a guest window can be dragged from one of this Mac's screens to the other, and the guest's second screen is matched to the display showing it so its windows come out the right size rather than half size on a Retina display. The second guest screen has no 3D acceleration - there is one accelerated card, so OpenGL games have to run on the first screen. The performance overlay now shows a panel on each screen, each reading its own card, with a light style that shows just the frame rate and the processor. Also new: snapshots with rollback, duplicating a machine, reclaiming its disk space and running it isolated from the network; printing to a printer the guest already knows how to talk to; the microphone; opening a file from this Mac in the virtual Mac; and a USB device that is remembered and taken at every start. PowerEmu Tools 2.23 is included - update it inside the virtual Mac so Harmony can match the second screen. Fixes: a display pitch the guest could ask for would stop the emulator; the hardware cursor works with two screens; Command-W reaches the guest."
+    },
     {
       "version": "0.3.5",
       "build": 8,
