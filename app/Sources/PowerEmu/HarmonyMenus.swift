@@ -36,6 +36,7 @@ struct HarmonyMenuItem {
 final class HarmonyMenuBar: NSObject, NSMenuDelegate {
     /// Sends a verb to the guest agent.
     var send: ((String, String) -> Void)?
+    var exitHarmony: (() -> Void)?
 
     private(set) var pid = 0
     private var appName = ""
@@ -131,8 +132,8 @@ final class HarmonyMenuBar: NSObject, NSMenuDelegate {
     private func appMenuItem() -> NSMenuItem {
         let item = NSMenuItem(title: "PowerEmu", action: nil, keyEquivalent: "")
         let menu = NSMenu(title: "PowerEmu")
-        let exit = NSMenuItem(title: "Exit Harmony", action: Selector(("exitHarmony:")), keyEquivalent: "")
-        exit.target = nil                     // down the responder chain
+        let exit = NSMenuItem(title: "Exit Harmony", action: #selector(exitHarmonyMenu(_:)), keyEquivalent: "")
+        exit.target = self
         menu.addItem(exit)
         menu.addItem(.separator())
         /*
@@ -145,6 +146,8 @@ final class HarmonyMenuBar: NSObject, NSMenuDelegate {
         item.submenu = menu
         return item
     }
+
+    @objc private func exitHarmonyMenu(_ sender: NSMenuItem) { exitHarmony?() }
 
     private func placeholder() -> NSMenuItem {
         let i = NSMenuItem(title: "Loading…", action: nil, keyEquivalent: "")

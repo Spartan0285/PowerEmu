@@ -21,6 +21,15 @@ final class HostScreens: ObservableObject {
 
     @Published private(set) var count: Int = NSScreen.screens.count
 
+    /*
+     * Bumped on every screen-parameters change, not only when the number of
+     * screens changes.  A display that is plugged in, woken, or switched to
+     * another mode keeps the count the same while changing the sizes a guest
+     * could usefully start in, and a view watching only `count` would go on
+     * offering the old list.
+     */
+    @Published private(set) var generation: Int = 0
+
     private var observer: NSObjectProtocol?
 
     private init() {
@@ -32,6 +41,7 @@ final class HostScreens: ObservableObject {
                 guard let self else { return }
                 let now = NSScreen.screens.count
                 if now != self.count { self.count = now }
+                self.generation &+= 1
             }
         }
     }

@@ -35,14 +35,82 @@ struct HarmonyDisplayMode {
                       height: (frame.height - inset).rounded())
     }
 
+    /*
+     * The usable area of a screen at its own exact size.
+     *
+     * size(screen:) rounds the width up to a multiple of 64 because the
+     * Harmony reserved mode needs that stride.  A *startup* resolution does
+     * not: it is just the mode the guest boots in, and rounding it made the
+     * entry named after a display not match that display -- a 1680 x 1050
+     * Cinema Display was offered as "Cinema Display -- 1728 x 1050", which is
+     * the one thing the entry exists to get right.
+     */
+    static func exactSize(screen: NSScreen) -> CGSize {
+        let frame = screen.frame
+        let inset: CGFloat
+        if #available(macOS 12.0, *), screen.safeAreaInsets.top > 0 {
+            inset = screen.safeAreaInsets.top
+        } else {
+            inset = max(0, frame.maxY - screen.visibleFrame.maxY - 22)
+        }
+        return CGSize(width: frame.width.rounded(), height: (frame.height - inset).rounded())
+    }
+
     /// Whether this screen has a notch, and how tall it is in points.
     static func notch(on screen: NSScreen) -> CGFloat {
         if #available(macOS 12.0, *) { return screen.safeAreaInsets.top }
         return 0
     }
 
-    /// Patch only the reserved mode in a private copy of our uncompressed PEF
+    /// Patch the reserved modes in a private copy of our uncompressed PEF
     /// data section. The signed bundled driver and its code remain unchanged.
+    ///
+    /// One mode per host screen, up to two.
+    ///
+    /// There used to be one, taken from NSScreen.main when the machine
+    /// started, and that is as many host screens as Harmony could be used on.
+    /// With a 1710-point built-in display and a 1680 x 1050 Cinema Display
+    /// the guest was given 1728 x 1074 and nothing else, so asking for
+    /// Harmony with the window on the Cinema Display asked the guest for
+    /// 1728 x 1050 -- a mode it had never heard of -- and the attempt ended
+    /// in "Harmony display mode is unavailable".
+    ///
+    /// The second mode goes in entry 47, which ships as 1920 x 1200 and is an
+    /// exact duplicate of entry 46: overwriting it costs the guest nothing,
+    /// and the duplicate is checked for rather than assumed, so a driver that
+    /// stops being laid out this way is left alone instead of corrupted.
+    static func driver(_ original: Data, sizes: [CGSize]) throws -> Data {
+        enum InvalidDriver: Error { case format }
+        guard let first = sizes.first else { throw InvalidDriver.format }
+        var out = try driver(original, size: first)
+        // Only a second, genuinely different size is worth a slot.
+        guard let second = sizes.dropFirst().first(where: { $0 != first }) else { return out }
+        guard (640...4096).contains(Int(second.width)), (480...2048).contains(Int(second.height)),
+              Int(second.width) % 64 == 0 else { return out }
+        func word(_ d: Data, _ offset: Int) -> Int {
+            d[offset..<offset + 4].reduce(0) { ($0 << 8) | Int($1) }
+        }
+        let count = Int(out[32]) << 8 | Int(out[33])
+        for section in 0..<count {
+            let header = 40 + section * 28
+            guard out[header + 24] == 1 else { continue }
+            let offset = word(out, header + 20), length = word(out, header + 16)
+            let spare = 0xd24 + 8 * 47, twin = 0xd24 + 8 * 46
+            // The spare must still be the duplicate of its neighbour that it
+            // ships as; anything else and the second mode is simply not added.
+            guard length >= spare + 8, offset <= out.count, length <= out.count - offset,
+                  word(out, offset + spare) == 1920, word(out, offset + spare + 4) == 1200,
+                  word(out, offset + twin) == 1920, word(out, offset + twin + 4) == 1200
+            else { return out }
+            for (at, value) in [(offset + spare, Int(second.width)),
+                                (offset + spare + 4, Int(second.height))] {
+                for byte in 0..<4 { out[at + byte] = UInt8((value >> (24 - byte * 8)) & 255) }
+            }
+            return out
+        }
+        return out
+    }
+
     static func driver(_ original: Data, size: CGSize) throws -> Data {
         enum InvalidDriver: Error { case format }
         guard original.count >= 40, original.prefix(12) == Data("Joy!peffpwpc".utf8),

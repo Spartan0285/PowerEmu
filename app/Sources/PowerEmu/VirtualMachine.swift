@@ -39,6 +39,21 @@ final class VirtualMachine: ObservableObject, Identifiable {
 
     var disksURL: URL { url.appendingPathComponent("Disks", isDirectory: true) }
     var logsURL: URL { url.appendingPathComponent("Logs", isDirectory: true) }
+
+    /*
+     * The reserved display modes written into this machine's copy of the
+     * video driver when it was launched.
+     *
+     * Harmony needs the guest to land on an exact size, and the size it asks
+     * for is worked out from the host screen at the moment it is asked --
+     * while the mode the guest can actually reach was worked out at launch.
+     * Those are the same arithmetic on inputs that move: a screen's safe area
+     * and visible frame change with the menu bar and with what else is full
+     * screen, and an 8-point drift between the two was enough for Harmony to
+     * refuse.  Remembering what the driver really carries lets the request
+     * ask for that instead of for something the guest has never heard of.
+     */
+    var harmonyReservedSizes: [CGSize] = []
     var configURL: URL { url.appendingPathComponent("config.plist") }
 
     private var runner: VMRunner?
@@ -51,6 +66,9 @@ final class VirtualMachine: ObservableObject, Identifiable {
     /// Every application installed in the guest, as the guest's Finder names
     /// them.  Empty until the tools connect and answer APPS.
     @Published private(set) var guestApps: [(path: String, name: String)] = []
+    /// Advances only when a fresh APPSLIST arrives, so callers can distinguish
+    /// a current guest reply from the cached list from an earlier connection.
+    private(set) var guestAppsRevision: UInt64 = 0
     private var dav: WebDAVServer?
     private var shareWatcher: SharedFolderWatcher?
     /// This Mac's game controller, given to the guest as a USB gamepad.
@@ -193,6 +211,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
             a.onDockApps = { [weak self] items in self?.display?.deliverDockApps(items) }
             a.onApps = { [weak self] items in
                 self?.guestApps = items
+                self?.guestAppsRevision &+= 1
                 self?.onToolsChanged?()
             }
             a.onMinimized = { [weak self] m in self?.display?.deliverMinimized(m) }
@@ -576,6 +595,8 @@ final class VirtualMachine: ObservableObject, Identifiable {
     func harmony(_ on: Bool) {
         harmonyWanted = on
         agent?.send("CAPTUREMODE", on && ProcessInfo.processInfo.environment["POWEREMU_HARMONY_MASKED"] != "1" ? "1" : "0")
+        agent?.send("CAPTUREHINTS", on && ProcessInfo.processInfo.environment["POWEREMU_HARMONY_VISIBLE_CACHE"] == "1" ? "visible32" : "0")
+        agent?.send("REPORTMODE", on && ProcessInfo.processInfo.environment["POWEREMU_HARMONY_NATIVE_POLLING"] == "1" ? "12" : "24")
         agent?.send("HARMONY", on ? "1" : "0")
     }
 
@@ -647,7 +668,10 @@ final class VirtualMachine: ObservableObject, Identifiable {
     func dragGuestWindow(_ id: Int, _ gx: Int, _ gy: Int, _ ex: Int, _ ey: Int) {
         agent?.send("MOVEWINDOW", "\(id) \(gx) \(gy) \(ex) \(ey)")
     }
-    func moveGuestWindow(_ id: Int, _ x: Int, _ y: Int) { agent?.send("MOVEWINDOW", "\(id) \(x) \(y)") }
+    func moveGuestWindow(_ id: Int, _ x: Int, _ y: Int) {
+        agent?.send("MOVEWINDOW", "\(id) \(x) \(y)")
+        agent?.send("REFRESHWINDOWS", "")
+    }
 
     func requestRestart() {
         guard state == .running, let agent, agent.connected else { return }

@@ -1,0 +1,35 @@
+import CoreGraphics
+
+let primary = CGSize(width: 1728, height: 1074)
+let secondarySize = CGSize(width: 1680, height: 1050)
+let reported = [CGRect(origin: .zero, size: primary), CGRect(x: 1728, y: 0, width: 1680, height: 1050)]
+assert(HarmonyGuestDesktop.primarySize(screens: reported, fallback: secondarySize) == primary)
+assert(HarmonyGuestDesktop.mainCard(screens: reported, cardSizes: [secondarySize, primary], previous: 0) == 1)
+assert(HarmonyGuestDesktop.mainCard(screens: reported, cardSizes: [primary, secondarySize], previous: 1) == 0)
+assert(HarmonyGuestDesktop.mainCard(screens: reported, cardSizes: [primary, primary], previous: 1) == 1)
+assert(HarmonyGuestDesktop.primarySize(screens: [], fallback: secondarySize) == secondarySize)
+func window(_ x: CGFloat, _ y: CGFloat) -> CGRect {
+    CGRect(x: x, y: y, width: 300, height: 100)
+}
+let right = CGRect(x: 1728, y: 0, width: 1920, height: 1440)
+assert(HarmonyGuestDesktop.isVisible(window(1800, 1200), primarySize: primary, secondary: right))
+assert(HarmonyGuestDesktop.isOnSecondary(window(1800, 1200), primarySize: primary, secondary: right))
+let above = CGRect(x: 0, y: -1200, width: 1920, height: 1200)
+assert(HarmonyGuestDesktop.isVisible(window(200, -1000), primarySize: primary, secondary: above))
+assert(HarmonyGuestDesktop.isOnSecondary(window(200, -1000), primarySize: primary, secondary: above))
+let below = CGRect(x: 0, y: 1074, width: 1920, height: 1200)
+assert(HarmonyGuestDesktop.isVisible(window(200, 1300), primarySize: primary, secondary: below))
+let left = CGRect(x: -1920, y: 100, width: 1920, height: 1200)
+assert(HarmonyGuestDesktop.isVisible(window(-500, 300), primarySize: primary, secondary: left))
+assert(!HarmonyGuestDesktop.isVisible(window(200, 1600), primarySize: primary, secondary: right))
+assert(!HarmonyGuestDesktop.isVisible(.null, primarySize: primary, secondary: right))
+assert(!HarmonyGuestDesktop.isOnSecondary(window(200, 300), primarySize: primary, secondary: right))
+assert(HarmonyGuestDesktop.isPrimaryMenuBar(CGRect(x: 0, y: 0, width: 1728, height: 22), primarySize: primary))
+assert(!HarmonyGuestDesktop.isPrimaryMenuBar(CGRect(x: 1800, y: 0, width: 200, height: 22), primarySize: primary))
+assert(!HarmonyGuestDesktop.isPrimaryMenuBar(CGRect(x: 200, y: -1000, width: 200, height: 22), primarySize: primary))
+// The centre is in the gap, but most of the window overlaps the second screen.
+let staggered = CGRect(x: 1728, y: 600, width: 1920, height: 1440)
+let crossing = CGRect(x: 1700, y: 400, width: 400, height: 300)
+assert(HarmonyGuestDesktop.isVisible(crossing, primarySize: primary, secondary: staggered))
+assert(HarmonyGuestDesktop.isOnSecondary(crossing, primarySize: primary, secondary: staggered))
+print("Harmony guest desktop geometry passed")

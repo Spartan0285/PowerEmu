@@ -219,6 +219,38 @@ struct VMConfig: Codable, Equatable {
     /// Period display emulation over the guest's screen; 0 is off.  The
     /// numbering is PocketShaver's -- see PanelFilters.
     var panelFilter = 0
+
+    /*
+     * The second screen's own picture settings.
+     *
+     * Scaling, Picture and the display filter are judged by eye against what
+     * is on a screen, and with two screens those are not the same screen: one
+     * may be a Retina laptop display and the other a 1680 x 1050 Cinema
+     * Display, with quite different ideas about what looks right.  Sharing
+     * one set of values between them meant a choice made for one was imposed
+     * on the other, and the second screen's window had no controls to change
+     * it with anyway.
+     *
+     * nil means "whatever the first screen uses", which is what every machine
+     * saved before these existed has, so nothing changes until one is set.
+     */
+    var display2Scaling: String?
+    var display2Fit: String?
+    var display2PanelFilter: Int?
+
+    func scaling(on screen: Int) -> String { screen == 1 ? (display2Scaling ?? scaling) : scaling }
+    func displayFit(on screen: Int) -> String { screen == 1 ? (display2Fit ?? displayFit) : displayFit }
+    func panelFilter(on screen: Int) -> Int { screen == 1 ? (display2PanelFilter ?? panelFilter) : panelFilter }
+
+    mutating func setScaling(_ v: String, on screen: Int) {
+        if screen == 1 { display2Scaling = v } else { scaling = v }
+    }
+    mutating func setDisplayFit(_ v: String, on screen: Int) {
+        if screen == 1 { display2Fit = v } else { displayFit = v }
+    }
+    mutating func setPanelFilter(_ v: Int, on screen: Int) {
+        if screen == 1 { display2PanelFilter = v } else { panelFilter = v }
+    }
     static let scalingChoices: [(String, String)] = [
         ("smooth",  "Smooth"),
         ("sharp",   "Sharp"),
@@ -249,34 +281,69 @@ struct VMConfig: Codable, Equatable {
      * fullscreen land right; the standard sizes follow for anything that wants
      * a shape Mac OS X knows well.
      */
+    /// `label` is the whole line the picker shows, so a mode can say
+    /// something about itself -- which screen it matches, or that no screen
+    /// attached right now can show it.
     struct DisplayMode: Hashable { let label: String, width: Int, height: Int }
 
     static func displayModes(for screen: NSScreen?) -> [DisplayMode] {
+        displayModes(for: screen.map { [$0] } ?? [])
+    }
+
+    /*
+     * Every attached screen gets an entry, not just the main one.
+     *
+     * This used to take one screen and also *filter* the standard sizes by it,
+     * which quietly removed the sizes that mattered most.  On a MacBook whose
+     * built-in display is 1440 x 932 points with a 1680 x 1050 Cinema Display
+     * beside it, 1680 x 1050 -- the external's exact native size, the one that
+     * makes dragging the guest there and going fullscreen land pixel for pixel
+     * -- was not offered at all, because it is wider than the built-in screen.
+     * The screen you want to match is often not the screen you are looking at.
+     */
+    static func displayModes(for screens: [NSScreen]) -> [DisplayMode] {
         var out: [DisplayMode] = []
-        if let screen {
-            let fitted = HarmonyDisplayMode.size(screen: screen)
+        let named = screens.count > 1
+        for screen in screens {
+            let fitted = HarmonyDisplayMode.exactSize(screen: screen)
             let notch = HarmonyDisplayMode.notch(on: screen)
             let whole = Int(screen.frame.height.rounded())
             let w = Int(fitted.width)
+            let who = named ? screen.localizedName : "This Mac’s screen"
             if notch > 0 {
-                out.append(DisplayMode(label: "This Mac, below the notch", width: w, height: Int(fitted.height)))
-                out.append(DisplayMode(label: "This Mac, whole screen", width: w, height: whole))
+                out.append(DisplayMode(label: "\(named ? who : "This Mac"), below the notch — \(w) × \(Int(fitted.height))",
+                                       width: w, height: Int(fitted.height)))
+                out.append(DisplayMode(label: "\(named ? who : "This Mac"), whole screen — \(w) × \(whole)",
+                                       width: w, height: whole))
             } else {
-                out.append(DisplayMode(label: "This Mac’s screen", width: w, height: Int(fitted.height)))
+                out.append(DisplayMode(label: "\(who) — \(w) × \(Int(fitted.height))",
+                                       width: w, height: Int(fitted.height)))
             }
         }
-        let host = screen?.frame.size ?? CGSize(width: 4096, height: 4096)
         /*
          * The small 4:3 sizes come first and are offered to every machine,
          * not just a classic one.  A guest that has been left in a mode its
          * display cannot show -- picked inside the guest, by hand -- is hard
          * to get out of from inside, and the startup resolution is the way
          * back.  832 x 624 and 1152 x 870 are the old Apple multiscan sizes.
+         *
+         * The widescreen sizes are the ones a modern external is likely to be:
+         * 720p, 1080p and 1440p, plus the shapes Mac displays have used.  A
+         * size no attached screen can show is still offered -- a display can
+         * be plugged in later, and the guest's startup resolution is written
+         * to the configuration now -- but it says so, rather than looking
+         * like a size that will fit.
          */
+        let fits = { (w: Int, h: Int) in
+            screens.contains { CGFloat(w) <= $0.frame.width && CGFloat(h) <= $0.frame.height }
+        }
         for (w, h) in [(640, 480), (800, 600), (832, 624), (1024, 768), (1152, 870),
-                       (1280, 800), (1280, 1024), (1440, 900), (1680, 1050), (1920, 1200)]
-        where CGFloat(w) <= host.width && CGFloat(h) <= host.height {
-            out.append(DisplayMode(label: "\(w) × \(h)", width: w, height: h))
+                       (1280, 720), (1280, 800), (1280, 1024), (1440, 900),
+                       (1680, 1050), (1920, 1080), (1920, 1200), (2560, 1440)] {
+            // Do not offer a standard size that merely repeats a screen entry.
+            guard !out.contains(where: { $0.width == w && $0.height == h }) else { continue }
+            let note = (screens.isEmpty || fits(w, h)) ? "" : "  (larger than any screen attached now)"
+            out.append(DisplayMode(label: "\(w) × \(h)\(note)", width: w, height: h))
         }
         return out
     }
@@ -353,6 +420,7 @@ struct VMConfig: Codable, Equatable {
         case externalDisk
         case classic, scaling, panelFilter, displayFit, isolated, discardChanges, autoConnectUSB
         case displays, display2Width, display2Height, microphone
+        case display2Scaling, display2Fit, display2PanelFilter
     }
 
     init(from decoder: Decoder) throws {
@@ -377,6 +445,9 @@ struct VMConfig: Codable, Equatable {
         try get(.classic, &d.classic)
         try get(.scaling, &d.scaling)
         try get(.panelFilter, &d.panelFilter)
+        d.display2Scaling = try c.decodeIfPresent(String.self, forKey: .display2Scaling)
+        d.display2Fit = try c.decodeIfPresent(String.self, forKey: .display2Fit)
+        d.display2PanelFilter = try c.decodeIfPresent(Int.self, forKey: .display2PanelFilter)
         try get(.displayFit, &d.displayFit)
         try get(.isolated, &d.isolated)
         try get(.discardChanges, &d.discardChanges)

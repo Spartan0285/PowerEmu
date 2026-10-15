@@ -6,9 +6,31 @@ import UniformTypeIdentifiers
 /// performance, power and full screen.  It floats over the top of the
 /// guest's screen - it never takes room from it - and stays hidden until the
 /// pointer reaches the top edge (VMDisplayView.mouseMoved calls reveal).
+/*
+ * A window the control bar can belong to.
+ *
+ * The bar used to be tied to VMWindowController, which is why the second
+ * screen's window had none: its controller is a different class.  But the
+ * only things the bar asks of its window are the machine, the display view
+ * and the window itself, and both controllers have all three.
+ *
+ * Main-actor isolated and declaring `window` itself, rather than inheriting
+ * from NSWindowController: a class-constrained protocol picked up that
+ * class's isolation in a way that left the requirements nonisolated, and
+ * every conformance then warned about crossing into main-actor code.
+ */
+@MainActor protocol VMToolbarHost: AnyObject {
+    var toolbarVM: VirtualMachine? { get }
+    var toolbarDisplay: VMDisplayView? { get }
+    var window: NSWindow? { get }
+}
+
 @MainActor
 final class VMToolbarController: NSObject, NSMenuDelegate {
-    private weak var controller: VMWindowController?
+    private weak var controller: (any VMToolbarHost)?
+    /// 0 for the machine's own window, 1 for the second screen's.  Picture
+    /// settings are per-screen; everything else acts on the machine.
+    private let screen: Int
     private var mouseControl: NSSegmentedControl?
     private var pauseButton: NSButton?
     private let devicesMenu = NSMenu(title: "Devices")
@@ -61,8 +83,9 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
     private var menuOpen = false
     private(set) var shown = false
 
-    init(_ c: VMWindowController) {
+    init(_ c: any VMToolbarHost, screen: Int = 0) {
         controller = c
+        self.screen = screen
         super.init()
         devicesMenu.delegate = self
         keys = keysMenu()
@@ -133,8 +156,8 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
 
     private static let tagScaling = 1, tagFit = 2, tagPanel = 4, tagPerfStyle = 5
 
-    private var vm: VirtualMachine? { controller?.vm }
-    private var display: VMDisplayView? { controller?.display }
+    private var vm: VirtualMachine? { controller?.toolbarVM }
+    private var display: VMDisplayView? { controller?.toolbarDisplay }
 
     /// Clicks on the bar shouldn't leave the keyboard away from the guest.
     private func refocus() {
@@ -154,6 +177,29 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
         seg.refusesFirstResponder = true
         seg.controlSize = .small
         mouseControl = seg
+
+        /*
+         * The second screen's bar carries only what belongs to a screen.
+         *
+         * Everything else in this bar -- power, devices, keys, sleep,
+         * Harmony, the mouse mode -- acts on the machine, and the machine
+         * already has a window with those.  Offering them twice would mean
+         * two controls for one thing.  Picture settings are the exception:
+         * they are per-screen, and until now there was no way to reach the
+         * second screen's at all.
+         */
+        if screen == 1 {
+            bar.setContent([
+                menuButton("camera.filters", "Filters",
+                           "How this screen's picture is drawn on this Mac", filters),
+                OverlayBar.space(),
+                labeledButton("arrow.up.left.and.arrow.down.right", "Full Screen",
+                              "Fill the screen (Control-Option-F)", #selector(fullScreen)),
+            ])
+            bar.alphaValue = 0
+            bar.isHidden = true
+            return
+        }
 
         var items: [NSView] = [
             seg,
@@ -246,14 +292,14 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
 
     @MainActor @objc private func setScaling(_ sender: NSMenuItem) {
         guard let vm, let mode = sender.representedObject as? String else { return }
-        vm.config.scaling = mode
+        vm.config.setScaling(mode, on: screen)
         try? vm.save()
         display?.scaling = mode
     }
 
     @MainActor @objc private func setDisplayFit(_ sender: NSMenuItem) {
         guard let vm, let mode = sender.representedObject as? String else { return }
-        vm.config.displayFit = mode
+        vm.config.setDisplayFit(mode, on: screen)
         try? vm.save()
         display?.displayFit = mode
     }
@@ -266,7 +312,7 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
 
     @MainActor @objc private func setPanelFilter(_ sender: NSMenuItem) {
         guard let vm, let mode = sender.representedObject as? Int else { return }
-        vm.config.panelFilter = mode
+        vm.config.setPanelFilter(mode, on: screen)
         try? vm.save()
         display?.panelFilter = mode
     }
@@ -445,9 +491,9 @@ final class VMToolbarController: NSObject, NSMenuDelegate {
              * worked only while scaling was the one String in the menu, and
              * quietly stopped as soon as Picture added another.
              */
-            let scale = vm?.config.scaling ?? "smooth"
-            let fit = vm?.config.displayFit ?? "fit"
-            let panel = vm?.config.panelFilter ?? 0
+            let scale = vm?.config.scaling(on: screen) ?? "smooth"
+            let fit = vm?.config.displayFit(on: screen) ?? "fit"
+            let panel = vm?.config.panelFilter(on: screen) ?? 0
             for it in menu.items {
                 switch it.tag {
                 case Self.tagScaling:

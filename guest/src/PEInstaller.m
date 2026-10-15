@@ -11,6 +11,7 @@
  */
 #import <Cocoa/Cocoa.h>
 #import <Security/Security.h>
+#import <CoreServices/CoreServices.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -80,6 +81,17 @@ static NSString *InstalledAgentPath(void)
             stringByAppendingPathComponent:AGENT_NAME];
 }
 
+/* Refresh Launch Services' cached bundle metadata before starting an agent.
+ * The preview may change only LSEnvironment while keeping its bundle ID and
+ * version, so path replacement alone is not enough to make launchd/LS use the
+ * new environment. */
+static OSStatus RegisterAgentAtPath(NSString *path)
+{
+    NSURL *url = [NSURL fileURLWithPath:path];
+    if (!url) return paramErr;
+    return LSRegisterURL((CFURLRef)url, true);
+}
+
 /* Login items live in loginwindow's AutoLaunchedApplicationDictionary. */
 static NSMutableArray *LoginItems(void)
 {
@@ -138,6 +150,47 @@ static BOOL InstallAgent(void)
     if (![fm movePath:stage toPath:dst handler:nil]) {
         if(hadOld) [fm movePath:backup toPath:dst handler:nil];
         [[NSWorkspace sharedWorkspace] launchApplication:dst];return NO;
+    }
+    OSStatus registerStatus = RegisterAgentAtPath(dst);
+    if (registerStatus != noErr) {
+        /* Keep the last known-good agent recoverable if LS cannot accept the
+         * replacement's metadata. Do not update loginwindow preferences until
+         * the new bundle has registered successfully. */
+        if (hadOld) {
+            if (![fm movePath:dst toPath:stage handler:nil]) {
+                /* Both complete bundles remain recoverable. Avoid guessing
+                 * which one to launch when LS rejected the replacement. */
+                NSLog(@"Could not stage unregistered replacement; new agent remains at %@ and previous agent remains at %@",
+                      dst, backup);
+                return NO;
+            }
+            if (![fm movePath:backup toPath:dst handler:nil]) {
+                /* Restore the replacement only if its original path is free.
+                 * Keep the previous bundle in backup either way. */
+                if (![fm movePath:stage toPath:dst handler:nil])
+                    NSLog(@"Could not restore either agent; previous agent is at %@, replacement is at %@, and destination is %@",
+                          backup, stage, dst);
+                else
+                    NSLog(@"Could not restore previous agent; it remains at %@ and the unregistered replacement is at %@",
+                          backup, dst);
+                return NO;
+            }
+
+            if ([fm fileExistsAtPath:stage] && ![fm removeFileAtPath:stage handler:nil])
+                NSLog(@"Could not remove rejected replacement at %@; restored agent is at %@",
+                      stage, dst);
+            OSStatus restoreStatus = RegisterAgentAtPath(dst);
+            if (restoreStatus == noErr)
+                [[NSWorkspace sharedWorkspace] launchApplication:dst];
+            else
+                NSLog(@"Could not re-register restored PowerEmu Agent at %@ (%ld); leaving it closed",
+                      dst, (long)restoreStatus);
+        } else {
+            if (![fm removeFileAtPath:dst handler:nil])
+                NSLog(@"Could not remove unregistered PowerEmu Agent at %@", dst);
+        }
+        NSLog(@"Could not register PowerEmu Agent with Launch Services (%ld)", (long)registerStatus);
+        return NO;
     }
     NSMutableArray *items=LoginItemsWithoutAgent();
     [items addObject:[NSDictionary dictionaryWithObjectsAndKeys:dst,@"Path",[NSNumber numberWithBool:YES],@"Hide",nil]];

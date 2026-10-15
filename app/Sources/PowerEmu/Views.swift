@@ -451,14 +451,22 @@ struct MachineDetail: View {
         Form {
             Section {
                 Picker("Startup resolution", selection: startupResolution) {
-                    ForEach(VMConfig.displayModes(for: NSScreen.main), id: \.self) { m in
-                        Text("\(m.label) — \(m.width) × \(m.height)")
-                            .tag("\(m.width)x\(m.height)")
+                    // Every attached screen, not just the main one: the
+                    // display you want to match is often the one you are not
+                    // looking at.  `screenGeneration` is read so the list is
+                    // rebuilt when a monitor is plugged in or changes mode.
+                    let modes = VMConfig.displayModes(for: NSScreen.screens)
+                    let _ = hostScreens.generation
+                    ForEach(modes, id: \.self) { m in
+                        // The label is the whole line; it already carries the
+                        // size, and appending it again read "1680 × 1050 —
+                        // 1680 × 1050".
+                        Text(m.label).tag("\(m.width)x\(m.height)")
                     }
                     // Whatever the machine is set to now, if it is not one of
                     // the offered sizes, so opening this page never silently
                     // changes it.
-                    if !VMConfig.displayModes(for: NSScreen.main)
+                    if !modes
                         .contains(where: { $0.width == vm.config.bootWidth && $0.height == vm.config.bootHeight }) {
                         Text("\(vm.config.bootWidth) × \(vm.config.bootHeight)")
                             .tag("\(vm.config.bootWidth)x\(vm.config.bootHeight)")

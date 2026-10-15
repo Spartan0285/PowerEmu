@@ -717,13 +717,33 @@ final class VMRunner {
          */
         if vm.config.hardwareCursor {
             let bundled = fw.appendingPathComponent("qemu_vga_hwc.ndrv")
-            if let screen = NSScreen.main,
+            /*
+             * Every attached screen gets a reserved mode, up to the two the
+             * driver has room for, with the main one first.  Taking only
+             * NSScreen.main meant Harmony worked on exactly one display and
+             * reported "Harmony display mode is unavailable" on any other.
+             */
+            var wanted: [CGSize] = []
+            for screen in NSScreen.screens.sorted(by: { $0 == NSScreen.main && $1 != NSScreen.main }) {
+                let size = HarmonyDisplayMode.size(screen: screen)
+                if !wanted.contains(size) { wanted.append(size) }
+            }
+            if !wanted.isEmpty,
                let original = try? Data(contentsOf: bundled),
-               let patched = try? HarmonyDisplayMode.driver(original, size: HarmonyDisplayMode.size(screen: screen)) {
+               let patched = try? HarmonyDisplayMode.driver(original, sizes: wanted) {
                 let custom = vm.logsURL.appendingPathComponent("Harmony.ndrv")
                 try patched.write(to: custom, options: .atomic)
                 env["QEMU_PPC_NDRV"] = custom.path
-            } else { env["QEMU_PPC_NDRV"] = bundled.path }
+                // Only the ones the driver has room for are really in it.
+                vm.harmonyReservedSizes = Array(wanted.prefix(2))
+                harmonyDebug("PEHARMONY driver patched with "
+                             + vm.harmonyReservedSizes.map { "\(Int($0.width))x\(Int($0.height))" }
+                                 .joined(separator: ",") + " -> " + custom.path)
+            } else {
+                env["QEMU_PPC_NDRV"] = bundled.path
+                vm.harmonyReservedSizes = []
+                harmonyDebug("PEHARMONY driver NOT patched; guest gets the stock mode list")
+            }
         } else {
             env.removeValue(forKey: "QEMU_PPC_NDRV")
         }

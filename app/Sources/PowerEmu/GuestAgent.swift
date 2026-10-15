@@ -59,6 +59,9 @@ final class GuestAgent: ObservableObject {
     private var acceptSource: DispatchSourceRead?
     private var conn: Connection?
     private var frameConnection: Connection?
+    private var captureConnection: Connection?
+    var hasDirectCaptureChannel: Bool { captureConnection != nil }
+    var preferDirectCaptureRequests = true
     private var frameSession = UUID().uuidString
     private var incoming: [Int32: Connection] = [:]
     private var connectionEpochs: [Int32: UUID] = [:]
@@ -100,6 +103,7 @@ final class GuestAgent: ObservableObject {
         for connection in incoming.values { connection.close() }
         incoming.removeAll(); connectionEpochs.removeAll()
         frameConnection?.close(); frameConnection = nil
+        captureConnection?.close(); captureConnection = nil
         conn?.close()
         conn = nil
         info = nil
@@ -130,8 +134,9 @@ final class GuestAgent: ObservableObject {
                     guard let self, self.connectionEpochs[fd] == epoch else { return }
                     self.connectionEpochs.removeValue(forKey: fd)
                     self.incoming.removeValue(forKey: fd)
-                    if self.conn?.fd == fd { self.conn = nil; self.info = nil; self.onDisconnect?(); self.frameConnection?.close(); self.frameConnection = nil }
+                    if self.conn?.fd == fd { self.conn = nil; self.info = nil; self.onDisconnect?(); self.frameConnection?.close(); self.frameConnection = nil; self.captureConnection?.close(); self.captureConnection = nil }
                     if self.frameConnection?.fd == fd { self.frameConnection = nil }
+                    if self.captureConnection?.fd == fd { self.captureConnection = nil }
                 }
             })
         let accepted = incoming[fd]
@@ -143,17 +148,21 @@ final class GuestAgent: ObservableObject {
 
     private func receive(fd: Int32, verb: String, payload: Data) {
         if conn?.fd == fd { handle(verb, payload); return }
+        if captureConnection?.fd == fd { return }
         if frameConnection?.fd == fd {
             if verb == "WINDOWFRAME" { onWindowFrame?(payload) }
             return
         }
         guard let candidate = incoming.removeValue(forKey: fd) else { return }
-        if verb == "FRAMEHELLO", connected, String(decoding: payload, as: UTF8.self) == frameSession {
+        if verb == "CAPTUREHELLO", connected, ProcessInfo.processInfo.environment["POWEREMU_DIRECT_CAPTURE"] == "1", String(decoding: payload, as: UTF8.self) == frameSession {
+            captureConnection?.close(); captureConnection = candidate
+        } else if verb == "FRAMEHELLO", connected, String(decoding: payload, as: UTF8.self) == frameSession {
             frameConnection?.close()
             frameConnection = candidate
         } else if verb == "HELLO" {
             if conn != nil { info = nil; onDisconnect?() }
             frameConnection?.close(); frameConnection = nil
+            captureConnection?.close(); captureConnection = nil
             conn?.close()
             conn = candidate
             info = nil
@@ -180,7 +189,8 @@ final class GuestAgent: ObservableObject {
     }
 
     func send(_ verb: String, _ payload: Data = Data()) {
-        conn?.send(verb, payload)
+        if verb == "WINDOWFRAME", preferDirectCaptureRequests, let captureConnection { captureConnection.send(verb, payload) }
+        else { conn?.send(verb, payload) }
     }
 
     private func handle(_ verb: String, _ payload: Data) {

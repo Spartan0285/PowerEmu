@@ -28,9 +28,12 @@ final class SecondScreenController: NSWindowController, NSWindowDelegate {
 
     let display: VMDisplayView
     private let key: URL
+    private weak var machine: VirtualMachine?
+    private var toolbar: VMToolbarController?
 
     init(vm: VirtualMachine, channel: DisplayChannel) {
         key = vm.url
+        machine = vm
         display = VMDisplayView(channel: channel)
         let w = VMWindow(contentRect: NSRect(x: 0, y: 0, width: 1280, height: 1024),
                          styleMask: [.titled, .closable, .miniaturizable, .resizable],
@@ -51,6 +54,19 @@ final class SecondScreenController: NSWindowController, NSWindowDelegate {
             }
         }
         Self.configure(display, for: vm)
+        /*
+         * A control bar of its own, carrying only the picture settings.
+         *
+         * The window deliberately has no machine controls -- see the note at
+         * the top -- but Scaling, Picture and the display filter belong to a
+         * screen rather than to the machine, and this screen had no way to
+         * reach them.  Judging them by eye is the whole point of having them
+         * in the bar, and a second display is often a quite different panel
+         * from the first.
+         */
+        toolbar = VMToolbarController(self, screen: 1)
+        display.controls = toolbar
+        if let toolbar { display.addSubview(toolbar.bar) }
         /* The guest screen's shape, for sizing and placing this window. */
         let size = display.guestSize
         w.contentAspectRatio = size
@@ -111,9 +127,9 @@ final class SecondScreenController: NSWindowController, NSWindowDelegate {
         display.qemuPID = { [weak vm] in
             MainActor.assumeIsolated { vm?.qemuPID }
         }
-        display.scaling = vm.config.scaling
-        display.panelFilter = vm.config.panelFilter
-        display.displayFit = vm.config.displayFit
+        display.scaling = vm.config.scaling(on: 1)
+        display.panelFilter = vm.config.panelFilter(on: 1)
+        display.displayFit = vm.config.displayFit(on: 1)
         display.setGuestSize(CGSize(width: max(640, vm.config.display2Width),
                                     height: max(480, vm.config.display2Height)))
     }
@@ -132,6 +148,9 @@ final class SecondScreenController: NSWindowController, NSWindowDelegate {
     private var wasFullScreenForHarmony = false
 
     func hideForHarmony() {
+        // This view may own an NSCursor.hide from relative mouse capture.
+        // Balance it before hiding, including while fullscreen animates out.
+        display.releaseAll()
         guard let w = window else { return }
         if w.styleMask.contains(.fullScreen) {
             wasFullScreenForHarmony = true
@@ -184,4 +203,11 @@ final class SecondScreenController: NSWindowController, NSWindowDelegate {
         display.releaseAll()
         Self.open.removeValue(forKey: key)
     }
+
+    func windowDidResignKey(_ note: Notification) { display.releaseAll() }
+}
+
+extension SecondScreenController: VMToolbarHost {
+    var toolbarVM: VirtualMachine? { machine }
+    var toolbarDisplay: VMDisplayView? { display }
 }

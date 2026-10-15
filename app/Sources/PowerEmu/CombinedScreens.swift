@@ -47,6 +47,7 @@ final class CombinedScreensView: NSView {
     var showsSecond = true {
         didSet {
             guard showsSecond != oldValue else { return }
+            if !showsSecond { second.releaseAll() }
             second.isHidden = !showsSecond
             divider.isHidden = !showsSecond
             needsLayout = true

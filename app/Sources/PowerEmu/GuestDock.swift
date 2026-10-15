@@ -1,20 +1,8 @@
 import AppKit
 
-/*
- * The guest's applications in this Mac's Dock.
- *
- * This Mac gives one Dock tile to one running process, so a guest application
- * cannot have a tile of its own unless something of its own is running here to
- * hold it.  Each one therefore gets a small application built for it on the
- * spot -- its name, its icon, and nothing else -- which does no more than sit
- * in the Dock and say when it has been clicked.  Clicking it brings the real
- * application forward in the guest; quitting it quits the real one.
- *
- * The bundles are built in this Mac's caches, keyed by the application's name,
- * and the executable inside each is the same small helper copied from
- * PowerEmu's own bundle.  They are torn down when the guest application quits
- * and when Harmony is switched off.
- */
+/// Each guest app gets an unchanged signed executable in its own session/pid
+/// directory. Runtime names and icons brand the Dock tile without invalidating
+/// the helper's signature or requiring a signing identity on the user's Mac.
 @MainActor
 final class GuestDock {
     /// Bring a guest application to the front, or quit it.
@@ -28,11 +16,11 @@ final class GuestDock {
     private struct Tile {
         let pid: Int
         let name: String
-        var bundle: URL
-        var process: NSRunningApplication?
+        let directory: URL
         /// The helper itself, when it was started directly.
         var child: Process?
         var hasIcon = false
+        var launchFailed = false
     }
     private var tiles: [Int: Tile] = [:]
     /*
@@ -60,6 +48,15 @@ final class GuestDock {
     private static let root = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
         .appendingPathComponent("PowerEmu/GuestApps", isDirectory: true)
 
+    private let storageRoot: URL
+    private let suppliedHelper: URL?
+    init(storageRoot: URL? = nil, helperBinary: URL? = nil) {
+        self.storageRoot = storageRoot ?? Self.root
+        self.suppliedHelper = helperBinary
+    }
+    private var helper: URL? { suppliedHelper ?? Self.helperBinary }
+    private var sessionRoot: URL { storageRoot.appendingPathComponent(session, isDirectory: true) }
+
     /// The helper that holds a tile, inside PowerEmu's own bundle.
     private static var helperBinary: URL? {
         // Contents/Helpers, which is not where Bundle looks for a resource.
@@ -73,17 +70,21 @@ final class GuestDock {
     func start() {
         guard !running else { return }
         running = true
-        observeFileDrops()
         reapStrays()
-        /*
-         * Keep the tiles standing.  Starting one is not reliably a single
-         * event -- LaunchServices refuses a bundle it has only just been
-         * handed while it is busy with the last one -- and the guest's list of
-         * applications does not arrive often enough to lean on for retries.
-         */
+        do {
+            try FileManager.default.createDirectory(at: sessionRoot, withIntermediateDirectories: true)
+            try Data(String(ProcessInfo.processInfo.processIdentifier).utf8)
+                .write(to: sessionRoot.appendingPathComponent("owner-pid"), options: .atomic)
+        } catch {
+            running = false
+            harmonyDebug("PEDOCK could not create session storage: \(error.localizedDescription)")
+            return
+        }
+        // Observe exits without repeatedly launching an app macOS rejected.
         keeper = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.ensureRunning() }
         }
+        observeFileDrops()
         let c = DistributedNotificationCenter.default()
         observers.append(c.addObserver(forName: .init("com.spartan0285.poweremu.guestapp.clicked"),
                                        object: nil, queue: .main) { [weak self] n in
@@ -129,18 +130,24 @@ final class GuestDock {
      * which nothing else has any reason to put there.
      */
     private func reapStrays() {
-        let root = Self.root.standardizedFileURL.path
-        var found = 0
-        for app in NSWorkspace.shared.runningApplications {
-            guard let u = app.bundleURL?.standardizedFileURL.path,
-                  u.hasPrefix(root + "/") else { continue }
-            app.forceTerminate()
-            found += 1
+        let fm = FileManager.default
+        let entries = (try? fm.contentsOfDirectory(at: storageRoot, includingPropertiesForKeys: nil)) ?? []
+        for entry in entries {
+            let marker = entry.appendingPathComponent("owner-pid")
+            if let data = try? Data(contentsOf: marker),
+               let text = String(data: data, encoding: .utf8), let owner = Int32(text), owner > 0 {
+                // Other running VMs own their own representatives. Never reap
+                // them or their files when another Harmony session starts.
+                if Darwin.kill(owner, 0) == 0 || errno != ESRCH { continue }
+            } else if entry.pathExtension != "app" {
+                continue // Unknown cache contents are not ours to remove.
+            }
+            for app in NSWorkspace.shared.runningApplications {
+                let path = app.executableURL?.standardizedFileURL.path ?? app.bundleURL?.standardizedFileURL.path ?? ""
+                if path.hasPrefix(entry.standardizedFileURL.path + "/") { app.forceTerminate() }
+            }
+            try? fm.removeItem(at: entry)
         }
-        if found > 0 { harmonyDebug("PEDOCK reaped \(found) tile(s) from a previous run") }
-        // Their bundles are named after guest process ids, which mean nothing
-        // once that virtual Mac has restarted.
-        try? FileManager.default.removeItem(at: Self.root)
     }
 
     func stop() {
@@ -150,12 +157,13 @@ final class GuestDock {
         observers = []
         for (pid, _) in tiles { remove(pid) }
         tiles = [:]
+        try? FileManager.default.removeItem(at: sessionRoot)
     }
 
     /// The guest's running applications, as the tools report them.
     func setApps(_ apps: [(pid: Int, name: String)]) {
         guard running else { return }
-        guard Self.helperBinary != nil else {
+        guard helper != nil else {
             harmonyDebug("PEDOCK no helper binary in the bundle")
             return
         }
@@ -211,18 +219,39 @@ final class GuestDock {
     func setIcon(pid: Int, png: Data) {
         harmonyDebug("PEDOCK icon for \(pid): \(png.count) bytes")
         guard var t = tiles[pid], !t.hasIcon else { return }
-        let icons = t.bundle.appendingPathComponent("Contents/Resources", isDirectory: true)
-        try? FileManager.default.createDirectory(at: icons, withIntermediateDirectories: true)
-        guard let img = NSImage(data: png), let icns = Self.icns(from: img) else { return }
-        try? icns.write(to: icons.appendingPathComponent("app.icns"))
+        guard let image = NSImage(data: png), image.isValid else { return }
+        do { try png.write(to: t.directory.appendingPathComponent("icon.png"), options: .atomic) }
+        catch { harmonyDebug("PEDOCK icon write failed: \(error.localizedDescription)"); return }
         t.hasIcon = true
         tiles[pid] = t
-        // The bundle is complete now, so it can be sealed; the icon has to be
-        // in place first because the signature covers it.
-        seal(t.bundle)
-        // The Dock reads the icon when the application starts, so it is only
-        // launched once the icon is there to read.
+        // Only data changes. The Developer ID–signed executable stays intact.
+
         launch(pid)
+    }
+
+    /// Add a durable Dock-capable copy of the trusted helper. The executable
+    /// remains byte-for-byte identical; its adjacent launcher plist and icon
+    /// are ordinary user data, never part of a signed bundle.
+    func installPersistentLauncher(vmPackageURL: URL, appPath: String, name: String,
+                                   runningGuestPID: Int) throws -> URL {
+        guard (Bundle.main.object(forInfoDictionaryKey: "PEGuestLauncherVersion") as? NSNumber)?.intValue == 1 else {
+            throw GuestAppLaunchRequest.InstallError.unsupportedHelper
+        }
+        guard let helper else { throw GuestAppLaunchRequest.InstallError.missingHelper }
+        let request = try GuestAppLaunchRequest(vmPackageURL: vmPackageURL,
+                                               guestApplicationPath: appPath)
+        let iconURL = tiles[runningGuestPID]?.directory.appendingPathComponent("icon.png")
+        let iconData = iconURL.flatMap { try? Data(contentsOf: $0) }
+        let executable = try request.install(helperBinary: helper, displayName: name, iconData: iconData)
+        let process = Process()
+        process.executableURL = executable
+        var environment = ProcessInfo.processInfo.environment
+        for key in ["PE_DOCK_GUEST_PID", "PE_DOCK_SESSION", "PE_DOCK_NAME", "PE_DOCK_ICON",
+                    "PEGuestPID", "PESession"] { environment.removeValue(forKey: key) }
+        environment["PE_DOCK_INSTALL_ONLY"] = "1"
+        process.environment = environment
+        try process.run()
+        return executable
     }
 
     /// Every tile that has an icon should have a helper holding it.
@@ -231,172 +260,69 @@ final class GuestDock {
         harmonyDebug("PEDOCK keep: " + tiles.map {
             "\($0.value.name)[icon=\($0.value.hasIcon ? 1 : 0),run=\($0.value.child?.isRunning == true ? 1 : 0)]"
         }.joined(separator: " "))
-        for (pid, t) in tiles where t.hasIcon {
-            if (t.child?.isRunning ?? false) { continue }
-            if t.process == nil || t.process?.isTerminated == true {
-                var again = t
-                again.process = nil
-                tiles[pid] = again
-                launch(pid)
+        for (pid, t) in tiles where t.hasIcon && !t.launchFailed {
+            if let child = t.child, !child.isRunning, child.terminationStatus != 0 {
+                var failed = t; failed.launchFailed = true; tiles[pid] = failed
+                harmonyDebug("PEDOCK \(t.name) exited with status \(child.terminationStatus); automatic relaunch disabled")
+                continue
             }
+            if (t.child?.isRunning ?? false) { continue }
+            launch(pid)
         }
     }
 
     // MARK: building one
 
     private func add(pid: Int, name: String) {
+        guard let helper = helper else { return }
+        let directory = sessionRoot.appendingPathComponent(String(pid), isDirectory: true)
         let safe = name.replacingOccurrences(of: "/", with: "-")
-        let bundle = Self.root.appendingPathComponent("\(safe).app", isDirectory: true)
-        guard let helper = Self.helperBinary else { return }
-        let macos = bundle.appendingPathComponent("Contents/MacOS", isDirectory: true)
-        let fm = FileManager.default
-        try? fm.createDirectory(at: macos, withIntermediateDirectories: true)
-        /*
-         * The executable is named after the application it stands for.  With
-         * every bundle carrying an identically named unsigned binary, this Mac
-         * took the second one for the first already running: it reported no
-         * error, started nothing, and only one application ever got a tile.
-         */
-        let exeName = "PowerEmuGuestApp-\(safe)"
-        let exe = macos.appendingPathComponent(exeName)
-        if !fm.fileExists(atPath: exe.path) {
-            try? fm.copyItem(at: helper, to: exe)
-        }
-        let plist: [String: Any] = [
-            "CFBundleExecutable": exeName,
-            "CFBundleIdentifier": "com.spartan0285.poweremu.guestapp.\(Self.stableID(safe))",
-            "CFBundleName": name,
-            "CFBundleDisplayName": name,
-            "CFBundlePackageType": "APPL",
-            "CFBundleIconFile": "app",
-            "CFBundleShortVersionString": "1.0",
-            "LSMinimumSystemVersion": "12.0",
-            // The pid is how the helper says which guest application it stands for.
-            "PEGuestPID": String(pid),
-            "PESession": session,
-            "CFBundleDocumentTypes": [["CFBundleTypeName": "Files", "CFBundleTypeRole": "Viewer", "LSItemContentTypes": ["public.item"], "CFBundleTypeExtensions": ["*"]]],
-        ]
-        if let data = try? PropertyListSerialization.data(fromPropertyList: plist,
-                                                          format: .xml, options: 0) {
-            try? data.write(to: bundle.appendingPathComponent("Contents/Info.plist"))
-        }
-        tiles[pid] = Tile(pid: pid, name: name, bundle: bundle)
-        harmonyDebug("PEDOCK built \(name) at \(bundle.path)")
-        wantIcon?(pid)          // launched once its icon has arrived
-    }
-
-    /*
-     * Sign the bundle this run just built.
-     *
-     * The helper is copied out of PowerEmu, where it is signed in its own
-     * right, and a signature made for one place does not describe another: the
-     * copy lands in a bundle whose sealed resources are not the ones the
-     * signature names, and this Mac reads that as a broken application --
-     * "\u{201C}System Preferences\u{201D} is damaged and can't be opened", once for every
-     * time the keeper tried to start it.
-     *
-     * Signing the finished bundle, icon and all, is what makes it a real
-     * application rather than a copy of part of one.  Ad hoc is enough: it
-     * never leaves this Mac, and nothing is being vouched for except that the
-     * bundle is internally consistent.
-     */
-    private func seal(_ bundle: URL) {
-        let sign = Process()
-        sign.executableURL = URL(fileURLWithPath: "/usr/bin/codesign")
-        sign.arguments = ["--force", "--sign", "-", bundle.path]
-        sign.standardOutput = FileHandle.nullDevice
-        let errors = Pipe()
-        sign.standardError = errors
+        let executableName = safe.isEmpty || safe == "." || safe == ".." ? "Guest Application" : safe
         do {
-            try sign.run()
-            sign.waitUntilExit()
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            // This is a standalone executable, never a mutable .app bundle.
+            // Keep its original signature, including Developer ID and runtime
+            // protections. Names/icons/session routing are runtime data.
+            try FileManager.default.copyItem(at: helper, to: directory.appendingPathComponent(executableName))
         } catch {
-            harmonyDebug("PEDOCK could not run codesign: \(error.localizedDescription)")
+            harmonyDebug("PEDOCK could not prepare \(name): \(error.localizedDescription)")
             return
         }
-        if sign.terminationStatus != 0 {
-            let said = String(decoding: errors.fileHandleForReading.readDataToEndOfFile(),
-                              as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
-            harmonyDebug("PEDOCK signing \(bundle.lastPathComponent) failed: \(said)")
-        }
+        tiles[pid] = Tile(pid: pid, name: name, directory: directory)
+        harmonyDebug("PEDOCK built trusted representative \(name) at \(directory.path)")
+        wantIcon?(pid)
     }
 
     private func launch(_ pid: Int) {
-        guard let t = tiles[pid], t.process == nil else { return }
+        guard let t = tiles[pid], !t.launchFailed else { return }
         if let when = lastLaunch[pid], Date().timeIntervalSince(when) < 3 { return }
         lastLaunch[pid] = Date()
-        harmonyDebug("PEDOCK starting \(t.name)")
-        /*
-         * Run the helper itself rather than asking this Mac to open the bundle.
-         *
-         * Asking it to open them started the first and quietly did nothing for
-         * the rest -- no error, nothing running -- however distinct their
-         * identifiers and executables were made; it had decided they were all
-         * the same application.  A binary inside a bundle still takes its name
-         * and icon from that bundle when it runs, so it gets its Dock tile
-         * either way, and starting it directly leaves no room for that
-         * argument.
-         */
-        let exe = t.bundle.appendingPathComponent("Contents/MacOS")
-            .appendingPathComponent(t.bundle.deletingPathExtension().lastPathComponent
-                                    .replacingOccurrences(of: " ", with: " "))
-        let real = (try? FileManager.default.contentsOfDirectory(
-            at: t.bundle.appendingPathComponent("Contents/MacOS"),
-            includingPropertiesForKeys: nil).first) ?? exe
         let p = Process()
-        p.executableURL = real
-        do {
-            try p.run()
-        } catch {
-            harmonyDebug("PEDOCK \(t.name) would not start: \(error.localizedDescription)")
+        let safe = t.name.replacingOccurrences(of: "/", with: "-")
+        let executableName = safe.isEmpty || safe == "." || safe == ".." ? "Guest Application" : safe
+        p.executableURL = t.directory.appendingPathComponent(executableName)
+        p.environment = ProcessInfo.processInfo.environment.merging([
+            "PE_DOCK_GUEST_PID": String(pid), "PE_DOCK_SESSION": session,
+            "PE_DOCK_NAME": t.name, "PE_DOCK_ICON": t.directory.appendingPathComponent("icon.png").path
+        ]) { _, new in new }
+        do { try p.run() }
+        catch {
+            var failed = t; failed.launchFailed = true; tiles[pid] = failed
+            harmonyDebug("PEDOCK \(t.name) would not start; automatic relaunch disabled: \(error.localizedDescription)")
             return
         }
-        var have = t
-        have.child = p
-        tiles[pid] = have
+        var have = t; have.child = p; tiles[pid] = have
     }
 
     private func remove(_ pid: Int) {
         guard let t = tiles[pid] else { return }
         // This tears down only our representative after the guest exits (or
         // Harmony ends); asking it to Quit would send another guest request.
-        t.process?.forceTerminate()
         t.child?.terminate()
+        try? FileManager.default.removeItem(at: t.directory)
         tiles[pid] = nil
         lastLaunch[pid] = nil
         lastSeen[pid] = nil
     }
 
-    /*
-     * A bundle identifier that is the same every run.
-     *
-     * Swift seeds hashValue differently in each process, so building the
-     * identifier from it gave the same guest application a different one
-     * every time PowerEmu started.  This Mac keeps a registration per
-     * identifier, so each run added another entry for the same path and the
-     * old ones stayed behind pointing at a bundle that had been rewritten.
-     */
-    private static func stableID(_ name: String) -> String {
-        var h: UInt64 = 0xcbf29ce484222325          // FNV-1a
-        for b in name.utf8 {
-            h = (h ^ UInt64(b)) &* 0x100000001b3
-        }
-        return String(h, radix: 36)
-    }
-
-    /// An .icns holding the one size the Dock needs.
-    private static func icns(from image: NSImage) -> Data? {
-        guard let tiff = image.tiffRepresentation,
-              let rep = NSBitmapImageRep(data: tiff),
-              let png = rep.representation(using: .png, properties: [:]) else { return nil }
-        var out = Data("icns".utf8)
-        var body = Data("ic07".utf8)            // 128x128 PNG
-        var len = UInt32(png.count + 8).bigEndian
-        withUnsafeBytes(of: &len) { body.append(contentsOf: $0) }
-        body.append(png)
-        var total = UInt32(body.count + 8).bigEndian
-        withUnsafeBytes(of: &total) { out.append(contentsOf: $0) }
-        out.append(body)
-        return out
-    }
 }

@@ -48,10 +48,12 @@ cp "$BIN" "$OUT/Contents/MacOS/PowerEmu"
 ditto "$HELPER_STAGE" "$OUT/Contents/Helpers/PowerEmu VM.app"
 # The network helper: the only piece that ever runs as an administrator,
 # and it does nothing but carry ethernet frames for a bridged virtual Mac.
-# One guest application's place in this Mac's Dock: PowerEmu copies this into
-# a small bundle of its own for each application the guest is running.
+# Trusted standalone helper for transient and persistent guest-app Dock tiles.
+# Copies stay outside mutable app bundles and preserve these signed bytes.
 xcrun swiftc -O -target arm64-apple-macos12.0 \
-    "$ROOT/helper/main.swift" -o "$OUT/Contents/Helpers/PowerEmuGuestApp"
+    "$ROOT/helper/main.swift" -o "$OUT/Contents/Helpers/PowerEmuGuestApp" \
+    -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist \
+    -Xlinker "$ROOT/helper/Info.plist"
 
 cc -O2 -Wall -o "$OUT/Contents/Helpers/poweremu-netd" "$ROOT/helper/poweremu-netd.c" \
    -framework vmnet -framework Foundation
@@ -113,12 +115,25 @@ cat > "$OUT/Contents/Info.plist" <<EOF
 	<string>$BUILD_NUMBER</string>
 	<key>PEBuildStage</key>
 	<string>$STAGE</string>
+	<key>PEGuestLauncherVersion</key>
+	<integer>1</integer>
 	<key>PERadeon9800Experiment</key>
 	<$([ "$R350_EXPERIMENT" = 1 ] && echo true || echo false)/>
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.spartan0285.poweremu.guest-app</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>poweremu</string>
+			</array>
+		</dict>
+	</array>
 	<!-- So "Open With > PowerEmu" exists in this Mac's Finder, and so a file
 	     can be dropped on PowerEmu's Dock tile: the file is handed to the
 	     running virtual Mac and opened by one of its applications.  Viewer

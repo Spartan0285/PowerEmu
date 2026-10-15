@@ -27,6 +27,12 @@
 #import <Cocoa/Cocoa.h>
 #import <Carbon/Carbon.h>
 #include "PEPixelPack.h"
+#include "PECaptureRequest.h"
+#include "PEFocusAsyncState.h"
+#include "PEMenuItemsAsyncState.h"
+#include "PEMinWindowsAsyncState.h"
+#include "PEHarmonyStallTrace.h"
+static PEHarmonyStallTrace peHarmonyStallTrace;
 
 /*
  * Private CoreGraphics window-server calls (there is no public window list
@@ -83,6 +89,70 @@ extern CGError CGSConnectionGetPID(CGSConnectionID cid, pid_t *pid, CGSConnectio
 #include <dlfcn.h>
 #include <zlib.h>
 #include <limits.h>
+#include <libkern/OSAtomic.h>
+
+static int32_t peCaptureRefreshEpoch;
+static BOOL peCaptureRefreshRegistered;
+static void PECaptureRefresh(CGRectCount count, const CGRect *rects, void *context);
+static void PESetCaptureRefresh(BOOL on)
+{
+    if(on && !peCaptureRefreshRegistered) { CGRegisterScreenRefreshCallback(PECaptureRefresh,NULL);peCaptureRefreshRegistered=YES; }
+    else if(!on && peCaptureRefreshRegistered) { CGUnregisterScreenRefreshCallback(PECaptureRefresh,NULL);peCaptureRefreshRegistered=NO; }
+}
+static void PECaptureRefresh(CGRectCount count, const CGRect *rects, void *context)
+{
+    OSAtomicIncrement32Barrier(&peCaptureRefreshEpoch);
+}
+static int PECaptureRefreshSeed(int cid, int wid, unsigned *seed)
+{
+    *seed = (unsigned)OSAtomicAdd32Barrier(0, &peCaptureRefreshEpoch);
+    return *seed ? 0 : kCGErrorFailure;
+}
+static BOOL PECaptureFullyVisible(int cid, int wid, CGRect rect)
+{
+    CGDirectDisplayID displays[16]; CGDisplayCount ndisplays=0;
+    BOOL contained=NO;
+    if(CGGetActiveDisplayList(16,displays,&ndisplays)!=0)return NO;
+    unsigned d;
+    for(d=0;d<ndisplays;d++) if(CGRectContainsRect(CGDisplayBounds(displays[d]),rect))contained=YES;
+    if(!contained)return NO;
+    int list[512],count=0,i;
+    if(CGSGetOnScreenWindowList(cid,0,512,list,&count)!=0 || count>=512)return NO;
+    int targetLevel=0;
+    BOOL found=NO;
+    if(CGSGetWindowLevel(cid,wid,&targetLevel)!=0 || targetLevel<0)return NO;
+    // Tiger groups this list by connection: it is not a global z-order.
+    // Conservatively reject every intersecting peer at the same/higher
+    // level, even when it may actually be behind the target window.
+    for(i=0;i<count;i++) {
+        if(list[i]==wid) { found=YES;continue; }
+        int level=0;
+        if(CGSGetWindowLevel(cid,list[i],&level)!=0)return NO;
+        if(level<targetLevel)continue;
+        CGRect above;
+        if(CGSGetScreenRectForWindow(cid,list[i],&above)!=0)return NO;
+        if(CGRectIntersectsRect(rect,above))return NO;
+    }
+    return found;
+}
+
+static BOOL PEFocusAsyncEnabled(void)
+{
+    const char *setting=getenv("PE_FOCUS_ASYNC");
+    return setting && strcmp(setting,"1")==0;
+}
+
+static BOOL PEMenuItemsAsyncEnabled(void)
+{
+    const char *setting=getenv("PE_MENU_ITEMS_ASYNC");
+    return setting && strcmp(setting,"1")==0;
+}
+
+static BOOL PEHarmonyAXAsyncEnabled(void)
+{
+    const char *setting=getenv("PE_HARMONY_AX_ASYNC");
+    return setting && strcmp(setting,"1")==0;
+}
 
 #include "PEFullscreenState.h"
 #include "PEAccessibility.h"
@@ -165,7 +235,24 @@ static int AgentPort(void)
     PEFullscreenState fullscreenState;
     BOOL deferredHarmonyExit;
     int focusRequestSequence;
+    NSConditionLock *focusCondition;
+    PEFocusAsyncState focusState;
+    BOOL focusWorkerStarted;
+    NSConditionLock *menuCondition;
+    PEMenuAsyncState menuState;
+    NSArray *menuPendingJob;
+    BOOL menuWorkerStarted;
+    NSConditionLock *menuItemsCondition;
+    PEMenuItemsState menuItemsState;
+    BOOL menuItemsWorkerStarted;
+    NSConditionLock *minWindowsCondition;
+    PEMinWindowsState minWindowsState;
+    BOOL minWindowsWorkerStarted;
+    pid_t menuAttemptedPID;
+    CFAbsoluteTime menuAttemptedAt;
     NSLock *captureLock;
+    NSConditionLock *captureJobs;
+    NSArray *captureJob;
     int frameSock;
     NSString *controlFrameSession;
     NSString *workerFrameSession;
@@ -176,6 +263,7 @@ static int AgentPort(void)
     NSMutableData *captureScratch;
     CGContextRef captureContext;
     BOOL captureScratchReusable;
+    int32_t captureVisibleMode;
     NSFileHandle *handle;
     NSMutableData *inbox;
     int lastChangeCount;        /* pasteboard change we have dealt with */
@@ -187,6 +275,7 @@ static int AgentPort(void)
     BOOL finderHadDesktopKey;
     BOOL finderDrewDesktop;
     NSTimer *windowTimer;
+    BOOL nativeReport12;
     NSString *savedMinEffect;
     int windowReportTick;       /* reports window rectangles while Harmony is on */
     int sheetReportTick;
@@ -202,6 +291,23 @@ static int AgentPort(void)
 - (void)armFileDrag:(NSString *)spec;
 - (void)reportFocused;
 - (void)confirmFocus:(NSArray *)request;
+- (void)focusWorkerLoop:(id)unused;
+- (void)runAsyncFocusJob:(NSData *)boxedJob;
+- (void)snapshotAsyncFocusFrontProcess:(NSMutableArray *)snapshot;
+- (void)applyAsyncFocusActivation:(NSMutableArray *)activation;
+- (void)finishAsyncFocus:(NSMutableArray *)completion;
+- (void)enqueueAsyncFocusWindow:(int)wid sequence:(int)sequence;
+- (BOOL)isAsyncFocusJobCurrent:(PEFocusAsyncJob)job;
+- (void)enqueueAsyncMenuBarForPID:(pid_t)pid session:(unsigned)session epoch:(unsigned)epoch;
+- (void)menuWorkerLoop:(id)unused;
+- (void)readAsyncMenuBar:(NSArray *)request;
+- (void)publishAsyncMenuBar:(NSArray *)result;
+- (NSString *)menuBarPayloadForPID:(pid_t)pid name:(NSString *)name;
+- (void)queueCapture:(NSArray *)job;
+- (void)captureLoop:(id)unused;
+- (void)captureRequestLoop:(NSString *)session;
+- (void)readCaptureRequests:(NSArray *)context;
+- (void)captureWorker:(NSArray *)job;
 - (void)sheetWorker:(NSNumber *)epoch;
 - (void)sheetResult:(NSArray *)result;
 - (void)connect;
@@ -232,7 +338,41 @@ static int AgentPort(void)
 - (void)sendAppIcon:(NSString *)pidStr;
 - (BOOL)reportMenuBarFor:(pid_t)pid;
 - (void)reportMenuItems:(NSString *)args;
+- (BOOL)enqueueAsyncMenuItems:(NSString *)args;
+- (void)menuItemsWorkerLoop:(id)unused;
+- (void)enqueueAsyncMinWindows:(const int *)pids count:(unsigned)count;
+- (void)invalidateAsyncMinWindows;
+- (void)refreshAsyncMinWindowsContext;
+- (void)minWindowsWorkerLoop:(id)unused;
+- (void)publishAsyncMinWindows:(NSArray *)result;
+- (void)appendMinWindowsForPID:(int)pid to:(NSMutableString *)mins;
+- (void)validateAsyncMenuItemsBeforeRead:(NSMutableArray *)gate;
+- (void)readAsyncMenuItems:(NSData *)boxedJob;
+- (void)publishAsyncMenuItems:(NSArray *)result;
+- (void)invalidateAsyncMenuItems;
 - (void)pickMenuItem:(NSString *)args;
+@end
+
+/* A focus job owns its exact AX element from lookup through all focus retries.
+ * Replacing/canceling the request drops the lease only after executing AX IPC
+ * returns; Accessibility has no cancellation primitive for an in-flight call. */
+@interface PEFocusTargetLease : NSObject {
+@public
+    AXUIElementRef target;
+    pid_t pid;
+    int wid;
+    CGRect rect;
+    PEFocusAsyncJob job;
+}
+- (id)initWithTarget:(AXUIElementRef)value pid:(pid_t)owner rect:(CGRect)bounds job:(PEFocusAsyncJob)request;
+@end
+@implementation PEFocusTargetLease
+- (id)initWithTarget:(AXUIElementRef)value pid:(pid_t)owner rect:(CGRect)bounds job:(PEFocusAsyncJob)request
+{
+    if ((self=[super init])) { target=(AXUIElementRef)CFRetain(value); pid=owner; wid=request.wid; rect=bounds; job=request; }
+    return self;
+}
+- (void)dealloc { if(target)CFRelease(target); [super dealloc]; }
 @end
 
 
@@ -247,58 +387,119 @@ static int AgentPort(void)
  */
 #include "PESheets.inc"
 
-static AXUIElementRef PEFindAXWindow(CGRect rect, pid_t *ownerOut)
+typedef struct {
+    unsigned processesVisited;
+    unsigned axWindowsVisited;
+} PEAXLookupStats;
+
+static AXUIElementRef PEFindAXWindowInProcess(CGRect rect, ProcessSerialNumber psn,
+                                               pid_t pid, pid_t *ownerOut,
+                                               PEAXLookupStats *stats)
+{
+    ProcessInfoRec info;
+    CFArrayRef windows = NULL;
+    AXUIElementRef app;
+    memset(&info, 0, sizeof(info)); info.processInfoLength = sizeof(info);
+    if (GetProcessInformation(&psn, &info) != noErr ||
+        (info.processMode & modeOnlyBackground)) return NULL;
+    if (stats) stats->processesVisited++;
+    app = AXUIElementCreateApplication(pid);
+    if (!app) return NULL;
+    if (AXUIElementCopyAttributeValue(app, kAXWindowsAttribute,
+                                      (CFTypeRef *)&windows) == kAXErrorSuccess && windows) {
+        NSMutableArray *all = [NSMutableArray arrayWithArray:(NSArray *)windows];
+        CFIndex i, roots = [all count];
+        for (i = 0; i < roots; i++) PEAppendSheets((AXUIElementRef)[all objectAtIndex:i], all, 0);
+        CFIndex n = [all count];
+        for (i = 0; i < n; i++) {
+            AXUIElementRef w = (AXUIElementRef)[all objectAtIndex:i];
+            CFTypeRef posRef = NULL, sizeRef = NULL;
+            CGPoint p; CGSize sz;
+            if (stats) stats->axWindowsVisited++;
+            if (AXUIElementCopyAttributeValue(w, kAXPositionAttribute, &posRef) != kAXErrorSuccess)
+                continue;
+            if (AXUIElementCopyAttributeValue(w, kAXSizeAttribute, &sizeRef) != kAXErrorSuccess) {
+                CFRelease(posRef);
+                continue;
+            }
+            AXValueGetValue((AXValueRef)posRef, kAXValueCGPointType, &p);
+            AXValueGetValue((AXValueRef)sizeRef, kAXValueCGSizeType, &sz);
+            CFRelease(posRef); CFRelease(sizeRef);
+            if (fabs(p.x - rect.origin.x) <= 4 &&
+                fabs(p.y - rect.origin.y) <= 4 && fabs(sz.width - rect.size.width) <= 4 &&
+                fabs(sz.height - rect.size.height) <= 4) {
+                CFRetain(w); CFRelease(windows); CFRelease(app);
+                if (ownerOut) *ownerOut = pid;
+                return w;
+            }
+        }
+        CFRelease(windows);
+    }
+    CFRelease(app);
+    return NULL;
+}
+
+static AXUIElementRef PEFindAXWindowWithStats(CGRect rect, pid_t *ownerOut,
+                                               PEAXLookupStats *stats)
 {
     ProcessSerialNumber psn = { 0, kNoProcess };
     if (!AXAPIEnabled()) {
         return NULL;
     }
+    if (stats) memset(stats, 0, sizeof(*stats));
     while (GetNextProcess(&psn) == noErr) {
-        ProcessInfoRec info;
         pid_t pid = 0;
-        CFArrayRef windows = NULL;
-        AXUIElementRef app;
-        memset(&info, 0, sizeof(info));
-        info.processInfoLength = sizeof(info);
-        if (GetProcessInformation(&psn, &info) != noErr) continue;
-        if (info.processMode & modeOnlyBackground) continue;
+        if (stats) stats->processesVisited++;
         if (GetProcessPID(&psn, &pid) != noErr || pid <= 0) continue;
-        app = AXUIElementCreateApplication(pid);
-        if (!app) continue;
-        if (AXUIElementCopyAttributeValue(app, kAXWindowsAttribute,
-                                          (CFTypeRef *)&windows) == kAXErrorSuccess && windows) {
-            NSMutableArray *all = [NSMutableArray arrayWithArray:(NSArray *)windows];
-            CFIndex i, roots = [all count];
-            for(i=0;i<roots;i++) PEAppendSheets((AXUIElementRef)[all objectAtIndex:i],all,0);
-            CFIndex n = [all count];
-            for (i = 0; i < n; i++) {
-                AXUIElementRef w = (AXUIElementRef)[all objectAtIndex:i];
-                CFTypeRef posRef = NULL, sizeRef = NULL;
-                CGPoint p; CGSize sz;
-                if (AXUIElementCopyAttributeValue(w, kAXPositionAttribute, &posRef) != kAXErrorSuccess)
-                    continue;
-                if (AXUIElementCopyAttributeValue(w, kAXSizeAttribute, &sizeRef) != kAXErrorSuccess) {
-                    CFRelease(posRef);
-                    continue;
-                }
-                AXValueGetValue((AXValueRef)posRef, kAXValueCGPointType, &p);
-                AXValueGetValue((AXValueRef)sizeRef, kAXValueCGSizeType, &sz);
-                CFRelease(posRef);
-                CFRelease(sizeRef);
-                if (fabs(p.x - rect.origin.x) <= 4 && fabs(p.y - rect.origin.y) <= 4 &&
-                    fabs(sz.width - rect.size.width) <= 4 && fabs(sz.height - rect.size.height) <= 4) {
-                    CFRetain(w);
-                    CFRelease(windows);
-                    CFRelease(app);
-                    if (ownerOut) *ownerOut = pid;
-                    return w;
-                }
-            }
-            CFRelease(windows);
-        }
-        CFRelease(app);
+        AXUIElementRef found = PEFindAXWindowInProcess(rect, psn, pid, ownerOut, stats);
+        if (found) return found;
     }
     return NULL;
+}
+
+/* Optional lookup narrowed by the exact CGS owner. If owner/PSN validation
+ * fails while enabled, fail closed; never fall back to a geometry match in a
+ * different application. The legacy search remains the default. */
+static AXUIElementRef PEFindAXWindowForWindow(CGRect rect, CGSWindowID wid,
+                                               pid_t *ownerOut, PEAXLookupStats *stats)
+{
+    CGSConnectionID cid, owner = 0, mapped = 0;
+    ProcessSerialNumber psn = { 0, kNoProcess };
+    pid_t pid = 0;
+    const char *setting = getenv("PE_FOCUS_OWNER_LOOKUP");
+    if (stats) memset(stats, 0, sizeof(*stats));
+    if (!setting || strcmp(setting, "1") != 0)
+        return PEFindAXWindowWithStats(rect, ownerOut, stats);
+    if (!AXAPIEnabled() || wid <= 0) return NULL;
+    cid = _CGSDefaultConnection();
+    if (CGSGetWindowOwner(cid, wid, &owner) != kCGErrorSuccess || owner == 0) return NULL;
+    while (GetNextProcess(&psn) == noErr) {
+        if (stats) stats->processesVisited++;
+        if (CGSGetConnectionIDForPSN(cid, &psn, &mapped) != kCGErrorSuccess) continue;
+        if (mapped == owner) {
+            if (GetProcessPID(&psn, &pid) != noErr || pid <= 0) return NULL;
+            /* Revalidate the mapping immediately before AX access. */
+            mapped = 0;
+            if (CGSGetConnectionIDForPSN(cid, &psn, &mapped) != kCGErrorSuccess || mapped != owner)
+                return NULL;
+            return PEFindAXWindowInProcess(rect, psn, pid, ownerOut, stats);
+        }
+    }
+    return NULL;
+}
+
+static BOOL PEWindowOwnerMatchesPID(CGSWindowID wid, pid_t expectedPID)
+{
+    CGSConnectionID cid=_CGSDefaultConnection(), owner=0, mapped=0;
+    ProcessSerialNumber psn={0,kNoProcess};
+    if(wid<=0 || expectedPID<=0 || CGSGetWindowOwner(cid,wid,&owner)!=kCGErrorSuccess || !owner)return NO;
+    while(GetNextProcess(&psn)==noErr) {
+        if(CGSGetConnectionIDForPSN(cid,&psn,&mapped)==kCGErrorSuccess && mapped==owner) {
+            pid_t actual=0;
+            return GetProcessPID(&psn,&actual)==noErr && actual==expectedPID;
+        }
+    }
+    return NO;
 }
 
 /* Where the volume mounted from `from` (a WebDAV URL) is, or nil. */
@@ -499,8 +700,20 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
 - (id)init
 {
     if ((self = [super init])) {
+        if(getenv("PE_CAPTURE_VISIBLE_CACHE")) {
+            PESetCaptureRefresh(YES);
+        }
+        PEHarmonyStallTraceStartFromEnvironment(&peHarmonyStallTrace);
         sock = -1;
         frameSock = -1;
+        focusCondition = [[NSConditionLock alloc] initWithCondition:0];
+        menuCondition = [[NSConditionLock alloc] initWithCondition:0];
+        menuItemsCondition = [[NSConditionLock alloc] initWithCondition:0];
+        minWindowsCondition = [[NSConditionLock alloc] initWithCondition:0];
+        PEFocusStateInit(&focusState);
+        PEMenuStateInit(&menuState);
+        PEMenuItemsStateInit(&menuItemsState);
+        PEMinWindowsStateInit(&minWindowsState);
         inbox = [[NSMutableData alloc] init];
         lastChangeCount = [[NSPasteboard generalPasteboard] changeCount];
     }
@@ -626,11 +839,53 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
     CaptureFn capture = (CaptureFn)dlsym(RTLD_DEFAULT, "CGContextCopyWindowCaptureContentsToRect");
     CGRect rect, after;
     int cid = _CGSDefaultConnection();
+    PEHarmonyStallEnter(&peHarmonyStallTrace, PE_HARMONY_STALL_CAPTURE, PE_HARMONY_STALL_CAPTURE_BOUNDS, sequence);
     if (!capture || wid <= 0 || CGSGetScreenRectForWindow(cid, wid, &rect) != 0 ||
         rect.size.width < 1 || rect.size.height < 1 || rect.size.width > 4096 || rect.size.height > 4096) {
+        PEHarmonyStallLeave(&peHarmonyStallTrace, PE_HARMONY_STALL_CAPTURE);
         return failure;
     }
+    PEHarmonyStallLeave(&peHarmonyStallTrace, PE_HARMONY_STALL_CAPTURE);
     size_t w = (size_t)rect.size.width, h = (size_t)rect.size.height;
+    if (!captureHistory) captureHistory = [[NSMutableDictionary alloc] init];
+    NSString *key = [NSString stringWithFormat:@"%d", wid];
+    NSDictionary *previous = [captureHistory objectForKey:key];
+    int accepted = [fields count] > 2 ? [[fields objectAtIndex:2] intValue] : 0;
+    NSData *oldPixels = [previous objectForKey:@"pixels"];
+    BOOL baseMatches = accepted > 0 && accepted == [[previous objectForKey:@"sequence"] intValue]
+        && w == [[previous objectForKey:@"width"] unsignedIntValue]
+        && h == [[previous objectForKey:@"height"] unsignedIntValue]
+        && [oldPixels length] == w*h*4;
+    typedef int (*SeedFn)(int, int, unsigned *);
+    typedef int (*SurfaceCountFn)(int, int, int *);
+    BOOL visibleCache = getenv("PE_CAPTURE_VISIBLE_CACHE") != NULL || OSAtomicAdd32Barrier(0,&captureVisibleMode) != 0;
+    BOOL seedCache = visibleCache || getenv("PE_CAPTURE_SEED_CACHE") != NULL;
+    SeedFn getSeed = visibleCache ? PECaptureRefreshSeed : (seedCache ? (SeedFn)dlsym(RTLD_DEFAULT,"CGSGetWindowFlushSeed") : NULL);
+    SurfaceCountFn getSurfaces = seedCache ? (SurfaceCountFn)dlsym(RTLD_DEFAULT,"CGSGetSurfaceCount") : NULL;
+    unsigned seedBefore = 0, seedAfter = 0;
+    BOOL seedValid = getSeed && getSeed(cid,wid,&seedBefore) == 0;
+    CFAbsoluteTime now = seedCache ? CFAbsoluteTimeGetCurrent() : 0;
+    int surfaces = -1;
+    BOOL observable = seedCache && getSurfaces && getSurfaces(cid,wid,&surfaces) == 0 && surfaces == 0 &&
+        (!visibleCache || PECaptureFullyVisible(cid,wid,rect));
+    // Opt-in diagnostic fast path. Never use it for a changed/missing base,
+    // accelerated surfaces, uncertain seeds, or after the verification age.
+    BOOL forceFresh = [fields count] > 5 && [[fields objectAtIndex:5] isEqualToString:@"fresh"];
+    if (seedCache && !forceFresh && baseMatches && seedValid &&
+        [[previous objectForKey:@"seedValid"] boolValue] &&
+        [[previous objectForKey:@"observable"] boolValue] && observable &&
+        ![[previous objectForKey:@"seedUntrusted"] boolValue] &&
+        seedBefore == [[previous objectForKey:@"seed"] unsignedIntValue] &&
+        now >= [[previous objectForKey:@"fullAt"] doubleValue] &&
+        now - [[previous objectForKey:@"fullAt"] doubleValue] < 0.1 &&
+        getSeed(cid,wid,&seedAfter) == 0 && seedBefore == seedAfter &&
+        CGSGetScreenRectForWindow(cid,wid,&after) == 0 && CGRectEqualToRect(rect,after)) {
+        NSMutableDictionary *next = [NSMutableDictionary dictionaryWithDictionary:previous];
+        [next setObject:[NSNumber numberWithInt:sequence] forKey:@"sequence"];
+        [captureHistory setObject:next forKey:key];
+        if(profile) fprintf(stderr,"PESEEDCACHE id=%d seq=%d totalMS=%.3f\n",wid,sequence,(CFAbsoluteTimeGetCurrent()-began)*1000);
+        return [[NSString stringWithFormat:@"%d %lu %lu 2 %d\n",wid,(unsigned long)w,(unsigned long)h,sequence] dataUsingEncoding:NSASCIIStringEncoding];
+    }
     // Keep one bounded context for the current size. Explicitly zero every
     // pixel before capture, including corners the private API may not paint.
     // This preserves the old freshly allocated bitmap's initialization.
@@ -654,8 +909,11 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
     if (context) {
         CGRect local = CGRectMake(0,0,w,h);
         CGContextSaveGState(context);
+        PEHarmonyStallEnter(&peHarmonyStallTrace, PE_HARMONY_STALL_CAPTURE, PE_HARMONY_STALL_CAPTURE_COPY, sequence);
         capture(context, local, cid, wid, local);
+        PEHarmonyStallEnter(&peHarmonyStallTrace, PE_HARMONY_STALL_CAPTURE, PE_HARMONY_STALL_CAPTURE_FLUSH, sequence);
         CGContextFlush(context);
+        PEHarmonyStallLeave(&peHarmonyStallTrace, PE_HARMONY_STALL_CAPTURE);
         CGContextRestoreGState(context);
     }
     if (!context || CGSGetScreenRectForWindow(cid, wid, &after) != 0 ||
@@ -666,16 +924,11 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
     // Compare complete pixels, not a hash: an unchanged window needs no
     // compression, transfer or host texture upload. The host echoes the last
     // sequence it actually accepted, so a dropped response forces a full image.
-    if (!captureHistory) captureHistory = [[NSMutableDictionary alloc] init];
-    NSString *key = [NSString stringWithFormat:@"%d", wid];
-    NSDictionary *previous = [captureHistory objectForKey:key];
-    int accepted = [fields count] > 2 ? [[fields objectAtIndex:2] intValue] : 0;
-    NSData *oldPixels = [previous objectForKey:@"pixels"];
-    BOOL baseMatches = accepted > 0 && accepted == [[previous objectForKey:@"sequence"] intValue]
-        && w == [[previous objectForKey:@"width"] unsignedIntValue]
-        && h == [[previous objectForKey:@"height"] unsignedIntValue]
-        && [oldPixels length] == [pixels length];
     BOOL unchanged = baseMatches && memcmp([oldPixels bytes], [pixels bytes], [pixels length]) == 0;
+    BOOL seedStable = seedValid && getSeed(cid,wid,&seedAfter) == 0 && seedBefore == seedAfter;
+    BOOL seedUntrusted = baseMatches && ([[previous objectForKey:@"seedUntrusted"] boolValue] ||
+        (!forceFresh && !unchanged && observable && [[previous objectForKey:@"observable"] boolValue] && seedStable && [[previous objectForKey:@"seedValid"] boolValue] &&
+         seedBefore == [[previous objectForKey:@"seed"] unsignedIntValue]));
     NSMutableData *tilePacket = nil;
     // Tiles are opt-in, lossless, and based only on the sequence the host
     // actually accepted. Dense updates abort early to the independent codecs.
@@ -722,6 +975,18 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
             unchanged ? oldPixels : (NSData *)pixels, @"pixels",
             [NSNumber numberWithInt:sequence], @"sequence",
             [NSNumber numberWithUnsignedInt:w], @"width", [NSNumber numberWithUnsignedInt:h], @"height", nil] forKey:key];
+        if(seedCache) {
+        NSMutableDictionary *entry = [NSMutableDictionary dictionaryWithDictionary:[captureHistory objectForKey:key]];
+        [entry setObject:[NSNumber numberWithUnsignedInt:seedAfter] forKey:@"seed"];
+        [entry setObject:[NSNumber numberWithBool:seedStable] forKey:@"seedValid"];
+        [entry setObject:[NSNumber numberWithBool:seedUntrusted] forKey:@"seedUntrusted"];
+        [entry setObject:[NSNumber numberWithBool:observable] forKey:@"observable"];
+        [entry setObject:[NSNumber numberWithDouble:captured] forKey:@"fullAt"];
+        // `captured` is normally zero unless profiling; verification always
+        // needs a real timestamp in the diagnostic cache mode.
+        if(!profile) [entry setObject:[NSNumber numberWithDouble:CFAbsoluteTimeGetCurrent()] forKey:@"fullAt"];
+        [captureHistory setObject:entry forKey:key];
+        }
     } else [captureHistory removeObjectForKey:key];
     captureScratchReusable = unchanged;
     if (unchanged) {
@@ -796,9 +1061,84 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
 
 /* Persistent image transport, independent of input/menu traffic. Reopening
  * guestfwd for every frame launches a new host bridge process each time. */
+- (void)queueCapture:(NSArray *)job
+{
+    if (!captureJobs) {
+        captureJobs = [[NSConditionLock alloc] initWithCondition:0];
+        [NSThread detachNewThreadSelector:@selector(captureLoop:) toTarget:self withObject:nil];
+    }
+    // One pending request, never a main-run-loop capture wait or image backlog.
+    // The host normally has one request outstanding; a timeout may leave one
+    // replacement waiting for the worker's old capture to finish.
+    [captureJobs lock];
+    [captureJob release];
+    captureJob = [job retain];
+    [captureJobs unlockWithCondition:1];
+}
+
+- (void)captureLoop:(id)unused
+{
+    for (;;) {
+        NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+        [captureJobs lockWhenCondition:1];
+        NSArray *job = captureJob;
+        captureJob = nil;
+        [captureJobs unlockWithCondition:0];
+        // captureWorker owns a fresh autorelease pool for each request and
+        // resets its image/cache/socket state when the session changes.
+        [self captureWorker:job];
+        [job release];
+        [pool drain];
+    }
+}
+
+/* Default-off separate request channel: its only operation is complete-window
+ * capture. It never calls AppKit/AX handlers or reads mutable control state. */
+- (void)captureRequestLoop:(NSString *)session
+{
+    NSAutoreleasePool *pool=[[NSAutoreleasePool alloc] init];
+    int fd=socket(AF_INET,SOCK_STREAM,0),one=1;
+    struct timeval timeout={2,0};
+    if(fd>=0) {
+        setsockopt(fd,SOL_SOCKET,SO_NOSIGPIPE,&one,sizeof one);
+        setsockopt(fd,IPPROTO_TCP,TCP_NODELAY,&one,sizeof one);
+        setsockopt(fd,SOL_SOCKET,SO_SNDTIMEO,&timeout,sizeof timeout);
+        struct sockaddr_in address;memset(&address,0,sizeof address);
+        address.sin_len=sizeof address;address.sin_family=AF_INET;
+        address.sin_port=htons(AgentPort());address.sin_addr.s_addr=inet_addr(AgentHost());
+        if(connect(fd,(struct sockaddr *)&address,sizeof address)==0) {
+            NSData *identity=[session dataUsingEncoding:NSUTF8StringEncoding];
+            NSString *header=[NSString stringWithFormat:@"CAPTUREHELLO %u\n",(unsigned)[identity length]];
+            NSMutableData *hello=[NSMutableData dataWithData:[header dataUsingEncoding:NSASCIIStringEncoding]];[hello appendData:identity];
+            const char *bytes=[hello bytes];size_t left=[hello length];
+            while(left) {ssize_t n=write(fd,bytes,left);if(n<0&&errno==EINTR)continue;if(n<=0)break;bytes+=n;left-=n;}
+            if(!left)[self readCaptureRequests:[NSArray arrayWithObjects:[NSNumber numberWithInt:fd],session,nil]];
+        }
+        close(fd);
+    }
+    [pool drain];
+}
+- (void)readCaptureRequests:(NSArray *)context
+{
+    int fd=[[context objectAtIndex:0] intValue];NSString *session=[context objectAtIndex:1];
+    for(;;) {
+        NSAutoreleasePool *pool=[[NSAutoreleasePool alloc] init];char request[257];
+        int result=PEReadCaptureRequest(fd,request);
+        if(result!=1){[pool drain];break;}
+        NSString *text=[NSString stringWithUTF8String:request];
+        NSArray *job=getenv("POWEREMU_CAPTURE_PROFILE") ?
+            [NSArray arrayWithObjects:text,session,[NSNumber numberWithDouble:CFAbsoluteTimeGetCurrent()],nil] :
+            [NSArray arrayWithObjects:text,session,nil];
+        [self captureWorker:job];
+        [pool drain];
+    }
+}
+
 - (void)captureWorker:(NSArray *)job
 {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+    BOOL profile = getenv("POWEREMU_CAPTURE_PROFILE") != NULL;
+    CFAbsoluteTime workerBegan = profile ? CFAbsoluteTimeGetCurrent() : 0;
     if (![captureLock tryLock]) { [pool drain]; return; }
     NSString *request = [job objectAtIndex:0], *session = [job objectAtIndex:1];
     if (![workerFrameSession isEqualToString:session]) {
@@ -812,7 +1152,7 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
         [workerFrameSession release]; workerFrameSession = [session copy];
     }
     NSData *payload = [self captureWindow:request];
-    BOOL profile = getenv("POWEREMU_CAPTURE_PROFILE") != NULL;
+    PEHarmonyStallEnter(&peHarmonyStallTrace, PE_HARMONY_STALL_CAPTURE, PE_HARMONY_STALL_CAPTURE_SEND, [request intValue]);
     CFAbsoluteTime deliveryBegan = profile ? CFAbsoluteTimeGetCurrent() : 0;
     BOOL delivered = NO;
     NSMutableData *packet = [NSMutableData data];
@@ -849,6 +1189,16 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
     if (profile) fprintf(stderr, "PEDELIVERY request=%s socketWriteMS=%.3f bytes=%lu delivered=%d\n",
         [request UTF8String], (CFAbsoluteTimeGetCurrent()-deliveryBegan)*1000,
         (unsigned long)[packet length], (int)delivered);
+    // Local elapsed times only; guest and host wall clocks need not agree.
+    // Older fixtures construct two-field jobs, so receipt timing is optional.
+    NSArray *profileFields = profile ? [request componentsSeparatedByString:@" "] : nil;
+    if (profile && [job count] > 2 && [profileFields count] > 1) fprintf(stderr,
+        "PEPIPELINE id=%d seq=%d queueMS=%.3f captureAndPackMS=%.3f deliveryMS=%.3f totalMS=%.3f\n",
+        [request intValue], [[profileFields objectAtIndex:1] intValue],
+        (workerBegan-[[job objectAtIndex:2] doubleValue])*1000,
+        (deliveryBegan-workerBegan)*1000, (CFAbsoluteTimeGetCurrent()-deliveryBegan)*1000,
+        (CFAbsoluteTimeGetCurrent()-[[job objectAtIndex:2] doubleValue])*1000);
+    PEHarmonyStallLeave(&peHarmonyStallTrace, PE_HARMONY_STALL_CAPTURE);
     [captureLock unlock];
     [pool drain];
 }
@@ -882,6 +1232,13 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
     struct timeval controlWriteTimeout = {2, 0};
     setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &controlWriteTimeout, sizeof controlWriteTimeout);
     sock = s;
+    [focusCondition lock]; PEFocusStateSession(&focusState, YES); [focusCondition unlockWithCondition:focusState.hasPending ? 1 : 0];
+    [self invalidateAsyncMinWindows];
+    [self refreshAsyncMinWindowsContext];
+    [self invalidateAsyncMenuItems];
+    [menuCondition lock]; PEMenuStateInvalidate(&menuState); [menuPendingJob release]; menuPendingJob=nil;
+    [menuCondition unlockWithCondition:menuState.hasPending ? 1 : 0];
+    menuAttemptedPID=0; menuAttemptedAt=0;
     [inbox setLength:0];
     handle = [[NSFileHandle alloc] initWithFileDescriptor:s closeOnDealloc:NO];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(received:)
@@ -901,6 +1258,13 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
 - (void)disconnected
 {
     sheetEpoch++;
+    [focusCondition lock]; PEFocusStateSession(&focusState, NO); [focusCondition unlockWithCondition:focusState.hasPending ? 1 : 0];
+    [self invalidateAsyncMinWindows];
+    [self refreshAsyncMinWindowsContext];
+    [self invalidateAsyncMenuItems];
+    [menuCondition lock]; PEMenuStateInvalidate(&menuState); [menuPendingJob release]; menuPendingJob=nil;
+    [menuCondition unlockWithCondition:menuState.hasPending ? 1 : 0];
+    menuAttemptedPID=0; menuAttemptedAt=0;
     if (sock < 0) return;
     if(pointerButtons) {
         Point location;GetGlobalMouse(&location);
@@ -952,7 +1316,12 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
     NSString *text = [[[NSString alloc] initWithData:payload encoding:NSUTF8StringEncoding] autorelease];
     if ([verb isEqualToString:@"HELLO"]) {
         NSArray *f = [text componentsSeparatedByString:@" "];
-        if ([f count] >= 3) { [controlFrameSession release]; controlFrameSession = [[f objectAtIndex:2] copy]; }
+        if ([f count] >= 3 && ![controlFrameSession isEqualToString:[f objectAtIndex:2]]) {
+            [controlFrameSession release];controlFrameSession=[[f objectAtIndex:2] copy];
+            if(!captureLock)captureLock=[[NSLock alloc] init];
+            if(getenv("PE_CAPTURE_DIRECT_RECEIVER"))
+                [NSThread detachNewThreadSelector:@selector(captureRequestLoop:) toTarget:self withObject:controlFrameSession];
+        }
     } else if ([verb isEqualToString:@"CLIP"]) {
         if (!text) return;
         NSPasteboard *pb = [NSPasteboard generalPasteboard];
@@ -979,6 +1348,20 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
         [self harmony:[text isEqualToString:@"1"]];
     } else if ([verb isEqualToString:@"CAPTUREMODE"]) {
         completeCaptureMode = [text isEqualToString:@"1"];
+        if(!completeCaptureMode) {
+            OSAtomicCompareAndSwap32Barrier(1,0,&captureVisibleMode);
+            if(!getenv("PE_CAPTURE_VISIBLE_CACHE"))PESetCaptureRefresh(NO);
+        }
+    } else if ([verb isEqualToString:@"CAPTUREHINTS"]) {
+        int32_t want = completeCaptureMode && [text isEqualToString:@"visible32"];
+        int32_t old = OSAtomicAdd32Barrier(0,&captureVisibleMode);
+        OSAtomicCompareAndSwap32Barrier(old,want,&captureVisibleMode);
+        PESetCaptureRefresh(want || getenv("PE_CAPTURE_VISIBLE_CACHE") != NULL);
+        [self send:@"LOG" text:[NSString stringWithFormat:@"CAPTUREHINTS visible=%d",(int)want]];
+    } else if ([verb isEqualToString:@"REPORTMODE"]) {
+        nativeReport12 = completeCaptureMode && [text isEqualToString:@"12"];
+    } else if ([verb isEqualToString:@"REFRESHWINDOWS"]) {
+        if(windowTimer) [self performSelector:@selector(reportWindows:) withObject:nil afterDelay:0.01];
     } else if ([verb isEqualToString:@"PREPAREHARMONY"]) {
         NSArray *f = [text componentsSeparatedByString:@" "];
         if ([f count] == 3) {
@@ -996,8 +1379,16 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
         NSArray *f = [text componentsSeparatedByString:@" "];
         if ([f count] == 2) {
             focusRequestSequence = [[f objectAtIndex:1] intValue];
-            [self raiseWindow:[f objectAtIndex:0]];
-            [self confirmFocus:[NSArray arrayWithObjects:[f objectAtIndex:0], [f objectAtIndex:1], @"0", nil]];
+            if (PEFocusAsyncEnabled()) {
+                [self enqueueAsyncFocusWindow:[[f objectAtIndex:0] intValue]
+                                     sequence:focusRequestSequence];
+            } else {
+                PEHarmonyStallEnter(&peHarmonyStallTrace, PE_HARMONY_STALL_MAIN, PE_HARMONY_STALL_FOCUS_RAISE_AX, [[f objectAtIndex:0] intValue]);
+                [self raiseWindow:[f objectAtIndex:0]];
+                PEHarmonyStallEnter(&peHarmonyStallTrace, PE_HARMONY_STALL_MAIN, PE_HARMONY_STALL_FOCUS_CONFIRM_AX, [[f objectAtIndex:0] intValue]);
+                [self confirmFocus:[NSArray arrayWithObjects:[f objectAtIndex:0], [f objectAtIndex:1], @"0", nil]];
+                PEHarmonyStallLeave(&peHarmonyStallTrace, PE_HARMONY_STALL_MAIN);
+            }
         }
     } else if ([verb isEqualToString:@"POINTER"]) {
         int x, y, buttons;
@@ -1085,14 +1476,23 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
         }
     } else if ([verb isEqualToString:@"WINDOWFRAME"]) {
         if (!captureLock) captureLock = [[NSLock alloc] init];
-        if (controlFrameSession) [NSThread detachNewThreadSelector:@selector(captureWorker:) toTarget:self withObject:[NSArray arrayWithObjects:text, controlFrameSession, nil]];
+        if (controlFrameSession) {
+            NSArray *job = getenv("POWEREMU_CAPTURE_PROFILE") ?
+                [NSArray arrayWithObjects:text, controlFrameSession,
+                    [NSNumber numberWithDouble:CFAbsoluteTimeGetCurrent()], nil] :
+                [NSArray arrayWithObjects:text, controlFrameSession, nil];
+            // Diagnostic comparison only: matched tests have not established
+            // a worthwhile latency improvement from a persistent worker yet.
+            if (getenv("PE_CAPTURE_PERSISTENT_WORKER")) [self queueCapture:job];
+            else [NSThread detachNewThreadSelector:@selector(captureWorker:) toTarget:self withObject:job];
+        }
     } else if ([verb isEqualToString:@"APPICON"]) {
         [self sendAppIcon:text];
     } else if ([verb isEqualToString:@"MENUS"]) {
-        menuBarPid = 0;
+        menuBarPid = 0; menuAttemptedPID=0; menuAttemptedAt=0;
         [self reportFocused];
     } else if ([verb isEqualToString:@"MENUITEMS"]) {
-        [self reportMenuItems:text];
+        if (![self enqueueAsyncMenuItems:text]) [self reportMenuItems:text];
     } else if ([verb isEqualToString:@"MENUPICK"]) {
         [self pickMenuItem:text];
     } else if ([verb isEqualToString:@"ACTIVATE"]) {
@@ -1307,9 +1707,22 @@ enum { PERunOutputCap = 256 * 1024 };
 - (void)harmony:(BOOL)on
 {
     sheetEpoch++;
+    [self invalidateAsyncMinWindows];
+    [self refreshAsyncMinWindowsContext];
     // Host reconnects reconcile both states. Repeating the current state must
     // not restart Finder or overwrite the preferences remembered on entry.
     if (!on && !windowTimer) return;
+    if (on && windowTimer) {
+        menuBarPid = 0; menuAttemptedPID=0; menuAttemptedAt=0;
+        [self reportWindows:nil];
+        return;
+    }
+    [focusCondition lock]; PEFocusStateHarmony(&focusState, on); [focusCondition unlockWithCondition:focusState.hasPending ? 1 : 0];
+    [self refreshAsyncMinWindowsContext];
+    [self invalidateAsyncMenuItems];
+    [menuCondition lock]; PEMenuStateInvalidate(&menuState); [menuPendingJob release]; menuPendingJob=nil;
+    [menuCondition unlockWithCondition:menuState.hasPending ? 1 : 0];
+    menuAttemptedPID=0; menuAttemptedAt=0;
     // Restarting Finder/Dock during an exclusive game can steal focus.
     // Show the full guest immediately on the host, but restore guest desktop
     // preferences only after the application releases its display.
@@ -1318,11 +1731,6 @@ enum { PERunOutputCap = 256 * 1024 };
         return;
     }
     deferredHarmonyExit = NO;
-    if (on && windowTimer) {
-        menuBarPid = 0;
-        [self reportWindows:nil];
-        return;
-    }
     if (on) PERefreshAccessibilityState();
     memset(&fullscreenState, 0, sizeof(fullscreenState));
     NSString *killall = @"/usr/bin/killall";
@@ -1399,7 +1807,7 @@ enum { PERunOutputCap = 256 * 1024 };
      * desktop leaks onto this Mac's.
      */
     if (on) {
-        menuBarPid = 0;                 /* report the front app's menus afresh */
+        menuBarPid = 0; menuAttemptedPID=0; menuAttemptedAt=0; /* report the front app's menus afresh */
         if (!windowTimer) {
             /* ~30 Hz: fast enough that the mask keeps up with a dragged window,
              * so no strip of desktop shows along its trailing edge. */
@@ -1413,8 +1821,9 @@ enum { PERunOutputCap = 256 * 1024 };
              * while the guest holds thirty frames a second, and what this
              * report costs buys a much tighter answer about what covers what,
              * which is what decides whether a window may be read at all. */
-            windowTimer = [[NSTimer scheduledTimerWithTimeInterval:1.0 / 24.0 target:self
+            windowTimer = [[NSTimer scheduledTimerWithTimeInterval:1.0 / (nativeReport12 && completeCaptureMode ? 12.0 : 24.0) target:self
                 selector:@selector(reportWindows:) userInfo:nil repeats:YES] retain];
+            [self send:@"LOG" text:[NSString stringWithFormat:@"WINDOWREPORT hz=%d",nativeReport12 && completeCaptureMode ? 12 : 24]];
         }
         [self reportWindows:nil];
         [self setMinimiseEffect:@"scale"];
@@ -1425,7 +1834,7 @@ enum { PERunOutputCap = 256 * 1024 };
         windowTimer = nil;
         harmonyChangedFinder = NO;
         harmonyRemembered = NO;
-        menuBarPid = 0;
+        menuBarPid = 0; menuAttemptedPID=0; menuAttemptedAt=0;
         [self send:@"DRAGWINDOWS" text:@""];
         [self send:@"SHEETS" text:@""];
         [self send:@"WINDOWS" text:@""];        /* clear the mask */
@@ -1764,6 +2173,7 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
 
 - (void)reportFocused
 {
+    PEHarmonyStallEnter(&peHarmonyStallTrace, PE_HARMONY_STALL_MAIN, PE_HARMONY_STALL_REPORT_FOCUSED_CGS, 0);
     CGSConnectionID cid = _CGSDefaultConnection();
 
 /*
@@ -1783,7 +2193,8 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
     ProcessSerialNumber front = {0, 0};
     CGSConnectionID theirs = 0;
     CGSWindowID focused = 0;
-    if (GetFrontProcess(&front) == noErr
+    BOOL gotFront = GetFrontProcess(&front) == noErr;
+    if (gotFront
         && CGSGetConnectionIDForPSN(cid, &front, &theirs) == kCGErrorSuccess) {
         CGSWindowID mine[128];
         int n = 0, k;
@@ -1800,6 +2211,7 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
             }
         }
     }
+    PEHarmonyStallLeave(&peHarmonyStallTrace, PE_HARMONY_STALL_MAIN);
     [self send:@"FOCUSED" text:[NSString stringWithFormat:@"%d", (int)focused]];
     /*
      * And whose menus they are.  This used to be noticed only on the next
@@ -1808,11 +2220,25 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
      */
     {
         pid_t fpid = 0;
-        if (GetProcessPID(&front, &fpid) == noErr && fpid > 0 &&
-            (fpid != menuBarPid || CFAbsoluteTimeGetCurrent() - menuBarReportedAt >= 2.0)) {
-            if ([self reportMenuBarFor:fpid]) {
+        if (gotFront && GetProcessPID(&front, &fpid) == noErr && fpid > 0) {
+            if (PEMenuItemsAsyncEnabled()) {
+                unsigned session=0,epoch=0;
+                [focusCondition lock]; session=focusState.session; epoch=focusState.epoch; [focusCondition unlock];
+                [menuItemsCondition lock];
+                PEMenuItemsStateSetForeground(&menuItemsState,(int)fpid,session,epoch);
+                [menuItemsCondition unlockWithCondition:PEMenuItemsStateReady(&menuItemsState) ? 1 : 0];
+            }
+            CFAbsoluteTime now=CFAbsoluteTimeGetCurrent();
+            if (PEFocusAsyncEnabled() || PEHarmonyAXAsyncEnabled()) {
+                BOOL recentFailedAttempt=menuAttemptedPID==fpid && now-menuAttemptedAt<2.0 && menuBarPid!=fpid;
+                if ((fpid != menuBarPid || now-menuBarReportedAt >= 2.0) && !recentFailedAttempt) {
+                unsigned session=0, epoch=0;
+                [focusCondition lock]; session=focusState.session; epoch=focusState.epoch; [focusCondition unlock];
+                [self enqueueAsyncMenuBarForPID:fpid session:session epoch:epoch];
+                }
+            } else if ((fpid != menuBarPid || now-menuBarReportedAt >= 2.0) && [self reportMenuBarFor:fpid]) {
                 menuBarPid = fpid;
-                menuBarReportedAt = CFAbsoluteTimeGetCurrent();
+                menuBarReportedAt = now;
             }
         }
     }
@@ -1820,6 +2246,8 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
 
 - (void)reportWindows:(NSTimer *)t
 {
+    BOOL profile = getenv("POWEREMU_CAPTURE_PROFILE") != NULL;
+    CFAbsoluteTime reportBegan = profile ? CFAbsoluteTimeGetCurrent() : 0;
     if (deferredHarmonyExit) {
         if (!CGDisplayIsCaptured(CGMainDisplayID())) [self harmony:NO];
         return;
@@ -1830,11 +2258,13 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
                            [NSDate timeIntervalSinceReferenceDate])) {
         [self send:@"FULLSCREEN" data:[@"captured" dataUsingEncoding:NSUTF8StringEncoding]];
     }
+    PEHarmonyStallEnter(&peHarmonyStallTrace, PE_HARMONY_STALL_MAIN, PE_HARMONY_STALL_MAIN_REPORT_CGS, 0);
     CGSConnectionID cid = _CGSDefaultConnection();
     CGSWindowID list[512];
     CGRect above[512];
     int count = 0, nAbove = 0;
     if (CGSGetOnScreenWindowList(cid, 0, 512, list, &count) != kCGErrorSuccess) {
+        PEHarmonyStallLeave(&peHarmonyStallTrace, PE_HARMONY_STALL_MAIN);
         return;
     }
     NSMutableString *s = [NSMutableString string];
@@ -1881,6 +2311,11 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
             continue;                           /* the desktop covers nothing */
         }
         if (level >= 20 && level <= 25) {
+            // Native proxies capture complete backing stores. Dock/menu-bar
+            // occluder rectangles are used only by the masked desktop path;
+            // querying each Dock icon here needlessly stalls command handling.
+            // The opt-out exists solely for matched diagnostic controls.
+            if (completeCaptureMode && !getenv("PE_CAPTURE_REPORT_OCCLUDERS")) continue;
             CGRect dr;
             if (nocc < 256 &&
                 CGSGetScreenRectForWindow(cid, list[i], &dr) == kCGErrorSuccess &&
@@ -1918,10 +2353,11 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
              (int)r.origin.x, (int)r.origin.y, (int)r.size.width, (int)r.size.height,
              (int)vis.origin.x, (int)vis.origin.y, (int)vis.size.width, (int)vis.size.height];
     }
+    PEHarmonyStallLeave(&peHarmonyStallTrace, PE_HARMONY_STALL_MAIN);
     /* Classify before geometry: the first proxy/frame must already be visual-only. */
     [self send:@"DRAGWINDOWS" text:dragWindows];
     [self send:@"WINDOWS" text:s];
-    if(!sheetReportBusy && (++sheetReportTick >= 6 || count != lastWindowCount)) {
+    if(!sheetReportBusy && (++sheetReportTick >= (nativeReport12 && completeCaptureMode ? 3 : 6) || count != lastWindowCount)) {
         sheetReportTick=0; sheetReportBusy=YES;
         [NSThread detachNewThreadSelector:@selector(sheetWorker:) toTarget:self
             withObject:[NSNumber numberWithUnsignedInt:sheetEpoch]];
@@ -1950,7 +2386,10 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
      * Process Manager instead: it lists every application with a user
      * interface, whoever owns it.  Once a second is plenty.
      */
-    if (++windowReportTick >= 30) {
+    CFAbsoluteTime geometryFinished = profile ? CFAbsoluteTimeGetCurrent() : 0;
+    BOOL appScan = NO;
+    if (++windowReportTick >= (nativeReport12 && completeCaptureMode ? 15 : 30)) {
+        appScan = YES;
         NSMutableString *names = [NSMutableString string];
         ProcessSerialNumber psn = { 0, kNoProcess };
         windowReportTick = 0;
@@ -1988,48 +2427,190 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
          * so they are offered in this Mac's Dock menu instead.
          */
         if (AXAPIEnabled()) {
-            NSMutableString *mins = [NSMutableString string];
-            ProcessSerialNumber mp = { 0, kNoProcess };
-            while (GetNextProcess(&mp) == noErr) {
-                ProcessInfoRec pi;
-                pid_t pid = 0;
-                AXUIElementRef app;
-                CFArrayRef wins = NULL;
-                memset(&pi, 0, sizeof(pi));
-                pi.processInfoLength = sizeof(pi);
-                if (GetProcessInformation(&mp, &pi) != noErr) continue;
-                if (pi.processMode & modeOnlyBackground) continue;
-                if (GetProcessPID(&mp, &pid) != noErr || pid <= 0) continue;
-                app = AXUIElementCreateApplication(pid);
-                if (!app) continue;
-                if (AXUIElementCopyAttributeValue(app, kAXWindowsAttribute,
-                                                  (CFTypeRef *)&wins) == kAXErrorSuccess && wins) {
-                    CFIndex k, n = CFArrayGetCount(wins);
-                    for (k = 0; k < n; k++) {
-                        AXUIElementRef win = (AXUIElementRef)CFArrayGetValueAtIndex(wins, k);
-                        CFTypeRef minRef = NULL, titleRef = NULL;
-                        if (AXUIElementCopyAttributeValue(win, kAXMinimizedAttribute,
-                                                          &minRef) != kAXErrorSuccess) continue;
-                        if (CFGetTypeID(minRef) == CFBooleanGetTypeID()
-                            && CFBooleanGetValue((CFBooleanRef)minRef)) {
-                            NSString *title = @"Untitled";
-                            if (AXUIElementCopyAttributeValue(win, kAXTitleAttribute,
-                                                              &titleRef) == kAXErrorSuccess
-                                && titleRef && CFGetTypeID(titleRef) == CFStringGetTypeID()) {
-                                title = [[(NSString *)titleRef copy] autorelease];
-                            }
-                            if (titleRef) CFRelease(titleRef);
-                            [mins appendFormat:@"%d\t%d\t%@\n", (int)pid, (int)k, title];
-                        }
-                        CFRelease(minRef);
-                    }
-                    CFRelease(wins);
+            if (PEHarmonyAXAsyncEnabled()) {
+                int pids[PE_MIN_WINDOWS_PID_MAX];
+                unsigned pidCount=0;
+                ProcessSerialNumber mp={0,kNoProcess};
+                while (pidCount<PE_MIN_WINDOWS_PID_MAX && GetNextProcess(&mp)==noErr) {
+                    ProcessInfoRec pi;
+                    pid_t pid=0;
+                    memset(&pi,0,sizeof(pi)); pi.processInfoLength=sizeof(pi);
+                    if (GetProcessInformation(&mp,&pi)!=noErr || (pi.processMode & modeOnlyBackground)) continue;
+                    if (GetProcessPID(&mp,&pid)==noErr && pid>0) pids[pidCount++]=(int)pid;
                 }
-                CFRelease(app);
+                [self enqueueAsyncMinWindows:pids count:pidCount];
+            } else {
+                NSMutableString *mins = [NSMutableString string];
+                ProcessSerialNumber mp = { 0, kNoProcess };
+                while (GetNextProcess(&mp) == noErr) {
+                    ProcessInfoRec pi;
+                    pid_t pid = 0;
+                    AXUIElementRef app;
+                    CFArrayRef wins = NULL;
+                    memset(&pi, 0, sizeof(pi));
+                    pi.processInfoLength = sizeof(pi);
+                    if (GetProcessInformation(&mp, &pi) != noErr) continue;
+                    if (pi.processMode & modeOnlyBackground) continue;
+                    if (GetProcessPID(&mp, &pid) != noErr || pid <= 0) continue;
+                    app = AXUIElementCreateApplication(pid);
+                    if (!app) continue;
+                    if (AXUIElementCopyAttributeValue(app, kAXWindowsAttribute,
+                                                      (CFTypeRef *)&wins) == kAXErrorSuccess && wins) {
+                        CFIndex k, n = CFArrayGetCount(wins);
+                        for (k = 0; k < n; k++) {
+                            AXUIElementRef win = (AXUIElementRef)CFArrayGetValueAtIndex(wins, k);
+                            CFTypeRef minRef = NULL, titleRef = NULL;
+                            AXError minError = AXUIElementCopyAttributeValue(win, kAXMinimizedAttribute,
+                                                                             &minRef);
+                            if (minError != kAXErrorSuccess || !minRef) {
+                                if (minRef) CFRelease(minRef);
+                                continue;
+                            }
+                            if (CFGetTypeID(minRef) == CFBooleanGetTypeID()
+                                && CFBooleanGetValue((CFBooleanRef)minRef)) {
+                                NSString *title = @"Untitled";
+                                if (AXUIElementCopyAttributeValue(win, kAXTitleAttribute,
+                                                                  &titleRef) == kAXErrorSuccess
+                                    && titleRef && CFGetTypeID(titleRef) == CFStringGetTypeID()) {
+                                    title = [[(NSString *)titleRef copy] autorelease];
+                                }
+                                if (titleRef) CFRelease(titleRef);
+                                [mins appendFormat:@"%d\t%d\t%@\n", (int)pid, (int)k, title];
+                            }
+                            CFRelease(minRef);
+                        }
+                        CFRelease(wins);
+                    }
+                    CFRelease(app);
+                }
+                [self send:@"MINWINDOWS" text:mins];
             }
-            [self send:@"MINWINDOWS" text:mins];
         }
     }
+    if (profile) fprintf(stderr,"PEREPORT geometryFocusMS=%.3f appsMS=%.3f totalMS=%.3f appScan=%d\n",
+        (geometryFinished-reportBegan)*1000, (CFAbsoluteTimeGetCurrent()-geometryFinished)*1000,
+        (CFAbsoluteTimeGetCurrent()-reportBegan)*1000,(int)appScan);
+}
+
+- (void)refreshAsyncMinWindowsContext
+{
+    BOOL connected, harmonyActive;
+    unsigned session, epoch;
+    [focusCondition lock];
+    connected=focusState.connected; harmonyActive=focusState.harmonyActive;
+    session=focusState.session; epoch=focusState.epoch;
+    [focusCondition unlock];
+    [minWindowsCondition lock];
+    PEMinWindowsStateSetContext(&minWindowsState,connected,harmonyActive,session,epoch);
+    [minWindowsCondition unlockWithCondition:PEMinWindowsStateReady(&minWindowsState) ? 1 : 0];
+}
+
+- (void)invalidateAsyncMinWindows
+{
+    [minWindowsCondition lock];
+    PEMinWindowsStateInvalidate(&minWindowsState);
+    [minWindowsCondition unlockWithCondition:PEMinWindowsStateReady(&minWindowsState) ? 1 : 0];
+}
+
+- (void)enqueueAsyncMinWindows:(const int *)pids count:(unsigned)count
+{
+    BOOL connected, harmonyActive;
+    unsigned session, epoch;
+    PEMinWindowsJob job;
+    BOOL accepted;
+    [focusCondition lock];
+    connected=focusState.connected; harmonyActive=focusState.harmonyActive;
+    session=focusState.session; epoch=focusState.epoch;
+    [focusCondition unlock];
+    if (!connected || !harmonyActive) return;
+
+    [minWindowsCondition lock];
+    accepted=PEMinWindowsStateEnqueue(&minWindowsState,pids,count,session,epoch,&job);
+    if (accepted) {
+        if (!minWindowsWorkerStarted) {
+            minWindowsWorkerStarted=YES;
+            [NSThread detachNewThreadSelector:@selector(minWindowsWorkerLoop:)
+                toTarget:self withObject:nil];
+        }
+    }
+    [minWindowsCondition unlockWithCondition:PEMinWindowsStateReady(&minWindowsState) ? 1 : 0];
+}
+
+- (void)appendMinWindowsForPID:(int)pid to:(NSMutableString *)mins
+{
+    AXUIElementRef app;
+    CFArrayRef wins=NULL;
+    if (pid<=0 || !mins) return;
+    app=AXUIElementCreateApplication(pid);
+    if (!app) return;
+    if (AXUIElementCopyAttributeValue(app,kAXWindowsAttribute,(CFTypeRef *)&wins)==kAXErrorSuccess && wins) {
+        CFIndex k,n=CFArrayGetCount(wins);
+        for (k=0;k<n;k++) {
+            AXUIElementRef win=(AXUIElementRef)CFArrayGetValueAtIndex(wins,k);
+            CFTypeRef minRef=NULL,titleRef=NULL;
+            AXError err=AXUIElementCopyAttributeValue(win,kAXMinimizedAttribute,&minRef);
+            if (err!=kAXErrorSuccess || !minRef) {
+                if (minRef) CFRelease(minRef);
+                continue;
+            }
+            if (CFGetTypeID(minRef)==CFBooleanGetTypeID() && CFBooleanGetValue((CFBooleanRef)minRef)) {
+                NSString *title=@"Untitled";
+                if (AXUIElementCopyAttributeValue(win,kAXTitleAttribute,&titleRef)==kAXErrorSuccess &&
+                    titleRef && CFGetTypeID(titleRef)==CFStringGetTypeID())
+                    title=[[(NSString *)titleRef copy] autorelease];
+                if (titleRef) CFRelease(titleRef);
+                [mins appendFormat:@"%d\t%d\t%@\n",pid,(int)k,title];
+            } else if (titleRef) {
+                CFRelease(titleRef);
+            }
+            CFRelease(minRef);
+        }
+        CFRelease(wins);
+    }
+    CFRelease(app);
+}
+
+- (void)minWindowsWorkerLoop:(id)unused
+{
+    for (;;) {
+        NSAutoreleasePool *pool=[[NSAutoreleasePool alloc] init];
+        PEMinWindowsJob job;
+        [minWindowsCondition lockWhenCondition:1];
+        BOOL took=PEMinWindowsStateTake(&minWindowsState,&job);
+        [minWindowsCondition unlockWithCondition:PEMinWindowsStateReady(&minWindowsState) ? 1 : 0];
+        if (took) {
+            NSMutableString *mins=[NSMutableString string];
+            unsigned i;
+            NSData *boxed=[NSData dataWithBytes:&job length:sizeof(job)];
+            for (i=0;i<job.count;i++) {
+                [minWindowsCondition lock];
+                BOOL current=PEMinWindowsStateCanContinue(&minWindowsState,job);
+                [minWindowsCondition unlockWithCondition:PEMinWindowsStateReady(&minWindowsState) ? 1 : 0];
+                if (!current) break;
+                [self appendMinWindowsForPID:job.pids[i] to:mins];
+            }
+            NSArray *result=[NSArray arrayWithObjects:boxed,mins,nil];
+            [self performSelectorOnMainThread:@selector(publishAsyncMinWindows:)
+                withObject:result waitUntilDone:YES];
+        }
+        [pool drain];
+    }
+}
+
+- (void)publishAsyncMinWindows:(NSArray *)result
+{
+    NSData *boxed=[result objectAtIndex:0];
+    PEMinWindowsJob job;
+    [boxed getBytes:&job length:sizeof(job)];
+    [focusCondition lock];
+    BOOL connected=focusState.connected, harmonyActive=focusState.harmonyActive;
+    unsigned session=focusState.session, epoch=focusState.epoch;
+    [focusCondition unlock];
+    [minWindowsCondition lock];
+    BOOL publish=PEMinWindowsStateCanPublish(&minWindowsState,job,connected,harmonyActive,session,epoch);
+    PEMinWindowsStateFinish(&minWindowsState,job);
+    [minWindowsCondition unlockWithCondition:PEMinWindowsStateReady(&minWindowsState) ? 1 : 0];
+    if (publish && sock>=0) [self send:@"MINWINDOWS" text:[result objectAtIndex:1]];
 }
 
 /*
@@ -2040,21 +2621,31 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
  */
 - (BOOL)reportMenuBarFor:(pid_t)pid
 {
-    AXUIElementRef bar;
-    CFArrayRef kids;
-    NSMutableString *out;
     NSString *name = @"";
     CFStringRef nameRef = NULL;
     ProcessSerialNumber psn;
-    CFIndex i, n;
-
     if (!AXAPIEnabled() || pid <= 0) return NO;
+    PEHarmonyStallEnter(&peHarmonyStallTrace, PE_HARMONY_STALL_MAIN, PE_HARMONY_STALL_MENU_BAR_AX, pid);
     if (GetProcessForPID(pid, &psn) == noErr
         && CopyProcessName(&psn, &nameRef) == noErr && nameRef) {
         name = [[(NSString *)nameRef copy] autorelease];
         CFRelease(nameRef);
     }
-    out = [NSMutableString stringWithFormat:@"%d\t%@\n", (int)pid, name];
+    NSString *out=[self menuBarPayloadForPID:pid name:name];
+    PEHarmonyStallLeave(&peHarmonyStallTrace, PE_HARMONY_STALL_MAIN);
+    if (!out) return NO;
+    [self send:@"MENUS" text:out];
+    return YES;
+}
+
+- (NSString *)menuBarPayloadForPID:(pid_t)pid name:(NSString *)name
+{
+    AXUIElementRef bar;
+    CFArrayRef kids;
+    NSMutableString *out;
+    CFIndex i, n;
+    if (!AXAPIEnabled() || pid <= 0) return nil;
+    out=[NSMutableString stringWithFormat:@"%d\t%@\n",(int)pid,name ? name:@""];
     bar = PECopyMenuBar(pid);
     kids = bar ? PECopyChildren(bar) : NULL;
     n = kids ? CFArrayGetCount(kids) : 0;
@@ -2069,12 +2660,223 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
     }
     if (kids) CFRelease(kids);
     if (bar) CFRelease(bar);
-    if (n <= 1) return NO;
-    [self send:@"MENUS" text:out];
-    return YES;
+    if (n <= 1) return nil;
+    return out;
+}
+
+- (void)enqueueAsyncMenuBarForPID:(pid_t)pid session:(unsigned)session epoch:(unsigned)epoch
+{
+    [menuCondition lock];
+    BOOL duplicate=menuState.outstanding && menuState.hasLatest &&
+        menuState.latest.pid==pid && menuState.latest.session==session && menuState.latest.epoch==epoch;
+    [menuCondition unlockWithCondition:menuState.hasPending ? 1 : 0];
+    if (duplicate) return;
+
+    /* Process Manager name lookup remains on main; the worker receives only
+     * immutable values and performs AX reads, never Carbon or socket I/O. */
+    NSString *name=@"";
+    ProcessSerialNumber psn;
+    CFStringRef nameRef=NULL;
+    if (GetProcessForPID(pid,&psn)==noErr && CopyProcessName(&psn,&nameRef)==noErr && nameRef) {
+        name=[[(NSString *)nameRef copy] autorelease];
+        CFRelease(nameRef);
+    }
+    [menuCondition lock];
+    PEMenuAsyncJob job;
+    BOOL accepted=PEMenuStateRequest(&menuState,pid,session,epoch,&job);
+    if (accepted) {
+        menuAttemptedPID=pid;
+        menuAttemptedAt=CFAbsoluteTimeGetCurrent();
+        [menuPendingJob release];
+        NSData *boxed=[NSData dataWithBytes:&job length:sizeof(job)];
+        menuPendingJob=[[NSArray alloc] initWithObjects:boxed,name,nil];
+        if (!menuWorkerStarted) {
+            menuWorkerStarted=YES;
+            [NSThread detachNewThreadSelector:@selector(menuWorkerLoop:) toTarget:self withObject:nil];
+        }
+    }
+    [menuCondition unlockWithCondition:menuState.hasPending ? 1 : 0];
+}
+
+- (void)menuWorkerLoop:(id)unused
+{
+    for (;;) {
+        NSAutoreleasePool *pool=[[NSAutoreleasePool alloc]init];
+        [menuCondition lockWhenCondition:1];
+        NSArray *request=[menuPendingJob retain];
+        [menuPendingJob release]; menuPendingJob=nil;
+        PEMenuAsyncJob job; BOOL took=PEMenuStateTake(&menuState,&job);
+        [menuCondition unlockWithCondition:menuState.hasPending ? 1 : 0];
+        if (!took || !request) { [request release]; [pool drain]; continue; }
+        [self readAsyncMenuBar:request];
+        [request release];
+        [pool drain];
+    }
+}
+
+- (void)readAsyncMenuBar:(NSArray *)request
+{
+    NSAutoreleasePool *pool=[[NSAutoreleasePool alloc]init];
+    NSData *boxed=[request objectAtIndex:0];
+    PEMenuAsyncJob job; [boxed getBytes:&job length:sizeof(job)];
+    NSString *name=[request objectAtIndex:1];
+    NSString *payload=[self menuBarPayloadForPID:(pid_t)job.pid name:name];
+    NSArray *result=[NSArray arrayWithObjects:boxed,payload ? payload:@"",[NSNumber numberWithBool:payload!=nil],nil];
+    [self performSelectorOnMainThread:@selector(publishAsyncMenuBar:) withObject:result waitUntilDone:NO];
+    [pool release];
+}
+
+- (void)publishAsyncMenuBar:(NSArray *)result
+{
+    NSData *boxed=[result objectAtIndex:0];
+    PEMenuAsyncJob job; [boxed getBytes:&job length:sizeof(job)];
+    [focusCondition lock];
+    BOOL sessionCurrent=focusState.connected && focusState.session==job.session && focusState.epoch==job.epoch;
+    [focusCondition unlock];
+    [menuCondition lock];
+    BOOL generationCurrent=PEMenuStateCurrent(&menuState,job);
+    if (generationCurrent) PEMenuStateFinish(&menuState,job);
+    [menuCondition unlockWithCondition:menuState.hasPending ? 1 : 0];
+    if (!generationCurrent || !sessionCurrent || sock<0) return;
+
+    ProcessSerialNumber front; pid_t currentPID=0;
+    if (GetFrontProcess(&front)!=noErr || GetProcessPID(&front,&currentPID)!=noErr || currentPID!=job.pid) return;
+    if ([[result objectAtIndex:2] boolValue]) [self send:@"MENUS" text:[result objectAtIndex:1]];
+    /* Even an app with no AX menu gets a two-second retry interval instead of
+     * causing reportFocused's high-rate timer to enqueue repeated AX calls. */
+    if ([[result objectAtIndex:2] boolValue]) {
+        menuBarPid=(pid_t)job.pid;
+        menuBarReportedAt=CFAbsoluteTimeGetCurrent();
+    } else {
+        menuAttemptedPID=(pid_t)job.pid;
+        menuAttemptedAt=CFAbsoluteTimeGetCurrent();
+    }
 }
 
 /* "<pid> <path>" -- everything in that menu, so PowerEmu can build it here. */
+- (BOOL)enqueueAsyncMenuItems:(NSString *)args
+{
+    if (!PEMenuItemsAsyncEnabled() || !AXAPIEnabled()) return NO;
+    NSArray *fields=[args componentsSeparatedByString:@" "];
+    if ([fields count]<2) return NO;
+    int pid=[[fields objectAtIndex:0] intValue];
+    NSString *path=[fields objectAtIndex:1];
+    const char *pathUTF8=[path UTF8String];
+    if (pid<=0 || !PEMenuItemsPathValid(pathUTF8)) return NO;
+
+    unsigned session=0,epoch=0;
+    [focusCondition lock];
+    BOOL active=focusState.connected && focusState.harmonyActive;
+    session=focusState.session; epoch=focusState.epoch;
+    [focusCondition unlock];
+    if (!active) return NO; /* outside Harmony retain the legacy behavior */
+
+    /* The request is a menu for the front application. Snapshot it on main,
+     * prune older queued PIDs, and refuse a stale request before it can consume
+     * an Accessibility round trip. */
+    ProcessSerialNumber front; pid_t frontPID=0;
+    if (GetFrontProcess(&front)==noErr) GetProcessPID(&front,&frontPID);
+
+    [menuItemsCondition lock];
+    PEMenuItemsJob job;
+    PEMenuItemsStateSetForeground(&menuItemsState,(int)frontPID,session,epoch);
+    if (frontPID!=pid) {
+        [menuItemsCondition unlockWithCondition:PEMenuItemsStateReady(&menuItemsState) ? 1 : 0];
+        return YES;
+    }
+    (void)PEMenuItemsStateEnqueue(&menuItemsState,pid,pathUTF8,session,epoch,&job);
+    if (!menuItemsWorkerStarted) {
+        menuItemsWorkerStarted=YES;
+        [NSThread detachNewThreadSelector:@selector(menuItemsWorkerLoop:) toTarget:self withObject:nil];
+    }
+    [menuItemsCondition unlockWithCondition:PEMenuItemsStateReady(&menuItemsState) ? 1 : 0];
+    return YES; /* includes an already queued/in-flight duplicate */
+}
+
+- (void)invalidateAsyncMenuItems
+{
+    [menuItemsCondition lock];
+    PEMenuItemsStateInvalidate(&menuItemsState);
+    [menuItemsCondition unlockWithCondition:0];
+}
+
+- (void)menuItemsWorkerLoop:(id)unused
+{
+    for (;;) {
+        NSAutoreleasePool *pool=[[NSAutoreleasePool alloc]init];
+        PEMenuItemsJob job;
+        [menuItemsCondition lockWhenCondition:1];
+        BOOL took=PEMenuItemsStateTake(&menuItemsState,&job);
+        [menuItemsCondition unlockWithCondition:PEMenuItemsStateReady(&menuItemsState) ? 1 : 0];
+        if (took) {
+            NSData *boxed=[NSData dataWithBytes:&job length:sizeof(job)];
+            NSMutableArray *gate=[NSMutableArray arrayWithObjects:boxed,[NSNumber numberWithBool:NO],nil];
+            [self performSelectorOnMainThread:@selector(validateAsyncMenuItemsBeforeRead:)
+                withObject:gate waitUntilDone:YES];
+            if ([[gate objectAtIndex:1] boolValue]) [self readAsyncMenuItems:boxed];
+        }
+        [pool drain];
+    }
+}
+
+- (void)validateAsyncMenuItemsBeforeRead:(NSMutableArray *)gate
+{
+    NSData *boxed=[gate objectAtIndex:0];
+    PEMenuItemsJob job; [boxed getBytes:&job length:sizeof(job)];
+    ProcessSerialNumber front; pid_t frontPID=0;
+    if (GetFrontProcess(&front)==noErr) GetProcessPID(&front,&frontPID);
+    [focusCondition lock];
+    BOOL connected=focusState.connected, harmonyActive=focusState.harmonyActive;
+    unsigned session=focusState.session,epoch=focusState.epoch;
+    [focusCondition unlock];
+
+    [menuItemsCondition lock];
+    PEMenuItemsStateSetForeground(&menuItemsState,(int)frontPID,session,epoch);
+    BOOL current=PEMenuItemsStateCurrent(&menuItemsState,job);
+    BOOL allowed=PEMenuItemsStateCanPublish(&menuItemsState,job,connected,harmonyActive,
+        session,epoch,(int)frontPID);
+    if (current && !allowed) PEMenuItemsStateFinish(&menuItemsState,job);
+    [gate replaceObjectAtIndex:1 withObject:[NSNumber numberWithBool:allowed]];
+    [menuItemsCondition unlockWithCondition:PEMenuItemsStateReady(&menuItemsState) ? 1 : 0];
+}
+
+- (void)readAsyncMenuItems:(NSData *)boxedJob
+{
+    NSAutoreleasePool *pool=[[NSAutoreleasePool alloc]init];
+    PEMenuItemsJob job; [boxedJob getBytes:&job length:sizeof(job)];
+    NSString *path=[NSString stringWithUTF8String:job.path];
+    NSMutableString *out=[NSMutableString stringWithFormat:@"%d\t%@\n",job.pid,path];
+    AXUIElementRef item=PECopyMenuElement((pid_t)job.pid,path);
+    if (item) {
+        PEAppendMenuItems(item,path,0,out);
+        CFRelease(item);
+    }
+    NSArray *result=[NSArray arrayWithObjects:boxedJob,out,nil];
+    [self performSelectorOnMainThread:@selector(publishAsyncMenuItems:) withObject:result waitUntilDone:NO];
+    [pool release];
+}
+
+- (void)publishAsyncMenuItems:(NSArray *)result
+{
+    NSData *boxedJob=[result objectAtIndex:0];
+    PEMenuItemsJob job; [boxedJob getBytes:&job length:sizeof(job)];
+    [focusCondition lock];
+    BOOL connected=focusState.connected, harmonyActive=focusState.harmonyActive;
+    unsigned session=focusState.session, epoch=focusState.epoch;
+    [focusCondition unlock];
+    ProcessSerialNumber front; pid_t frontPID=0;
+    if (GetFrontProcess(&front)==noErr) GetProcessPID(&front,&frontPID);
+
+    [menuItemsCondition lock];
+    BOOL current=PEMenuItemsStateCurrent(&menuItemsState,job);
+    BOOL publish=PEMenuItemsStateCanPublish(&menuItemsState,job,connected,harmonyActive,
+        session,epoch,(int)frontPID);
+    if (current) PEMenuItemsStateFinish(&menuItemsState,job);
+    [menuItemsCondition unlockWithCondition:PEMenuItemsStateReady(&menuItemsState) ? 1 : 0];
+    if (publish && sock>=0)
+        [self send:@"MENUITEMS" text:[result objectAtIndex:1]];
+}
+
 - (void)reportMenuItems:(NSString *)args
 {
     NSArray *f = [args componentsSeparatedByString:@" "];
@@ -2259,7 +3061,7 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
         [self send:@"LOG" text:[NSString stringWithFormat:@"RAISE %d: no rect err=%d", wid, (int)ge]];
         return;
     }
-    w = PEFindAXWindow(r, &pid);
+    w = PEFindAXWindowForWindow(r, wid, &pid, NULL);
     if (w) {
         /* A window that has just been put in the Dock must stay there: raising
          * it would take it straight back out, which looked like minimizing
@@ -2329,6 +3131,188 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
         [self send:@"SHEETS" text:[result objectAtIndex:1]];
 }
 
+- (void)enqueueAsyncFocusWindow:(int)wid sequence:(int)sequence
+{
+    [focusCondition lock];
+    BOOL accepted = PEFocusStateEnqueue(&focusState, wid, sequence, raiseBringsAppForward);
+    if (accepted) {
+        if (!focusWorkerStarted) {
+            focusWorkerStarted = YES;
+            [NSThread detachNewThreadSelector:@selector(focusWorkerLoop:) toTarget:self withObject:nil];
+        }
+    }
+    [focusCondition unlockWithCondition:focusState.hasPending ? 1 : 0];
+}
+
+- (BOOL)isAsyncFocusJobCurrent:(PEFocusAsyncJob)job
+{
+    [focusCondition lock];
+    BOOL current = PEFocusStateCurrent(&focusState, job);
+    [focusCondition unlock];
+    return current;
+}
+
+- (void)focusWorkerLoop:(id)unused
+{
+    for (;;) {
+        NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+        PEFocusAsyncJob job;
+        [focusCondition lockWhenCondition:1];
+        PEFocusStateTake(&focusState, &job);
+        [focusCondition unlockWithCondition:focusState.hasPending ? 1 : 0];
+        [self runAsyncFocusJob:[NSData dataWithBytes:&job length:sizeof(job)]];
+        [pool drain];
+    }
+}
+
+- (void)applyAsyncFocusActivation:(NSMutableArray *)activation
+{
+    NSData *boxedJob = [activation objectAtIndex:0];
+    PEFocusAsyncJob job; [boxedJob getBytes:&job length:sizeof(job)];
+    pid_t pid = (pid_t)[[activation objectAtIndex:1] intValue];
+    CGRect original; [[activation objectAtIndex:2] getBytes:&original length:sizeof(original)];
+    BOOL applied = NO;
+    if ([self isAsyncFocusJobCurrent:job]) {
+        CGRect current;
+        ProcessSerialNumber psn;
+        if (CGSGetScreenRectForWindow(_CGSDefaultConnection(), job.wid, &current) == kCGErrorSuccess &&
+            CGSizeEqualToSize(current.size, original.size) && PEWindowOwnerMatchesPID(job.wid,pid) &&
+            GetProcessForPID(pid, &psn) == noErr) {
+            OSStatus st = job.bringAppForward ? paramErr
+                : SetFrontProcessWithOptions(&psn, kSetFrontProcessFrontWindowOnly);
+            if (st != noErr) SetFrontProcess(&psn);
+            /* Preserve the immediate stack/menu update after a requested raise. */
+            [self reportFocused];
+            applied = [self isAsyncFocusJobCurrent:job];
+        }
+    }
+    [activation replaceObjectAtIndex:3 withObject:[NSNumber numberWithBool:applied]];
+}
+
+- (void)finishAsyncFocus:(NSMutableArray *)completion
+{
+    NSData *boxedJob = [completion objectAtIndex:0];
+    PEFocusAsyncJob job; [boxedJob getBytes:&job length:sizeof(job)];
+    BOOL ok = [[completion objectAtIndex:1] boolValue];
+    pid_t targetPID=(pid_t)[[completion objectAtIndex:2] intValue];
+    CGRect original; [[completion objectAtIndex:3] getBytes:&original length:sizeof(original)];
+    if (![self isAsyncFocusJobCurrent:job] || sock < 0) return;
+    if (ok) {
+        ProcessSerialNumber front;
+        pid_t frontPID=0;
+        CGRect current;
+        BOOL gotFront=GetFrontProcess(&front)==noErr && GetProcessPID(&front,&frontPID)==noErr;
+        BOOL geometry=CGSGetScreenRectForWindow(_CGSDefaultConnection(),job.wid,&current)==kCGErrorSuccess &&
+            CGSizeEqualToSize(current.size,original.size);
+        BOOL owner=PEWindowOwnerMatchesPID(job.wid,targetPID);
+        ok=PEFocusFinalAckAllowed(ok,targetPID,gotFront ? (int)frontPID:0,geometry,owner,
+            [self isAsyncFocusJobCurrent:job]);
+    }
+    [self send:@"FOCUSREADY" text:[NSString stringWithFormat:@"%d %d %d", job.wid, job.sequence, ok]];
+    if (ok && sock >= 0 && [self isAsyncFocusJobCurrent:job]) {
+        if (!PEFocusAsyncEnabled()) menuBarPid = 0;
+        [self reportFocused];
+    }
+}
+
+- (void)snapshotAsyncFocusFrontProcess:(NSMutableArray *)snapshot
+{
+    NSData *boxedJob=[snapshot objectAtIndex:0];
+    PEFocusAsyncJob job; [boxedJob getBytes:&job length:sizeof(job)];
+    pid_t pid=0; ProcessSerialNumber front;
+    if ([self isAsyncFocusJobCurrent:job] && GetFrontProcess(&front)==noErr)
+        GetProcessPID(&front,&pid);
+    [snapshot replaceObjectAtIndex:1 withObject:[NSNumber numberWithInt:(int)pid]];
+}
+
+- (void)runAsyncFocusJob:(NSData *)boxedJob
+{
+    PEFocusAsyncJob job; [boxedJob getBytes:&job length:sizeof(job)];
+    if (![self isAsyncFocusJobCurrent:job]) return;
+    CGSConnectionID cid = _CGSDefaultConnection();
+    CGRect original=CGRectZero, current;
+    pid_t pid = 0, frontPID = 0;
+    AXUIElementRef target = NULL;
+    PEFocusTargetLease *lease = nil;
+    BOOL ok = NO, minimized = NO;
+    if (CGSGetScreenRectForWindow(cid, job.wid, &original) != kCGErrorSuccess ||
+        original.size.width < 1 || original.size.height < 1) goto done;
+    target = PEFindAXWindowForWindow(original, job.wid, &pid, NULL);
+    if (!target || pid <= 0 || !PEWindowOwnerMatchesPID(job.wid,pid) ||
+        ![self isAsyncFocusJobCurrent:job]) goto done;
+    lease = [[PEFocusTargetLease alloc] initWithTarget:target pid:pid rect:original job:job];
+    CFRelease(target); target=lease->target;
+
+    {
+        CFTypeRef minRef = NULL;
+        if (AXUIElementCopyAttributeValue(target, kAXMinimizedAttribute, &minRef) == kAXErrorSuccess && minRef) {
+            minimized = CFGetTypeID(minRef) == CFBooleanGetTypeID() && CFBooleanGetValue((CFBooleanRef)minRef);
+            CFRelease(minRef);
+        }
+    }
+    if (minimized || ![self isAsyncFocusJobCurrent:job]) goto done;
+    /* AX lookup, minimized check, and AX raise all stay on this serialized
+     * worker. Carbon activation and socket/report work are handed to main. */
+    AXUIElementPerformAction(target, kAXRaiseAction);
+    if (![self isAsyncFocusJobCurrent:job]) goto done;
+
+    {
+        NSMutableArray *activation = [NSMutableArray arrayWithObjects:boxedJob,
+            [NSNumber numberWithInt:(int)pid],
+            [NSData dataWithBytes:&original length:sizeof(original)],
+            [NSNumber numberWithBool:NO], nil];
+        /* The worker may wait for main; main never waits for this worker. */
+        [self performSelectorOnMainThread:@selector(applyAsyncFocusActivation:)
+            withObject:activation waitUntilDone:YES];
+        if (![[activation objectAtIndex:3] boolValue] || ![self isAsyncFocusJobCurrent:job]) goto done;
+    }
+
+    {
+        int attempt;
+        for (attempt=0; attempt<=30; attempt++) {
+            BOOL geometryCurrent = CGSGetScreenRectForWindow(cid,job.wid,&current)==kCGErrorSuccess &&
+                CGSizeEqualToSize(current.size,original.size) && PEWindowOwnerMatchesPID(job.wid,pid);
+            BOOL frontMatches = NO, focusedMatches = NO, sheetBlocks = NO;
+            BOOL nowMinimized = NO;
+            if (!geometryCurrent || ![self isAsyncFocusJobCurrent:job]) break;
+            {
+                CFTypeRef minRef = NULL;
+                if (AXUIElementCopyAttributeValue(target,kAXMinimizedAttribute,&minRef)==kAXErrorSuccess && minRef) {
+                    nowMinimized = CFGetTypeID(minRef)==CFBooleanGetTypeID() && CFBooleanGetValue((CFBooleanRef)minRef);
+                    CFRelease(minRef);
+                }
+            }
+            NSMutableArray *frontSnapshot=[NSMutableArray arrayWithObjects:boxedJob,[NSNumber numberWithInt:0],nil];
+            [self performSelectorOnMainThread:@selector(snapshotAsyncFocusFrontProcess:)
+                withObject:frontSnapshot waitUntilDone:YES];
+            frontPID=(pid_t)[[frontSnapshot objectAtIndex:1] intValue];
+            frontMatches = frontPID==pid;
+            if (frontMatches && !nowMinimized) {
+                AXUIElementRef app=AXUIElementCreateApplication(pid);
+                CFTypeRef focused=NULL;
+                if (app && AXUIElementCopyAttributeValue(app,kAXFocusedWindowAttribute,&focused)==kAXErrorSuccess && focused) {
+                    focusedMatches = CFEqual(target,focused) || PESheetBelongsToFocus(target,(AXUIElementRef)focused);
+                    CFRelease(focused);
+                }
+                if (app) CFRelease(app);
+                CFArrayRef blocking=PECopySheets(target);
+                sheetBlocks = blocking && CFArrayGetCount(blocking)>0;
+                if(blocking)CFRelease(blocking);
+            }
+            ok = PEFocusCanAcknowledge(YES,nowMinimized,frontMatches,focusedMatches,sheetBlocks,geometryCurrent);
+            if (ok || attempt==30 || ![self isAsyncFocusJobCurrent:job]) break;
+            usleep(20000);
+        }
+    }
+done:
+    if (lease) [lease release]; else if (target) CFRelease(target);
+    if (![self isAsyncFocusJobCurrent:job]) return;
+    NSMutableArray *completion=[NSMutableArray arrayWithObjects:boxedJob,[NSNumber numberWithBool:ok],
+        [NSNumber numberWithInt:(int)pid],[NSData dataWithBytes:&original length:sizeof(original)],nil];
+    [self performSelectorOnMainThread:@selector(finishAsyncFocus:)
+        withObject:completion waitUntilDone:YES];
+}
+
 - (void)confirmFocus:(NSArray *)request
 {
     int wid = [[request objectAtIndex:0] intValue];
@@ -2340,7 +3324,7 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
     pid_t pid = 0, frontPID = 0;
     ProcessSerialNumber front;
     if (CGSGetScreenRectForWindow(_CGSDefaultConnection(), wid, &rect) == 0) {
-        AXUIElementRef target = PEFindAXWindow(rect, &pid);
+        AXUIElementRef target = PEFindAXWindowForWindow(rect, wid, &pid, NULL);
         if (target && GetFrontProcess(&front) == noErr && GetProcessPID(&front, &frontPID) == noErr && pid == frontPID) {
             AXUIElementRef app = AXUIElementCreateApplication(pid);
             CFTypeRef focused = NULL;
@@ -2362,7 +3346,7 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
         return;
     }
     [self send:@"FOCUSREADY" text:[NSString stringWithFormat:@"%d %d %d", wid, sequence, ok]];
-    if (ok) { menuBarPid = 0; [self reportFocused]; }
+    if (ok) { menuBarPid = 0; menuAttemptedPID=0; menuAttemptedAt=0; [self reportFocused]; }
 }
 
 /*
@@ -2392,7 +3376,7 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
     /* Where the window's top-left should end up: it moves by as much as the
      * grab point did. */
     CGPoint target = [f count] == 3 ? end : CGPointMake(r.origin.x + (end.x - grab.x), r.origin.y + (end.y - grab.y));
-    w = PEFindAXWindow(r, &pid);
+    w = PEFindAXWindowForWindow(r, wid, &pid, NULL);
     if (w) {
         AXValueRef v = AXValueCreate(kAXValueCGPointType, &target);
         AXError e = AXUIElementSetAttributeValue(w, kAXPositionAttribute, v);
@@ -2429,7 +3413,7 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
         [self send:@"LOG" text:[NSString stringWithFormat:@"MINIMIZE %d: no rect", wid]];
         return;
     }
-    w = PEFindAXWindow(r, &pid);
+    w = PEFindAXWindowForWindow(r, wid, &pid, NULL);
     if (w) {
         AXError e = AXUIElementSetAttributeValue(w, kAXMinimizedAttribute,
                                                  kCFBooleanTrue);

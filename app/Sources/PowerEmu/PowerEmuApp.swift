@@ -100,7 +100,15 @@ extension Notification.Name {
 
 /// Quitting PowerEmu would leave running virtual Macs without their
 /// controls, so ask first.
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private struct GuestAppLaunchKey: Hashable {
+        let vmPackagePath: String
+        let applicationPath: String
+    }
+    private var pendingGuestAppLaunches: Set<GuestAppLaunchKey> = []
+    private var recentGuestAppLaunches: [GuestAppLaunchKey: Date] = [:]
+
     weak var library: VMLibrary?
     weak var configurationWindow: NSWindow?
     var openConfiguration: (() -> Void)?
@@ -160,6 +168,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         sender.reply(toOpenOrPrint: .success)
     }
 
+    /// Persistent guest-app Dock helpers reopen through this URL. Resolve the
+    /// exact package before starting anything, so a stale launcher never
+    /// starts a similarly named virtual Mac.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        MainActor.assumeIsolated {
+            for url in urls where url.scheme?.caseInsensitiveCompare("poweremu") == .orderedSame {
+                do { handleGuestAppLaunch(try GuestAppLaunchRequest.parse(url)) }
+                catch { showGuestLauncherError("This guest app launcher is invalid or incomplete.") }
+            }
+        }
+    }
+
     /// The Dock menu.  In Harmony the guest's windows have no shared title bar
     /// or toolbar to reach, so offer a way out here.
     func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
@@ -213,6 +233,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     item.representedObject = a.path
                     item.indentationLevel = 1
                     menu.addItem(item)
+                    let pin = NSMenuItem(title: "Add Persistent Dock Launcher for \(a.name)…",
+                                         action: #selector(keepGuestAppInDock(_:)), keyEquivalent: "")
+                    pin.target = self
+                    pin.representedObject = ["path": a.path, "name": a.name, "pid": String(a.pid)]
+                    pin.indentationLevel = 2
+                    menu.addItem(pin)
                 }
                 menu.addItem(NSMenuItem.separator())
             }
@@ -267,6 +293,126 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor @objc private func launchGuestApp(_ sender: NSMenuItem) {
         guard let path = sender.representedObject as? String else { return }
         (VMDisplayView.harmonized ?? VMDisplayView.showing)?.onLaunchGuestApp?(path)
+    }
+
+    @MainActor @objc private func keepGuestAppInDock(_ sender: NSMenuItem) {
+        guard let fields = sender.representedObject as? [String: String],
+              let path = fields["path"], let name = fields["name"],
+              let pid = Int(fields["pid"] ?? "0"),
+              let display = VMDisplayView.harmonized ?? VMDisplayView.showing,
+              let controller = VMWindowController.open.values.first(where: { $0.display === display }) else {
+            showGuestLauncherError("Open the virtual Mac’s screen before keeping this app in the Dock.")
+            return
+        }
+        do {
+            _ = try display.guestDock.installPersistentLauncher(vmPackageURL: controller.vm.url,
+                                                                appPath: path, name: name,
+                                                                runningGuestPID: pid)
+            let alert = NSAlert()
+            alert.messageText = "Dock Launcher Ready"
+            alert.informativeText = "Control-click \(name)’s icon in this Mac’s Dock and choose Keep in Dock to leave it there after quitting."
+            alert.runModal()
+        } catch {
+            showGuestLauncherError("PowerEmu could not create the Dock launcher: \(error.localizedDescription)")
+        }
+    }
+
+    @MainActor private func handleGuestAppLaunch(_ request: GuestAppLaunchRequest) {
+        let key = GuestAppLaunchKey(vmPackagePath: request.vmPackagePath,
+                                    applicationPath: request.guestApplicationPath)
+        if let last = recentGuestAppLaunches[key], Date().timeIntervalSince(last) < 2 { return }
+        guard pendingGuestAppLaunches.insert(key).inserted else { return }
+        resolveGuestAppLaunch(request, key: key, libraryDeadline: Date().addingTimeInterval(10))
+    }
+
+    @MainActor private func resolveGuestAppLaunch(_ request: GuestAppLaunchRequest,
+                                                   key: GuestAppLaunchKey,
+                                                   libraryDeadline: Date) {
+        guard let library else {
+            guard Date() < libraryDeadline else {
+                pendingGuestAppLaunches.remove(key)
+                showGuestLauncherError("PowerEmu could not load its virtual Mac library.")
+                return
+            }
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .milliseconds(250))
+                guard let self else { return }
+                self.resolveGuestAppLaunch(request, key: key, libraryDeadline: libraryDeadline)
+            }
+            return
+        }
+        library.reload()
+        guard let package = request.matchingPackage(in: library.machines.map(\.url)),
+              let vm = library.machines.first(where: { $0.url == package }) else {
+            pendingGuestAppLaunches.remove(key)
+            showGuestLauncherError("The virtual Mac for this Dock launcher is no longer in PowerEmu’s library. Open the machine package in PowerEmu, then create a new launcher.")
+            return
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        if vm.state == .stopped { vm.start() }
+        else if vm.state == .paused { vm.resume() }
+        let toolsDeadline = Date().addingTimeInterval(180)
+        var connectedAt: Date?
+        var appListDeadline: Date?
+        var queriedRevision: UInt64?
+        var querySentAt: Date?
+        let poll = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self, weak vm] timer in
+            MainActor.assumeIsolated {
+                guard let self else { timer.invalidate(); return }
+                guard let vm else {
+                    timer.invalidate()
+                    self.pendingGuestAppLaunches.remove(key)
+                    return
+                }
+                if vm.agent?.connected == true {
+                    let now = Date()
+                    if connectedAt == nil {
+                        connectedAt = now
+                        appListDeadline = now.addingTimeInterval(20)
+                    }
+                    if queriedRevision == nil || (querySentAt.map { now.timeIntervalSince($0) >= 5 } ?? false) {
+                        queriedRevision = vm.guestAppsRevision
+                        querySentAt = now
+                        vm.agent?.send("APPS", "")
+                    }
+                    if let queriedRevision, vm.guestAppsRevision > queriedRevision {
+                        timer.invalidate()
+                        self.pendingGuestAppLaunches.remove(key)
+                        if vm.guestApps.contains(where: { $0.path == request.guestApplicationPath }) {
+                            self.recentGuestAppLaunches[key] = now
+                            vm.launchGuestApp(path: request.guestApplicationPath)
+                            if let controller = VMWindowController.open[vm.url] {
+                                controller.showWindow(nil)
+                                controller.window?.makeKeyAndOrderFront(nil)
+                            }
+                        } else {
+                            self.showGuestLauncherError("“\(request.guestApplicationPath)” is not installed in \(vm.config.name).")
+                        }
+                        return
+                    }
+                    if let appListDeadline, now >= appListDeadline {
+                        timer.invalidate()
+                        self.pendingGuestAppLaunches.remove(key)
+                        self.showGuestLauncherError("PowerEmu Tools did not return the installed-app list for \(vm.config.name). The app was not launched.")
+                        return
+                    }
+                }
+                if Date() >= toolsDeadline || (vm.state == .stopped && vm.lastError != nil) {
+                    timer.invalidate()
+                    self.pendingGuestAppLaunches.remove(key)
+                    let detail = vm.lastError.map { " \($0)" } ?? ""
+                    self.showGuestLauncherError("PowerEmu could not connect to \(vm.config.name)’s guest tools. Make sure PowerEmu Tools are installed and the virtual Mac has started.\(detail)")
+                }
+            }
+        }
+        RunLoop.main.add(poll, forMode: .common)
+    }
+
+    @MainActor private func showGuestLauncherError(_ message: String) {
+        let alert = NSAlert()
+        alert.messageText = "Couldn’t Open Guest App"
+        alert.informativeText = message
+        alert.runModal()
     }
 
     /// The same list, kept on screen above everything, so it can be used

@@ -506,6 +506,13 @@ final class VMDisplayView: NSView {
     private let hostStats = HostStats()
     var showsPerformance: Bool { perfTimer != nil }
     private(set) var guestSize = CGSize(width: 1024, height: 768) {
+        willSet {
+            if newValue != guestSize {
+                harmonyDebug("PEHARMONY this view's card resized "
+                    + "\(Int(guestSize.width))x\(Int(guestSize.height)) -> "
+                    + "\(Int(newValue.width))x\(Int(newValue.height))")
+            }
+        }
         // Scanlines and the phosphor mask are sized from the guest's screen,
         // so a resolution change has to rebuild the filter.
         didSet { if guestSize != oldValue, panelFilter > 0 { applyPanelFilter() } }
@@ -593,7 +600,40 @@ final class VMDisplayView: NSView {
     var isHarmonyDisplayTransition: Bool { harmony || harmonyPreparation != nil }
     private var harmonyPreparationTimeout: DispatchWorkItem?
 
+    /*
+     * Wait for the full-screen exit -- both windows, when there are two --
+     * and only then ask for Harmony again.
+     *
+     * One fixed second was not enough: with two screens the dual layout puts
+     * the saved arrangement back 0.6s after the toggle, and the exit
+     * animation can still be running past that.  The old timer fired once,
+     * found a window still full screen and silently gave up.
+     */
+    private func waitForFullScreenExitThenHarmony(attempt: Int) {
+        guard attempt < 8 else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            guard let self, !self.harmony, self.harmonyPreparation == nil else { return }
+            var stillFull = self.window?.styleMask.contains(.fullScreen) ?? false
+            if let other = VMDisplayView.secondScreen, other.machineName == self.machineName,
+               other.window?.styleMask.contains(.fullScreen) == true {
+                stillFull = true
+            }
+            harmonyDebug("PEHARMONY fullscreen-wait attempt=\(attempt) stillFull=\(stillFull)")
+            if stillFull {
+                self.waitForFullScreenExitThenHarmony(attempt: attempt + 1)
+            } else {
+                self.requestHarmony(true)
+            }
+        }
+    }
+
     func requestHarmony(_ on: Bool) {
+        if on { channel.sendToAgent?("SCREENS", "") }
+        harmonyDebug("PEHARMONY request on=\(on) view=\(self === VMDisplayView.secondScreen ? "screen2" : "screen1") "
+                     + "harmony=\(harmony) preparing=\(harmonyPreparation != nil) "
+                     + "fullscreen=\(window?.styleMask.contains(.fullScreen) ?? false) "
+                     + "screen=\(window?.screen?.localizedName ?? "nil") "
+                     + "guest=\(Int(guestSize.width))x\(Int(guestSize.height))")
         /*
          * Harmony belongs to the first guest screen.
          *
@@ -608,7 +648,10 @@ final class VMDisplayView: NSView {
          */
         if self === VMDisplayView.secondScreen {
             guard let first = VMDisplayView.showing,
-                  first.machineName == machineName else { return }
+                  first.machineName == machineName else {
+                harmonyDebug("PEHARMONY screen2 request dropped: no matching screen1 view")
+                return
+            }
             if on { first.window?.makeKeyAndOrderFront(nil) }
             first.requestHarmony(on)
             return
@@ -624,22 +667,61 @@ final class VMDisplayView: NSView {
             clearStatus()
             return
         }
-        guard !harmony, harmonyPreparation == nil else { return }
+        guard !harmony, harmonyPreparation == nil else {
+            harmonyDebug("PEHARMONY refused: already on or already preparing")
+            return
+        }
         if let w = window, w.styleMask.contains(.fullScreen) {
-            w.toggleFullScreen(nil)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
-                guard let self, self.window?.styleMask.contains(.fullScreen) == false else { return }
-                self.requestHarmony(true)
-            }
+            /*
+             * Leaving full screen is a TWO window move when the machine has
+             * two guest screens: DualScreenLayout puts each guest screen on
+             * its own host screen and takes both out together.  Toggling
+             * this window on its own left the second one full screen, and
+             * Harmony then failed on both -- which from the outside looked
+             * like "only window 1 exits full screen, then neither
+             * initializes".  onToggleFullScreen is the action that already
+             * knows which of the two moves this machine needs.
+             */
+            if let toggle = onToggleFullScreen { toggle() } else { w.toggleFullScreen(nil) }
+            waitForFullScreenExitThenHarmony(attempt: 0)
             return
         }
         guard let host = window?.screen ?? NSScreen.main else { return }
-        let target = HarmonyDisplayMode.size(screen: host)
-        preHarmonyGuestSize = guestSize
+        /*
+         * Ask for a mode the guest can actually reach.
+         *
+         * The wanted size and the mode in the driver are the same arithmetic
+         * run at different moments -- launch, and now -- over a screen whose
+         * safe area and visible frame move with the menu bar and with what
+         * else is full screen.  Measured on 2026-10-11: a 1680 x 1050 Cinema
+         * Display gave 1728 x 1050 one minute and 1728 x 1042 the next, and
+         * the guest is held to an exact match, so the 8 points were the
+         * difference between Harmony starting and "display mode is
+         * unavailable".  Snap to the nearest reserved mode; with none
+         * recorded this is exactly what it was before.
+         */
+        var target = HarmonyDisplayMode.size(screen: host)
+        let reserved = harmonyReservedSizes?() ?? []
+        if !reserved.isEmpty, !reserved.contains(target) {
+            func distance(_ s: CGSize) -> CGFloat {
+                abs(s.width - target.width) + abs(s.height - target.height)
+            }
+            if let nearest = reserved.min(by: { distance($0) < distance($1) }) {
+                harmonyDebug("PEHARMONY wanted \(Int(target.width))x\(Int(target.height)) "
+                             + "-> reserved \(Int(nearest.width))x\(Int(nearest.height))")
+                target = nearest
+            }
+        }
+        preHarmonyGuestSize = harmonyDesktopSize
         let token = UUID().uuidString
         harmonyPreparation = (token, target, false)
         showStatus("Preparing Harmony…", "Matching the guest display to this Mac.")
+        harmonyDebug("PEHARMONY PREPAREHARMONY \(Int(target.width))x\(Int(target.height)) "
+                     + "reserved=\(reserved.map { "\(Int($0.width))x\(Int($0.height))" }.joined(separator: ","))")
         channel.sendToAgent?("PREPAREHARMONY", "\(token) \(Int(target.width)) \(Int(target.height))")
+        // Resolution changes the guest's main display, which may be card 1.
+        // Refresh its desktop geometry instead of waiting for card 0 to resize.
+        channel.sendToAgent?("SCREENS", "")
         let timeout = DispatchWorkItem { [weak self] in
             guard let self, self.harmonyPreparation?.token == token else { return }
             /*
@@ -650,9 +732,12 @@ final class VMDisplayView: NSView {
              * which is what happens when the window has moved to another
              * screen, or the guest has no mode of exactly this size.
              */
-            let got = self.guestSize
+            let got = self.harmonyDesktopSize
             let want = self.harmonyPreparation?.target ?? .zero
             let acked = self.harmonyPreparation?.acknowledged ?? false
+            harmonyDebug("PEHARMONY timeout acknowledged=\(acked) "
+                         + "guest=\(Int(got.width))x\(Int(got.height)) "
+                         + "asked=\(Int(want.width))x\(Int(want.height))")
             self.requestHarmony(false)
             if acked {
                 self.showStatus("Harmony could not match the display",
@@ -672,7 +757,7 @@ final class VMDisplayView: NSView {
 
     private func finishHarmonyPreparation() {
         guard let preparation = harmonyPreparation, preparation.acknowledged,
-              guestSize == preparation.target else { return }
+              harmonyDesktopSize == preparation.target else { return }
         harmonyPreparation = nil
         harmonyPreparationTimeout?.cancel()
         harmonyPreparationTimeout = nil
@@ -694,7 +779,7 @@ final class VMDisplayView: NSView {
      */
     private func offerSecondGuestScreen(besides harmonyScreen: NSScreen) {
         guard secondGuestScreenSize?() != nil,
-              let card2 = VMDisplayView.secondScreen,
+              let card2 = secondaryGuestCard,
               let other = NSScreen.screens.first(where: { $0 != harmonyScreen }) else {
             harmonyManager.setSecondScreen(host: .zero, guestSize: .zero)
             return
@@ -756,11 +841,23 @@ final class VMDisplayView: NSView {
 
     /// The guest's second screen, when the machine has one.  Harmony needs
     /// its size to place that screen's windows on this Mac's other display.
+    /// The reserved display modes the guest's driver was really patched
+    /// with when this machine launched.  Harmony asks for one of these
+    /// rather than for a size recomputed from the screen, which drifts.
+    var harmonyReservedSizes: (() -> [CGSize])?
     var secondGuestScreenSize: (() -> CGSize?)?
 
     /// The guest's own screens, main display first, as it reports them.
     /// Empty with tools too old to say.
     private(set) var guestScreens: [CGRect] = []
+
+    private var guestMainCard = 0
+    private var harmonyDesktopSize: CGSize {
+        HarmonyGuestDesktop.primarySize(screens: guestScreens, fallback: guestSize)
+    }
+    private var secondaryGuestCard: VMDisplayView? {
+        guestMainCard == 1 ? self : VMDisplayView.secondScreen
+    }
 
     /// Ask the guest to put one of its screens into a mode of this size.
     var onGuestScreenMode: ((Int, Int, Int) -> Void)?
@@ -848,6 +945,10 @@ final class VMDisplayView: NSView {
     var harmony = false {
         didSet {
             guard harmony != oldValue else { return }
+            // Retire any blank cursor rectangle installed for the full guest
+            // view before its window is hidden behind native proxies.
+            window?.invalidateCursorRects(for: self)
+            if harmony { NSCursor.arrow.set() }
             VMDisplayView.harmonized = harmony ? self : (VMDisplayView.harmonized === self ? nil : VMDisplayView.harmonized)
             layer?.backgroundColor = (harmony ? NSColor.clear : NSColor.black).cgColor
             screen.isOpaque = !harmony
@@ -867,7 +968,7 @@ final class VMDisplayView: NSView {
             onHarmonySecondScreen?(harmony)
             if harmony {
                 enterHarmonyScreen()
-                if preHarmonyGuestSize == nil { preHarmonyGuestSize = guestSize }   // restore this on exit
+                if preHarmonyGuestSize == nil { preHarmonyGuestSize = harmonyDesktopSize }
                 if let scr = window?.screen ?? NSScreen.main {
                     // Switch the guest to this Mac's exact point size, so a guest
                     // pixel is a host point and the scale is exactly 1.0 -- no
@@ -878,7 +979,7 @@ final class VMDisplayView: NSView {
                     let menuBar = scr.frame.maxY - scr.visibleFrame.maxY   // this Mac's menu bar height
                     if !maskedDesktop {
                         harmonyManager.setActive(true, screenFrame: scr.frame,
-                                                 guestSize: guestSize, hostMenuBar: menuBar)
+                                                 guestSize: harmonyDesktopSize, hostMenuBar: menuBar)
                         offerSecondGuestScreen(besides: scr)
                     }
                 }
@@ -1003,7 +1104,7 @@ final class VMDisplayView: NSView {
         harmonyWindows = windows.map { $0.rect }
         harmonyHasWindows = true
         if let scr = window?.screen ?? NSScreen.main {
-            harmonyManager.setScreen(scr.frame, guestSize: guestSize)
+            harmonyManager.setScreen(scr.frame, guestSize: harmonyDesktopSize)
         }
         harmonyManager.update(windows)
         updateDesktopMask()
@@ -1360,6 +1461,8 @@ final class VMDisplayView: NSView {
             self?.onHarmonyMoveDrag?(id, gx, gy, ex, ey)
         }
         harmonyManager.forwardKey = { [weak self] e in self?.forwardHarmonyKey(e) }
+        harmonyManager.handleHostShortcut = { [weak self] e in self?.isHostShortcut(e) ?? false }
+        harmonyMenus.exitHarmony = { [weak self] in self?.requestHarmony(false) }
         channel.onMenuBar = { [weak self] pid, app, tops in
             guard let self, self.harmony else { return }
             self.harmonyMenus.setMenuBar(pid: pid, app: app, tops: tops)
@@ -1386,7 +1489,10 @@ final class VMDisplayView: NSView {
         }
         channel.onHarmonyReady = { [weak self] token, size, ok in
             guard let self, let preparation = self.harmonyPreparation, preparation.token == token else { return }
+            harmonyDebug("PEHARMONY HARMONYREADY guest=\(Int(size.width))x\(Int(size.height)) ok=\(ok) "
+                         + "asked=\(Int(preparation.target.width))x\(Int(preparation.target.height))")
             guard ok, size == preparation.target else {
+                harmonyDebug("PEHARMONY refusing: guest could not reach the asked mode")
                 self.requestHarmony(false)
                 self.showStatus("Harmony display mode is unavailable", "The guest reported \(Int(size.width)) × \(Int(size.height)). Restart the virtual Mac to load its Harmony display mode.")
                 return
@@ -1404,10 +1510,21 @@ final class VMDisplayView: NSView {
         channel.onGuestScreens = { [weak self] screens in
             guard let self else { return }
             self.guestScreens = screens
+            if let second = VMDisplayView.secondScreen, second.machineName == self.machineName {
+                self.guestMainCard = HarmonyGuestDesktop.mainCard(
+                    screens: screens, cardSizes: [self.guestSize, second.guestSize], previous: self.guestMainCard)
+            }
+            harmonyDebug("PEHARMONY guest screens "
+                + screens.enumerated().map {
+                    "[\($0.offset)] at \(Int($0.element.origin.x)),\(Int($0.element.origin.y)) "
+                    + "\(Int($0.element.width))x\(Int($0.element.height))"
+                  }.joined(separator: "  ")
+                + "  | this view (card 0) = \(Int(self.guestSize.width))x\(Int(self.guestSize.height))")
             if self.harmony { self.refreshSecondGuestScreen() }
+            self.finishHarmonyPreparation()
         }
         channel.onWindowFrame = { [weak self] data in self?.harmonyManager.receiveWindowFrame(data) }
-        harmonyManager.requestWindowFrame = { [weak self] id, sequence, accepted in self?.channel.sendToAgent?("WINDOWFRAME", "\(id) \(sequence) \(accepted) rle32 tiles32") }
+        harmonyManager.requestWindowFrame = { [weak self] id, sequence, accepted, fresh in self?.channel.sendToAgent?("WINDOWFRAME", "\(id) \(sequence) \(accepted) rle32 tiles32" + (fresh ? " fresh" : "")) }
         guestDock.wantIcon = { [weak self] pid in self?.onWantAppIcon?(pid) }
         guestDock.activate = { [weak self] pid in
             guard let self else { return }
@@ -1566,10 +1683,12 @@ final class VMDisplayView: NSView {
          */
         if self === VMDisplayView.secondScreen, let first = VMDisplayView.showing,
            first.harmony, first.machineName == machineName {
-            first.harmonyManager.setSecondSurface(s)
+            if first.guestMainCard == 1 { first.harmonyManager.setSurface(s) }
+            else { first.harmonyManager.setSecondSurface(s) }
         }
         if harmony {
-            harmonyManager.setSurface(s)
+            if guestMainCard == 1 { harmonyManager.setSecondSurface(s) }
+            else { harmonyManager.setSurface(s) }
             // Redraw follows the guest's frames, and only where it drew.
             harmonyManager.currentFrameSeq = channel.frameSeq
             /*
@@ -1656,6 +1775,66 @@ final class VMDisplayView: NSView {
         needsLayout = true
     }
 
+    /*
+     * Which screen the window is on, watched directly.
+     *
+     * Harmony maps the guest's windows into this Mac's coordinates from the
+     * frame of the screen the window sits on, and that frame reaches
+     * HarmonyManager only from layout().  The one thing that used to mark the
+     * view for layout on a screen change was viewDidChangeBackingProperties,
+     * which fires on a change of backing *scale* -- so dragging between two
+     * screens of the same scale left the guest mapped to the screen it had
+     * left, and the pointer landed somewhere else entirely.  Dragging from a
+     * Retina built-in display to a 1x external happened to work, which is
+     * what made it look intermittent rather than simply missing.
+     */
+    private var hostScreenObserver: NSObjectProtocol?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if let o = hostScreenObserver {
+            NotificationCenter.default.removeObserver(o)
+            hostScreenObserver = nil
+        }
+        guard let w = window else { return }
+        hostScreenObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didChangeScreenNotification, object: w, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.hostScreenChanged() }
+        }
+    }
+
+    private func hostScreenChanged() {
+        needsLayout = true                      // re-pushes the screen frame
+        /*
+         * With Harmony on, the guest's own resolution was matched to the
+         * screen the window was on when it was turned on.  Once the window
+         * lives on a different screen that size is wrong -- fullscreen
+         * letterboxes and every guest window is placed against the wrong
+         * extent -- so match the new screen.  Only when it really differs:
+         * re-preparing changes the guest's resolution, which is not something
+         * to do because a window crossed a boundary between two screens of
+         * the same size.
+         */
+        guard harmony, let host = window?.screen else { return }
+        let target = HarmonyDisplayMode.size(screen: host)
+        guard Int(target.width) != Int(guestSize.width.rounded())
+                || Int(target.height) != Int(guestSize.height.rounded()) else { return }
+        /*
+         * requestHarmony(true) refuses while Harmony is already on, so this
+         * has to hand it back before asking again -- as written first, it
+         * was a no-op and the guest stayed at the size of the screen it had
+         * left.  The second attempt can now actually succeed: the driver
+         * carries a reserved mode for each host screen rather than only for
+         * the one the machine started on.
+         */
+        requestHarmony(false)
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.window?.screen === host else { return }
+            self.requestHarmony(true)
+        }
+    }
+
     override func layout() {
         super.layout()
         CATransaction.begin(); CATransaction.setDisableActions(true)
@@ -1678,7 +1857,7 @@ final class VMDisplayView: NSView {
         screen.frame = screenRect
         updateDesktopMask()          // its geometry follows this layer's
         if harmony, let scr = window?.screen ?? NSScreen.main {
-            harmonyManager.setScreen(scr.frame, guestSize: guestSize)
+            harmonyManager.setScreen(scr.frame, guestSize: harmonyDesktopSize)
             harmonyManager.update(harmonyWindowList)
         }
         /*
@@ -2428,6 +2607,7 @@ final class VMDisplayView: NSView {
         if hidesPointer(at: convert(event.locationInWindow, from: nil)) {
             Self.blankCursor.set()
         } else {
+            if !grabbed { NSCursor.arrow.set() }
             super.cursorUpdate(with: event)
         }
     }
@@ -2452,6 +2632,7 @@ final class VMDisplayView: NSView {
         // vanishes between windows.
         mouseMode == .seamless && !grabbed && screenRect.contains(p)
             && !onPerf(p) && !onBar(p) && guestDrawsPointer
+            && !(harmony && !maskedDesktop) // native proxies own a visible host cursor
             && (!harmony || guestPixelOpaque(atViewPoint: p))
     }
 
@@ -2477,7 +2658,7 @@ final class VMDisplayView: NSView {
          * plain sight behind the guest's, and has to ask for the mouse back
          * before they can click anything at all.
          */
-        guard !(harmony && maskedDesktop) else { return }
+        guard !harmony else { return }
         guard mouseMode == .captured, !grabbed, window?.isKeyWindow == true else { return }
         grabbed = true
         NSCursor.hide()
@@ -2503,7 +2684,10 @@ final class VMDisplayView: NSView {
         keepPointerHidden(event)
         if !grabbed { flashHint(true) }
     }
-    override func mouseExited(with event: NSEvent) { flashHint(false) }
+    override func mouseExited(with event: NSEvent) {
+        if !grabbed { NSCursor.arrow.set() }
+        flashHint(false)
+    }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
@@ -2745,6 +2929,11 @@ final class VMWindow: NSWindow {
     override var canBecomeMain: Bool { true }
 }
 
+extension VMWindowController: VMToolbarHost {
+    var toolbarVM: VirtualMachine? { vm }
+    var toolbarDisplay: VMDisplayView? { display }
+}
+
 final class VMWindowController: NSWindowController, NSWindowDelegate {
     static var open: [URL: VMWindowController] = [:]
     /// The one the Machine menu acts on: the key window's, else the main
@@ -2789,6 +2978,7 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
         display.onGuestScreenMode = { [weak vm] index, w, h in
             vm?.setGuestScreenMode(index, w, h)
         }
+        display.harmonyReservedSizes = { [weak vm] in vm?.harmonyReservedSizes ?? [] }
         display.secondGuestScreenSize = { [weak vm] in
             guard let vm, vm.config.displays > 1 else { return nil }
             return CGSize(width: max(640, vm.config.display2Width),
@@ -2918,6 +3108,9 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
 
     static func close(_ vm: VirtualMachine) {
         guard let c = open.removeValue(forKey: vm.url) else { return }
+        if c.display.harmony || c.display.isHarmonyDisplayTransition {
+            c.display.requestHarmony(false)
+        }
         c.display.releaseAll()
         c.window?.orderOut(nil)
         c.window?.close()
@@ -3003,7 +3196,10 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
         [.fullScreen, .hideDock, .hideMenuBar]
     }
 
-    func windowDidResignKey(_ n: Notification) { display.releaseAll() }
+    func windowDidResignKey(_ n: Notification) {
+        display.releaseAll()
+        combined?.second.releaseAll()
+    }
 
     /*
      * Give the keyboard back to the guest when the window comes forward.

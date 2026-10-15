@@ -39,13 +39,13 @@ installer: build/PowerEmuInstaller agent clock
 	cp -R "$(AGENT)" "$(INST)/Contents/Resources/"
 	cp build/PowerEmuClock Resources/com.spartan0285.poweremu.clock.plist "$(INST)/Contents/Resources/"
 
-build/PowerEmuAgent: src/PEAgent.m src/PEAccessibility.h src/PEPixelPack.h src/PEFullscreenState.h src/PETilePack.h src/PEFileTransfer.inc src/PETransferZip.h src/PESheets.inc
+build/PowerEmuAgent: src/PEAgent.m src/PECaptureRequest.h src/PEFocusAsyncState.h src/PEMenuItemsAsyncState.h src/PEMinWindowsAsyncState.h src/PEHarmonyStallTrace.h src/PEAccessibility.h src/PEPixelPack.h src/PEFullscreenState.h src/PETilePack.h src/PEFileTransfer.inc src/PETransferZip.h src/PESheets.inc
 	mkdir -p build
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $< -framework Cocoa -framework Carbon -lz
 
 build/PowerEmuInstaller: src/PEInstaller.m src/PEAccessibility.h
 	mkdir -p build
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $< -framework Cocoa -framework Security
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $< -framework Cocoa -framework Security -framework CoreServices
 
 build/PowerEmuClock: src/PEClock.c
 	mkdir -p build

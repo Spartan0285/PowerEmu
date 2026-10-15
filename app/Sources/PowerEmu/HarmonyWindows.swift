@@ -33,8 +33,10 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
     let completeWindowCapture = ProcessInfo.processInfo.environment["POWEREMU_HARMONY_MASKED"] != "1"
     private(set) var guestCursor = NSCursor.arrow
     func setGuestCursor(_ image: CGImage?, hotSpot: CGPoint) {
-        if let image {
-            guestCursor = NSCursor(image: NSImage(cgImage: image, size: CGSize(width: image.width, height: image.height)), hotSpot: hotSpot)
+        if let image, HarmonyCursorImage.hasVisiblePixels(image) {
+            let bounded = CGPoint(x: min(CGFloat(image.width - 1), max(0, hotSpot.x)),
+                                  y: min(CGFloat(image.height - 1), max(0, hotSpot.y)))
+            guestCursor = NSCursor(image: NSImage(cgImage: image, size: CGSize(width: image.width, height: image.height)), hotSpot: bounded)
         } else { guestCursor = .arrow }
         for proxy in proxies.values {
             if let view = proxy.contentView { proxy.invalidateCursorRects(for: view) }
@@ -43,7 +45,8 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
     var releaseInput: (() -> Void)?
     var onGuestWindowFocus: ((Bool) -> Void)?
     private var keyWindowObserver: Any?
-    var requestWindowFrame: ((Int, Int, Int) -> Void)?
+    var requestWindowFrame: ((Int, Int, Int, Bool) -> Void)?
+    private var forceCaptures = Set<Int>()
     private var windowFrameTimer: Timer?
     private let frameDecodeQueue = DispatchQueue(label: "PowerEmu.windowDecode", qos: .userInitiated)
     private var decodingFrame = false
@@ -74,8 +77,10 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
             guard let p = proxies[id], !p.isMiniaturized else { return nil }
             let needsImage = !p.hasContents || p.capturedImage?.width != Int(p.guestRect.width)
                 || p.capturedImage?.height != Int(p.guestRect.height)
-            return .init(id: id, needsImage: needsImage)
+            return .init(id: id, needsImage: needsImage, visible: p.occlusionState.contains(.visible))
         }
+        forceCaptures.formIntersection(Set(candidates.map(\.id)))
+        captureScheduler.paceForegroundIdle = ProcessInfo.processInfo.environment["POWEREMU_HARMONY_VISIBLE_CACHE"] == "1"
         guard let id = captureScheduler.next(candidates, foreground: foreground,
                                              now: ProcessInfo.processInfo.systemUptime) else { return }
         requestedFrame = id
@@ -83,7 +88,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
         requestSequence += 1
         captureBeganAt = Date()
         requestedBaseSequence = proxies[id]?.acceptedCaptureSequence ?? 0
-        requestWindowFrame?(id, requestSequence, requestedBaseSequence)
+        requestWindowFrame?(id, requestSequence, requestedBaseSequence, forceCaptures.remove(id) != nil)
     }
 
     func receiveWindowFrame(_ data: Data) {
@@ -229,6 +234,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
     }
     var requestFocus: ((Int, Int) -> Void)?
     private var focusSequence = 0
+    private var focusTiming = HarmonyFocusTiming()
     private var pendingFocus: (id: Int, sequence: Int)?
     private var focusEvents: [() -> Void] = []
     private var focusTimeout: DispatchWorkItem?
@@ -260,6 +266,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
     }
     func receiveFocus(id: Int, sequence: Int, ok: Bool) {
         guard pendingFocus?.id == id, pendingFocus?.sequence == sequence else { return }
+        focusTiming.acknowledge(id: id, sequence: sequence, ok: ok, queuedEvents: focusEvents.count, now: ProcessInfo.processInfo.systemUptime)
         focusTimeout?.cancel(); pendingFocus = nil
         let events = focusEvents; focusEvents = []
         guard ok, active, proxies[id] != nil else {
@@ -270,13 +277,30 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
         for event in events { event() }
     }
     func sendProxyButton(_ bit: Int32, _ down: Bool, windowID: Int? = nil) {
-        withFocus(windowID: windowID) { [weak self] in self?.sendButton?(bit, down) }
+        withFocus(windowID: windowID) { [weak self] in
+            guard let self else { return }
+            self.sendButton?(bit, down)
+            self.refreshAfterInteraction(windowID)
+        }
     }
     func sendProxyScroll(_ lines: Int32) {
-        withFocus { [weak self] in self?.sendScroll?(lines) }
+        withFocus { [weak self] in
+            self?.sendScroll?(lines)
+            self?.refreshAfterInteraction(nil)
+        }
     }
     func sendProxyKey(_ event: NSEvent) {
-        withFocus { [weak self] in self?.forwardKey?(event) }
+        if event.type == .keyDown, handleHostShortcut?(event) == true { return }
+        withFocus { [weak self] in
+            self?.forwardKey?(event)
+            self?.refreshAfterInteraction(nil)
+        }
+    }
+    private func refreshAfterInteraction(_ id: Int?) {
+        guard let id = id ?? (NSApp.keyWindow as? HarmonyProxy)?.id else { return }
+        forceCaptures.insert(id)
+        captureScheduler.interacted(id, now: ProcessInfo.processInfo.systemUptime)
+        requestNextFrame()
     }
     var sendButton: ((Int32, Bool) -> Void)?
     var sendScroll: ((Int32) -> Void)?
@@ -324,6 +348,8 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
     /// Keys from whichever proxy is focused go to the guest through here (the
     /// view's own key handling).
     var forwardKey: ((NSEvent) -> Void)?
+    /// Host escape commands must remain available while guest focus is pending.
+    var handleHostShortcut: ((NSEvent) -> Bool)?
 
     private var proxies: [Int: HarmonyProxy] = [:]
     private var sheetParents: [Int: Int] = [:]
@@ -900,7 +926,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
          * The whole frame, not just its left edge: a guest that keeps its
          * second screen above or below the first shares the first's x. */
         if let f = reportedFrame {
-            return f.contains(CGPoint(x: g.midX, y: g.midY))
+            return HarmonyGuestDesktop.isOnSecondary(g, primarySize: guestSize, secondary: f)
         }
         return g.midX >= guestSize.width || g.midX < 0
     }
@@ -935,9 +961,11 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
     func setActive(_ on: Bool, screenFrame: CGRect, guestSize: CGSize, hostMenuBar: CGFloat) {
         windowFrameTimer?.invalidate(); windowFrameTimer = nil
         requestedFrame = nil; requestedProxy = nil
+        forceCaptures.removeAll()
         captureScheduler = HarmonyCaptureScheduler()
         menuFocus.cancel()
         pendingFocus = nil; focusEvents = []; focusTimeout?.cancel()
+        for line in focusTiming.finish() { harmonyDebug(line) }
         active = on
         if let keyWindowObserver { NotificationCenter.default.removeObserver(keyWindowObserver) }
         keyWindowObserver = nil
@@ -1338,7 +1366,9 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
         // left, the extras/clock on the right -- so a full-width test kept the
         // right-hand piece; matching any shallow top strip drops them all.
         // This Mac's own menu bar shows there instead.
-        func isMenuBar(_ r: CGRect) -> Bool { r.minY <= 2 && r.height <= 30 }
+        func isMenuBar(_ r: CGRect) -> Bool {
+            HarmonyGuestDesktop.isPrimaryMenuBar(r, primarySize: guestSize)
+        }
         // The full-width piece is the bar itself; its height bottom-aligns the
         // two menu bars.
         if let mb = windows.first(where: { isMenuBar($0.rect) && $0.rect.width >= guestSize.width - 4 }) {
@@ -1349,6 +1379,10 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
         // list they were taken for the front-most window -- so no real window
         // was ever refreshed from the screen and every one of them sat frozen.
         func onScreen(_ r: CGRect) -> Bool {
+            if spansTwoScreens {
+                let secondary = reportedFrame ?? CGRect(origin: secondGuestOrigin, size: secondGuestSize)
+                return HarmonyGuestDesktop.isVisible(r, primarySize: guestSize, secondary: secondary)
+            }
             // Horizontally this now asks "is it on *a* guest screen", not "is
             // it on the first one": with two screens the second one's windows
             // are past the first's width, and dropping them here is why they
@@ -2280,6 +2314,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
         withFocus(windowID: id) { [weak self, weak p] in
             guard let self, let p, self.proxies[id] === p else { return }
             self.sendPoint?(Int((p.guestRect.minX + local.x).rounded()), Int((p.guestRect.minY + local.y).rounded()))
+            self.forceCaptures.insert(id)
         }
     }
     func proxyButton(_ down: Bool, at point: CGPoint? = nil, windowID: Int? = nil) {
@@ -2351,6 +2386,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
             guard pendingFocus?.id != id else { return }
             focusSequence += 1
             let sequence = focusSequence
+            focusTiming.begin(id: id, sequence: sequence, now: ProcessInfo.processInfo.systemUptime)
             pendingFocus = (id, sequence); focusEvents = []
             focusTimeout?.cancel()
             let timeout = DispatchWorkItem { [weak self] in self?.receiveFocus(id: id, sequence: sequence, ok: false) }
@@ -2747,7 +2783,22 @@ final class HarmonyProxyView: NSView, NSDraggingSource {
     override func resetCursorRects() {
         addCursorRect(bounds, cursor: proxy?.manager?.guestCursor ?? .arrow)
     }
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: .zero,
+            options: [.mouseEnteredAndExited, .cursorUpdate, .activeInActiveApp, .inVisibleRect],
+            owner: self))
+    }
+    override func cursorUpdate(with event: NSEvent) {
+        (proxy?.manager?.guestCursor ?? .arrow).set()
+    }
+    override func mouseEntered(with event: NSEvent) {
+        (proxy?.manager?.guestCursor ?? .arrow).set()
+    }
+    override func mouseExited(with event: NSEvent) { NSCursor.arrow.set() }
     override func mouseMoved(with e: NSEvent) {
+        (proxy?.manager?.guestCursor ?? .arrow).set()
         if let proxy { proxy.manager?.sendPointInProxy(proxy.id, at: hostPoint(e)) }
     }
     override func rightMouseDown(with e: NSEvent) {
@@ -2820,7 +2871,7 @@ final class HarmonyProxyView: NSView, NSDraggingSource {
         harmonyDebug("PEEVENT id=\(proxy.id) event=\(e.locationInWindow) local=\(convert(e.locationInWindow, from: nil)) bounds=\(bounds) host=\(hostPoint(e))")
         if proxy.isMenuBar {                          // the guest's menu bar: pass the click on
             leftButtonForwarded = true
-            m.sendPointInProxy(proxy.id, at: hostPoint(e)); m.proxyButton(true, at: hostPoint(e), windowID: proxy.id)
+            m.proxyButton(true, at: hostPoint(e), windowID: proxy.id)
             return
         }
         if m.redirectBlockedInteraction(proxy.id) { return }
@@ -2845,7 +2896,7 @@ final class HarmonyProxyView: NSView, NSDraggingSource {
             fileDragGeneration += 1
             if fileDragOrigin != nil { m.armDrag(proxy.id, at: hostPoint(e)) }
             leftButtonForwarded = true
-            m.sendPointInProxy(proxy.id, at: hostPoint(e)); m.proxyButton(true, at: hostPoint(e), windowID: proxy.id)
+            m.proxyButton(true, at: hostPoint(e), windowID: proxy.id)
         }
     }
 
@@ -2909,7 +2960,6 @@ final class HarmonyProxyView: NSView, NSDraggingSource {
                     dragOrigin = nil; dragMouse = nil; titleDownLocal = nil; dragMoved = false
                     return
                 }
-                m.sendPointInProxy(proxy.id, at: hostPoint(e))
                 m.proxyButton(true, at: hostPoint(e), windowID: proxy.id)
                 m.proxyButton(false, at: hostPoint(e), windowID: proxy.id)
             }
@@ -2917,7 +2967,7 @@ final class HarmonyProxyView: NSView, NSDraggingSource {
             m.suspendPointerTracking = false
         } else if leftButtonForwarded {
             leftButtonForwarded = false
-            m.sendPointInProxy(proxy.id, at: hostPoint(e)); m.proxyButton(false, at: hostPoint(e), windowID: proxy.id)
+            m.proxyButton(false, at: hostPoint(e), windowID: proxy.id)
         }
     }
 
