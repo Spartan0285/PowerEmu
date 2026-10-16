@@ -48,8 +48,8 @@ cp "$BIN" "$OUT/Contents/MacOS/PowerEmu"
 ditto "$HELPER_STAGE" "$OUT/Contents/Helpers/PowerEmu VM.app"
 # The network helper: the only piece that ever runs as an administrator,
 # and it does nothing but carry ethernet frames for a bridged virtual Mac.
-# Sign one immutable application template at build time. Per-app copies keep
-# their identity, runtime state and artwork beside, never inside, the bundle.
+# Sign the immutable source template at build time. Local per-app bundles seal
+# their own identity and artwork before signing; runtime state stays beside them.
 mkdir -p "$OUT/Contents/Helpers/GuestApplication.app/Contents/MacOS"
 cp "$ROOT/helper/Info.plist" "$OUT/Contents/Helpers/GuestApplication.app/Contents/Info.plist"
 xcrun swiftc -O -target arm64-apple-macos12.0 \
@@ -119,6 +119,12 @@ cat > "$OUT/Contents/Info.plist" <<EOF
 	<string>$STAGE</string>
 	<key>PEGuestLauncherVersion</key>
 	<integer>3</integer>
+	<key>LSEnvironment</key>
+	<dict>
+		<key>POWEREMU_HARMONY_NATIVE_POLLING</key><string>1</string>
+		<key>POWEREMU_HARMONY_VISIBLE_CACHE</key><string>0</string>
+		<key>POWEREMU_R200_AIC_RT</key><string>1</string>
+	</dict>
 	<key>PERadeon9800Experiment</key>
 	<$([ "$R350_EXPERIMENT" = 1 ] && echo true || echo false)/>
 	<key>LSMinimumSystemVersion</key>
