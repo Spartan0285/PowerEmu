@@ -1,12 +1,18 @@
 {
-  "version": "0.4.1",
-  "build": 10,
-  "published": "2026-10-11T17:34:56Z",
+  "version": "0.4.2",
+  "build": 11,
+  "published": "2026-10-16T01:03:24Z",
   "minimumSystem": "14.0",
-  "notes": "Sound in a virtual Mac is better. The emulator now keeps the sound hardware fed while a game is busy, keeps hold of pending audio when this Mac is under load, and follows the buffer size the sound system actually asks for. Games that used to drop out and stall when a new sound started are noticeably cleaner. Crackling on loud effects \u2014 a thunderclap, a sudden announcement \u2014 has not gone away. A measurement of Warcraft III taken for this release shows why: when a lot of sound has to be mixed at once the callback arrives late, and the card plays a moment that nothing filled. That is the next thing to fix, and it is not fixed here. New: Audio Relay sends this Mac's sound to an old Mac that cannot decode a stream itself. The old Mac keeps the clock and simply reads bytes as its own card calls for them, so a 1.5GHz G4 can play the music and still draw its windows. Also: a virtual Mac now reports its configured processor speed on every CPU, including older configurations, and guest clock connections are reused rather than remade.",
-  "url": "https://github.com/Spartan0285/PowerEmu/releases/download/v0.4.1/PowerEmu-0.4.1.zip",
-  "sha256": "76ddf5112f9358caba1228a1384a9f78ba46f2dde7d2843e4b7201c304d0458a",
+  "notes": "Harmony guest apps now have one stable Dock icon per application and virtual Mac. Keep an icon in the Dock, quit the virtual Mac, then click the icon to start PowerEmu, boot the correct machine, enter Harmony and reopen the guest app. Icons and names remain visible while the VM is off, and quitting an app leaves its pinned icon in place. Guest Applications provides a searchable list instead of a long Dock menu.\n\nHarmony also includes the tested responsiveness, accelerated-window readback, cursor and dual-display stability improvements. Starting a two-screen virtual Mac without a second host display now warns and offers to switch to one screen; saved sessions preserve their original display hardware.\n\nPowerEmu Tools 2.24 is included. Install the update inside each guest to receive the new integration and application reporting. Existing Tools 2.23 installations will be offered the update. This release does not claim to resolve the remaining game-audio distortion or every Harmony rendering issue.",
+  "url": "https://github.com/Spartan0285/PowerEmu/releases/download/v0.4.2/PowerEmu-0.4.2.zip",
+  "sha256": "6a736047fa77e1dacd4cd0bec3b82dd2803465c54a306155eacc6ee79585e6fc",
   "history": [
+    {
+      "version": "0.4.1",
+      "build": 10,
+      "published": "2026-10-11T17:34:56Z",
+      "notes": "Sound in a virtual Mac is better. The emulator now keeps the sound hardware fed while a game is busy, keeps hold of pending audio when this Mac is under load, and follows the buffer size the sound system actually asks for. Games that used to drop out and stall when a new sound started are noticeably cleaner. Crackling on loud effects \u2014 a thunderclap, a sudden announcement \u2014 has not gone away. A measurement of Warcraft III taken for this release shows why: when a lot of sound has to be mixed at once the callback arrives late, and the card plays a moment that nothing filled. That is the next thing to fix, and it is not fixed here. New: Audio Relay sends this Mac's sound to an old Mac that cannot decode a stream itself. The old Mac keeps the clock and simply reads bytes as its own card calls for them, so a 1.5GHz G4 can play the music and still draw its windows. Also: a virtual Mac now reports its configured processor speed on every CPU, including older configurations, and guest clock connections are reused rather than remade."
+    },
     {
       "version": "0.4.0",
       "build": 9,
