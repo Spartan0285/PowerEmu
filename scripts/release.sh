@@ -71,6 +71,19 @@ if [ "$(plutil -extract PERadeon9800Experiment raw "$APP/Contents/Info.plist")" 
     exit 1
 fi
 
+# The public artifact must carry the same runtime settings as the accepted
+# Harmony test build, rather than just compiling its opt-in implementations.
+for setting in POWEREMU_HARMONY_NATIVE_POLLING POWEREMU_R200_AIC_RT; do
+    if [ "$(plutil -extract "LSEnvironment.$setting" raw "$APP/Contents/Info.plist")" != 1 ]; then
+        echo "release is missing the validated $setting setting" >&2
+        exit 1
+    fi
+done
+if [ "$(plutil -extract LSEnvironment.POWEREMU_HARMONY_VISIBLE_CACHE raw "$APP/Contents/Info.plist")" != 0 ]; then
+    echo "release unexpectedly enables experimental visible-window caching" >&2
+    exit 1
+fi
+
 # ditto, not zip: a bundle's symlinks have to survive or its signature does not.
 pack() { rm -f "$ZIP"; (cd "$ROOT/build" && ditto -c -k --keepParent PowerEmu.app "$ZIP"); }
 echo "== packing"
