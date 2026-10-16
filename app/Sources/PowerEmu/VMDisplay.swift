@@ -32,6 +32,14 @@ final class DisplayChannel: @unchecked Sendable {
     /// What is in the guest's own Dock, which Harmony hides.
     var onDockApps: (([(path: String, name: String, pid: Int)]) -> Void)?
     func deliverDockApps(_ a: [(path: String, name: String, pid: Int)]) { onDockApps?(a) }
+    var onInstalledApps: (([(path: String, name: String)]) -> Void)?
+    func deliverInstalledApps(_ a: [(path: String, name: String)]) { onInstalledApps?(a) }
+    var onApplicationPathIcon: ((String, Data) -> Void)?
+    func deliverApplicationPathIcon(_ path: String, _ png: Data) { onApplicationPathIcon?(path, png) }
+    var onToolsConnected: (() -> Void)?
+    func deliverToolsConnected() { onToolsConnected?() }
+    var onToolsDisconnected: (() -> Void)?
+    func deliverToolsDisconnected() { onToolsDisconnected?() }
     /// Harmony: the front guest application's menu bar, and the contents of
     /// one of its menus once it has been asked for.
     var onFocused: ((Int) -> Void)?
@@ -747,7 +755,8 @@ final class VMDisplayView: NSView {
                                 spinning: false, dismissAfter: 12)
             } else {
                 self.showStatus("Harmony could not match the display",
-                                "Install PowerEmu Tools \(GuestTools.shippedVersion) and restart the virtual Mac, then try again.",
+                                "PowerEmu Tools did not respond. The guest may still be running normally. "
+                                + "If this keeps happening, save your work in the guest and restart it.",
                                 spinning: false, dismissAfter: 12)
             }
         }
@@ -915,26 +924,59 @@ final class VMDisplayView: NSView {
     /// the only way back to an application that is not already running.
     private(set) var guestDockApps: [(path: String, name: String, pid: Int)] = []
     var onLaunchGuestApp: ((String) -> Void)?
+    var onRequestGuestApps: (() -> Void)?
+    private var vmPackageURL: URL?
+    private var installedGuestApps: [(path: String, name: String)] = []
 
-    func showGuestAppsPanel() {
-        let panel = appsPanel ?? GuestAppsPanel(title: machineName.isEmpty ? "Virtual Mac" : machineName)
-        appsPanel = panel
-        panel.present(apps: guestDockApps,
-                      open: { [weak self] item in
-                          if item.pid > 0 { self?.activateGuestApp(item.pid) }
-                          else { self?.onLaunchGuestApp?(item.path) }
-                      })
+    func configureGuestApplications(vmPackageURL: URL) {
+        self.vmPackageURL = vmPackageURL.standardizedFileURL.resolvingSymlinksInPath()
+        guestDock.configure(vmPackageURL: vmPackageURL)
     }
 
-    /// Keep an open panel current, and take it away with the machine.
-    func refreshGuestAppsPanel() { appsPanel?.update(apps: guestDockApps) }
+    func setInstalledGuestApps(_ items: [(path: String, name: String)]) {
+        installedGuestApps = items
+        guestDock.setInstalledApplicationPaths(Set(items.map(\.path)))
+        refreshGuestAppsPanel()
+    }
+
+    func showGuestAppsPanel() {
+        onRequestGuestApps?()
+        let panel = appsPanel ?? GuestAppsPanel(title: machineName.isEmpty ? "Virtual Mac" : machineName)
+        appsPanel = panel
+        panel.present(apps: panelApps(), status: panelStatus(), open: { [weak self] item in
+            self?.onLaunchGuestApp?(item.path)
+        }, reveal: { [weak self] item in
+            guard let self else { return }
+            do {
+                let executable = try self.guestDock.prepareApplication(path: item.path, name: item.name)
+                NSWorkspace.shared.activateFileViewerSelecting([executable])
+            } catch {
+                let alert = NSAlert()
+                alert.messageText = "Could Not Show Guest App Shortcut"
+                alert.informativeText = error.localizedDescription
+                alert.runModal()
+            }
+        })
+    }
+
+    func refreshGuestAppsPanel() { appsPanel?.update(apps: panelApps(), status: panelStatus()) }
+
+    private func panelApps() -> [(path: String, name: String, installed: Bool)] {
+        installedGuestApps.map { (path: $0.path, name: $0.name, installed: true) }
+    }
+
+    private func panelStatus() -> String {
+        installedGuestApps.isEmpty
+            ? "Waiting for PowerEmu Tools. Install or update Tools to browse installed apps."
+            : "\(installedGuestApps.count) apps. Running apps appear in the Dock automatically. Use Keep in Dock to pin one."
+    }
 
     /// The guest's Dock, as its tools report it.
     func setGuestDockApps(_ items: [(path: String, name: String, pid: Int)]) {
         guestDockApps = items
         // A pid of 0 means the application is in the guest's Dock but not
         // running, so only the non-zero ones say what is actually alive.
-        guestDock.setRunningApplications(Set(items.filter { $0.pid > 0 }.map { $0.pid }))
+        guestDock.setRunningGuestApps(items)
         refreshGuestAppsPanel()
     }
     func closeGuestAppsPanel() { appsPanel?.close(); appsPanel = nil }
@@ -1046,7 +1088,6 @@ final class VMDisplayView: NSView {
                 updatePointerTicker()
                 harmonyWindows = []; harmonyWindowList = []; harmonyHasWindows = false
                 harmonyMenus.remove()                  // this Mac's own menus back
-                guestDock.stop()                       // and its Dock
             }
             window?.invalidateCursorRects(for: self)
             onHarmonyChanged?(harmony)
@@ -1420,7 +1461,6 @@ final class VMDisplayView: NSView {
             self?.refreshGuestAppsPanel()
             self?.harmonyManager.finderWindows = Set(apps.filter { $0.app == "Finder" }.map { $0.id })
             self?.harmonyManager.windowApplications = Dictionary(apps.filter { $0.id != 0 }.map { ($0.id, $0.pid) }, uniquingKeysWith: { _, last in last })
-            self?.guestDock.setApps(apps.map { (pid: $0.pid, name: $0.app) })
         }
         channel.onMinimized = { [weak self] m in
             self?.minimizedGuestWindows = m
@@ -2967,6 +3007,8 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
         w.setFrameAutosaveName("PowerEmu VM \(vm.config.name)")
         super.init(window: w)
         w.delegate = self
+        var pendingGuestLaunchPaths = Set<String>()
+        display.configureGuestApplications(vmPackageURL: vm.url)
         display.onToggleFullScreen = { [weak w, weak vm] in
             if let vm, vm.config.displays > 1 {
                 DualScreenLayout.toggle(for: vm)
@@ -3029,7 +3071,61 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
         display.onHarmonyMove = { [weak vm] id, x, y in vm?.moveGuestWindow(id, x, y) }
         display.onHarmonyRaiseAt = { [weak vm] id, x, y in vm?.raiseGuestWindowAt(id, x, y) }
         channel.onDockApps = { [weak display] items in display?.setGuestDockApps(items) }
-        display.onLaunchGuestApp = { [weak vm] path in vm?.launchGuestApp(path: path) }
+        channel.onInstalledApps = { [weak display] items in display?.setInstalledGuestApps(items) }
+        channel.onApplicationPathIcon = { [weak display] path, png in display?.guestDock.setApplicationPathIcon(path: path, png: png) }
+        channel.onToolsConnected = { [weak display] in display?.guestDock.guestToolsReconnected() }
+        channel.onToolsDisconnected = { [weak display] in display?.guestDock.guestToolsDisconnected() }
+        display.guestDock.refreshApplications = { [weak vm] in
+            guard vm?.agent?.connected == true else { return }
+            vm?.agent?.send("DOCKAPPS", "")
+        }
+        display.guestDock.wantApplicationPathIcon = { [weak vm] path in vm?.agent?.requestApplicationPathIcon(path) }
+        display.onRequestGuestApps = { [weak vm] in vm?.agent?.send("APPS", "") }
+        display.onLaunchGuestApp = { [weak vm] path in
+            guard GuestAppShortcutSelection.validApplicationPath(path),
+                  let vm, pendingGuestLaunchPaths.insert(path).inserted else { return }
+            guard let agent = vm.agent, agent.connected else {
+                pendingGuestLaunchPaths.remove(path)
+                let alert = NSAlert()
+                alert.messageText = "PowerEmu Tools are unavailable"
+                alert.informativeText = "Reconnect the virtual Mac’s guest tools before opening this app."
+                alert.runModal()
+                return
+            }
+            let previousRevision = vm.guestAppsRevision
+            agent.send("APPS", "")
+            let deadline = Date().addingTimeInterval(8)
+            let timer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak vm] timer in
+                MainActor.assumeIsolated {
+                    guard let vm else { timer.invalidate(); pendingGuestLaunchPaths.remove(path); return }
+                    if vm.guestAppsRevision > previousRevision {
+                        timer.invalidate()
+                        pendingGuestLaunchPaths.remove(path)
+                        if vm.guestApps.contains(where: { $0.path == path }) {
+                            vm.openGuestApplication(path: path)
+                        } else {
+                            let alert = NSAlert()
+                            alert.messageText = "This app is no longer installed"
+                            alert.informativeText = "The virtual Mac’s current app list does not contain this path. The app was not launched."
+                            alert.runModal()
+                        }
+                    } else if Date() >= deadline || vm.state == .stopped {
+                        timer.invalidate()
+                        pendingGuestLaunchPaths.remove(path)
+                        if vm.state != .stopped {
+                            let alert = NSAlert()
+                            alert.messageText = "PowerEmu Tools did not respond"
+                            alert.informativeText = "The installed-app list could not be refreshed, so the app was not launched."
+                            alert.runModal()
+                        }
+                    }
+                }
+            }
+            RunLoop.main.add(timer, forMode: .common)
+        }
+        display.guestDock.launchApplication = { [weak display] path in
+            display?.onLaunchGuestApp?(path)
+        }
         VMDisplayView.showing = display
         display.machineName = vm.config.name
         display.onActivateGuestApp = { [weak vm] pid in vm?.activateGuestApp(pid) }

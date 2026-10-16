@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
+    <key>CFBundleExecutable</key><string>PowerEmuGuestApp</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>PEGuestLauncherVersion</key><integer>1</integer>
+    <key>PEGuestLauncherVersion</key><integer>3</integer>
     <key>CFBundleDocumentTypes</key><array><dict>
         <key>CFBundleTypeName</key><string>Files</string>
         <key>CFBundleTypeRole</key><string>Viewer</string>

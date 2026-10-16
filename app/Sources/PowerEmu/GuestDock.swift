@@ -1,328 +1,382 @@
 import AppKit
 
-/// Each guest app gets an unchanged signed executable in its own session/pid
-/// directory. Runtime names and icons brand the Dock tile without invalidating
-/// the helper's signature or requiring a signing identity on the user's Mac.
+/// One durable launcher identity per VM/application. Running presence comes
+/// only from complete guest process reports; pinning and ordering belong to
+/// macOS. A document closing never changes the application's identity.
 @MainActor
 final class GuestDock {
-    /// Bring a guest application to the front, or quit it.
     var activate: ((Int) -> Void)?
-    var openFiles: (([URL], Int) -> Bool)?
-    private let session = UUID().uuidString
     var quit: ((Int) -> Void)?
-    /// Ask the guest for an application's icon.
+    var openFiles: (([URL], Int) -> Bool)?
+    var refreshApplications: (() -> Void)?
+    var launchApplication: ((String) -> Void)?
     var wantIcon: ((Int) -> Void)?
+    var wantApplicationPathIcon: ((String) -> Void)?
 
-    private struct Tile {
-        let pid: Int
-        let name: String
-        let directory: URL
-        /// The helper itself, when it was started directly.
-        var child: Process?
-        var hasIcon = false
-        var launchFailed = false
+    private struct Application {
+        let request: GuestAppLaunchRequest
+        let executable: URL
+        let application: URL
+        var receipt: GuestLauncherTrust.Receipt
+        var iconWaitUntil: Date?
+        var pids = Set<Int>()
+        var launchToken: UUID?
+        var suppressed = false
+        var quitRequested = false
+        var iconRequested = false
     }
-    private var tiles: [Int: Tile] = [:]
-    /*
-     * When each application was last reported.
-     *
-     * The list this is fed from is the guest's *windows*, not its running
-     * applications: an application with nothing open does not appear in it.
-     * Taking a tile down the moment its owner stops being mentioned therefore
-     * killed the helper whenever the last window was minimized or closed, and
-     * the keeper below started it again a few seconds later -- a Dock icon
-     * that quit and came back, over and over, for as long as Harmony was on.
-     *
-     * So absence has to persist before it means anything.
-     */
-    private var lastSeen: [Int: Date] = [:]
-    /// How long an application must go unmentioned before its tile goes.
-    private static let graceBeforeRemoval: TimeInterval = 20
-    /// When each tile was last asked to start, so a refusal is retried but a
-    /// slow start is not trampled on.
-    private var lastLaunch: [Int: Date] = [:]
-    private var keeper: Timer?
+    private var applications: [String: Application] = [:]
+    private var installedPaths = Set<String>()
+    private var knownProcesses: [(path: String, name: String, pid: Int)] = []
+    private var snapshotKnown = false
+    private var vmPackageURL: URL?
+    private let session = UUID().uuidString
+    private let root: URL
+    private let suppliedHelper: URL?
+    private let hostApplicationURL: URL
+    private let hostBundleIdentifier: String
     private var observers: [Any] = []
+    private var workspaceObserver: Any?
+    private var poll: Timer?
     private(set) var running = false
 
-    private static let root = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-        .appendingPathComponent("PowerEmu/GuestApps", isDirectory: true)
-
-    private let storageRoot: URL
-    private let suppliedHelper: URL?
-    init(storageRoot: URL? = nil, helperBinary: URL? = nil) {
-        self.storageRoot = storageRoot ?? Self.root
-        self.suppliedHelper = helperBinary
+    init(storageRoot: URL? = nil, helperBinary: URL? = nil,
+         hostApplicationURL: URL? = nil, hostBundleIdentifier: String? = nil) {
+        root = storageRoot ?? FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Applications/PowerEmu Guest Apps", isDirectory: true)
+        suppliedHelper = helperBinary
+        self.hostApplicationURL = hostApplicationURL ?? Bundle.main.bundleURL
+        self.hostBundleIdentifier = hostBundleIdentifier ?? Bundle.main.bundleIdentifier ?? ""
     }
-    private var helper: URL? { suppliedHelper ?? Self.helperBinary }
-    private var sessionRoot: URL { storageRoot.appendingPathComponent(session, isDirectory: true) }
-
-    /// The helper that holds a tile, inside PowerEmu's own bundle.
-    private static var helperBinary: URL? {
-        // Contents/Helpers, which is not where Bundle looks for a resource.
-        let u = Bundle.main.bundleURL
-            .appendingPathComponent("Contents/Helpers/PowerEmuGuestApp")
-        return FileManager.default.isExecutableFile(atPath: u.path) ? u : nil
+    private var helper: URL? {
+        suppliedHelper ?? Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/GuestApplication.app/Contents/MacOS/PowerEmuGuestApp")
     }
 
-    // MARK: coming and going
+    func configure(vmPackageURL: URL) {
+        let canonical = vmPackageURL.standardizedFileURL.resolvingSymlinksInPath()
+        if let previous = self.vmPackageURL, previous != canonical { stop(); applications.removeAll() }
+        self.vmPackageURL = canonical
+        migrateExistingLaunchers()
+    }
+
+    /// Upgrade only our existing durable targets, preserving their URLs.
+    /// Former session-cache icons are not copied into the new model.
+    private func migrateExistingLaunchers() {
+        guard let package = vmPackageURL,
+              let directories = try? FileManager.default.contentsOfDirectory(at: root,
+                  includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey]) else { return }
+        for directory in directories.prefix(4096) {
+            let config = directory.appendingPathComponent("launcher.plist")
+            guard directory.lastPathComponent.count == 32,
+                  directory.resolvingSymlinksInPath().path == directory.path,
+                  let attrs = try? FileManager.default.attributesOfItem(atPath: config.path),
+                  attrs[.type] as? FileAttributeType == .typeRegular,
+                  (attrs[.ownerAccountID] as? NSNumber)?.uint32Value == UInt32(geteuid()),
+                  (attrs[.size] as? NSNumber)?.intValue ?? Int.max <= 64 * 1024,
+                  let data = try? Data(contentsOf: config),
+                  let values = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any],
+                  values["VMPackagePath"] as? String == package.path,
+                  let path = values["GuestApplicationPath"] as? String,
+                  let name = values["DisplayName"] as? String,
+                  let request = try? GuestAppLaunchRequest(vmPackageURL: package, guestApplicationPath: path),
+                  request.stableIdentifier == directory.lastPathComponent else { continue }
+            do { _ = try prepareApplication(path: path, name: name) }
+            catch { harmonyDebug("PEDOCK existing launcher upgrade deferred: \(error.localizedDescription)") }
+        }
+    }
 
     func start() {
-        guard !running else { return }
+        guard !running, vmPackageURL != nil else { return }
         running = true
-        reapStrays()
-        do {
-            try FileManager.default.createDirectory(at: sessionRoot, withIntermediateDirectories: true)
-            try Data(String(ProcessInfo.processInfo.processIdentifier).utf8)
-                .write(to: sessionRoot.appendingPathComponent("owner-pid"), options: .atomic)
-        } catch {
-            running = false
-            harmonyDebug("PEDOCK could not create session storage: \(error.localizedDescription)")
-            return
-        }
-        // Observe exits without repeatedly launching an app macOS rejected.
-        keeper = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.ensureRunning() }
-        }
-        observeFileDrops()
-        let c = DistributedNotificationCenter.default()
-        observers.append(c.addObserver(forName: .init("com.spartan0285.poweremu.guestapp.clicked"),
-                                       object: nil, queue: .main) { [weak self] n in
-            MainActor.assumeIsolated {
-                guard n.userInfo?["session"] as? String == self?.session, let pid = Int((n.userInfo?["pid"] as? String) ?? "") else { return }
-                self?.activate?(pid)
-            }
+        let center = DistributedNotificationCenter.default()
+        observers.append(center.addObserver(forName: .init("com.spartan0285.poweremu.guestapp.action"),
+                                            object: nil, queue: .main) { [weak self] note in
+            MainActor.assumeIsolated { self?.receive(note) }
         })
-        observers.append(c.addObserver(forName: .init("com.spartan0285.poweremu.guestapp.quit"),
-                                       object: nil, queue: .main) { [weak self] n in
-            MainActor.assumeIsolated {
-                guard n.userInfo?["session"] as? String == self?.session, let pid = Int((n.userInfo?["pid"] as? String) ?? "") else { return }
-                self?.quit?(pid)
+        workspaceObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: .main) { [weak self] note in
+                MainActor.assumeIsolated {
+                    guard let self, let process = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+                          let executable = process.executableURL?.standardizedFileURL.resolvingSymlinksInPath() else { return }
+                    for path in Array(self.applications.keys) where self.applications[path]?.executable == executable {
+                        // Never restart a killed representative repeatedly. A
+                        // new guest process or explicit launcher click can retry.
+                        if self.applications[path]?.launchToken != nil { continue }
+                        if NSWorkspace.shared.runningApplications.contains(where: {
+                            !$0.isTerminated && $0.processIdentifier != process.processIdentifier &&
+                            $0.executableURL?.standardizedFileURL.resolvingSymlinksInPath() == executable
+                        }) { continue }
+                        self.applications[path]?.launchToken = nil
+                        self.applications[path]?.suppressed = true
+                        try? self.refreshClosedArtwork(path)
+                    }
+                }
             }
-        })
-    }
-
-    private func observeFileDrops() {
-        observers.append(DistributedNotificationCenter.default().addObserver(forName: .init("com.spartan0285.poweremu.guestapp.open"), object: nil, queue: .main) { [weak self] n in
-            MainActor.assumeIsolated {
-                guard let self, n.userInfo?["session"] as? String == self.session,
-                      let value = n.userInfo?["pid"] as? String, let pid = Int(value), self.tiles[pid] != nil,
-                      let paths = n.userInfo?["paths"] as? [String] else { return }
-                _ = self.openFiles?(paths.map { URL(fileURLWithPath: $0) }, pid)
-            }
-        })
-    }
-
-    /*
-     * Tiles left over from a PowerEmu that is no longer here.
-     *
-     * A tile is held by a small application of its own, and it is only taken
-     * down when Harmony is switched off tidily.  If PowerEmu goes without
-     * doing that -- it crashed, it was force quit, it was killed while being
-     * worked on -- every one of those helpers carries on running, and its
-     * icon sits in the Dock for a guest application that stopped existing with
-     * the virtual Mac it belonged to.  The next run adds its own on top, so
-     * they pile up.  Nothing else can tidy them: they are ordinary
-     * applications as far as this Mac is concerned.
-     *
-     * So each run clears out whatever the last one left behind.  Only helpers
-     * are touched -- applications living inside PowerEmu's own cache folder,
-     * which nothing else has any reason to put there.
-     */
-    private func reapStrays() {
-        let fm = FileManager.default
-        let entries = (try? fm.contentsOfDirectory(at: storageRoot, includingPropertiesForKeys: nil)) ?? []
-        for entry in entries {
-            let marker = entry.appendingPathComponent("owner-pid")
-            if let data = try? Data(contentsOf: marker),
-               let text = String(data: data, encoding: .utf8), let owner = Int32(text), owner > 0 {
-                // Other running VMs own their own representatives. Never reap
-                // them or their files when another Harmony session starts.
-                if Darwin.kill(owner, 0) == 0 || errno != ESRCH { continue }
-            } else if entry.pathExtension != "app" {
-                continue // Unknown cache contents are not ours to remove.
-            }
-            for app in NSWorkspace.shared.runningApplications {
-                let path = app.executableURL?.standardizedFileURL.path ?? app.bundleURL?.standardizedFileURL.path ?? ""
-                if path.hasPrefix(entry.standardizedFileURL.path + "/") { app.forceTerminate() }
-            }
-            try? fm.removeItem(at: entry)
+        let timer = Timer(timeInterval: 2, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refreshApplications?() }
         }
+        poll = timer
+        RunLoop.main.add(timer, forMode: .common)
+        refreshApplications?()
     }
 
     func stop() {
+        guard running else { return }
         running = false
-        keeper?.invalidate(); keeper = nil
-        for o in observers { DistributedNotificationCenter.default().removeObserver(o) }
-        observers = []
-        for (pid, _) in tiles { remove(pid) }
-        tiles = [:]
-        try? FileManager.default.removeItem(at: sessionRoot)
+        poll?.invalidate(); poll = nil
+        for path in Array(applications.keys) { publish(path, state: "stopped") }
+        for observer in observers { DistributedNotificationCenter.default().removeObserver(observer) }
+        observers.removeAll()
+        if let workspaceObserver { NSWorkspace.shared.notificationCenter.removeObserver(workspaceObserver) }
+        workspaceObserver = nil
+        for path in Array(applications.keys) {
+            applications[path]?.launchToken = nil
+            applications[path]?.pids = []
+        }
+        knownProcesses = []; snapshotKnown = false
+        // Launchers and artwork remain at their stable URLs for native pins.
     }
 
-    /// The guest's running applications, as the tools report them.
-    func setApps(_ apps: [(pid: Int, name: String)]) {
-        guard running else { return }
-        guard helper != nil else {
-            harmonyDebug("PEDOCK no helper binary in the bundle")
-            return
+    func guestToolsDisconnected() {
+        snapshotKnown = false
+        for path in applications.keys { publish(path, state: "unknown") }
+    }
+
+    func guestToolsReconnected() {
+        installedPaths.removeAll()
+        snapshotKnown = false
+        for path in applications.keys { applications[path]?.iconRequested = false }
+        if !running { start() }
+        for path in applications.keys { publish(path, state: "unknown") }
+        refreshApplications?()
+    }
+
+    func setInstalledApplicationPaths(_ paths: Set<String>) {
+        installedPaths = paths
+        for path in applications.keys { requestIcon(path) }
+    }
+
+    /// Called only for a fully parsed DOCKAPPS snapshot, including valid empty
+    /// snapshots. Lost or malformed reports must never call this method.
+    func setRunningGuestApps(_ apps: [(path: String, name: String, pid: Int)]) {
+        guard vmPackageURL != nil else { return }
+        if !running { start() }
+        snapshotKnown = true
+        knownProcesses = apps
+        let live = Dictionary(grouping: apps.filter { $0.pid > 0 && !$0.name.hasPrefix("PowerEmu") }, by: \.path)
+        for (path, values) in live {
+            do { _ = try prepareApplication(path: path, name: values[0].name) }
+            catch { harmonyDebug("PEDOCK launcher unavailable: \(error.localizedDescription)"); continue }
+            guard var app = applications[path] else { continue }
+            let pids = Set(values.map(\.pid))
+            if pids != app.pids { app.suppressed = false; app.quitRequested = false }
+            app.pids = pids
+            applications[path] = app
+            publish(path, state: "running")
+            requestIcon(path)
+            ensureRepresentative(path)
         }
-        harmonyDebug("PEDOCK apps=\(apps.map { $0.name }.joined(separator: ",")) tiles=\(tiles.count)")
-        let live = Set(apps.map { $0.pid })
-        let now = Date()
-        for pid in live { lastSeen[pid] = now }
-        /*
-         * An empty report says the guest has no windows open, which is a
-         * normal thing for it to say and never a reason to tear every tile
-         * down.  Anything else only retires a tile once it has been missing
-         * for long enough that the application really has gone.
-         */
-        if !apps.isEmpty {
-            for pid in tiles.keys where !live.contains(pid) {
-                guard let seen = lastSeen[pid] else { lastSeen[pid] = now; continue }
-                if now.timeIntervalSince(seen) >= Self.graceBeforeRemoval {
-                    remove(pid)
+        for path in Array(applications.keys) where live[path] == nil && !applications[path]!.pids.isEmpty {
+            publish(path, state: "stopped")
+            applications[path]?.pids = []
+            applications[path]?.launchToken = nil
+            applications[path]?.quitRequested = false
+            applications[path]?.suppressed = false
+        }
+    }
+
+    /// Browsing a closed app can reveal its durable launcher without starting
+    /// a representative or opening the app. Native Keep in Dock is the pin UI.
+    @discardableResult
+    func prepareApplication(path: String, name: String) throws -> URL {
+        if let app = applications[path] { return app.application }
+        guard suppliedHelper != nil || (Bundle.main.object(forInfoDictionaryKey: "PEGuestLauncherVersion") as? NSNumber)?.intValue == 3 else {
+            throw GuestAppLaunchRequest.InstallError.unsupportedHelper
+        }
+        guard let vmPackageURL, let helper else { throw GuestAppLaunchRequest.InstallError.missingHelper }
+        let request = try GuestAppLaunchRequest(vmPackageURL: vmPackageURL, guestApplicationPath: path)
+        let application = try request.install(helperBinary: helper, displayName: name,
+            applicationsDirectory: root, hostApplicationURL: hostApplicationURL,
+            hostBundleIdentifier: hostBundleIdentifier).standardizedFileURL.resolvingSymlinksInPath()
+        guard let executable = Bundle(url: application)?.executableURL else { throw GuestAppLaunchRequest.InstallError.missingHelper }
+        let template = helper.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let sourceCDHash = try GuestLauncherTrust.verifyTemplate(templateURL: template, hostApplicationURL: hostApplicationURL)
+        let receipt = try GuestLauncherTrust.loadReceipt(from: application.deletingLastPathComponent(), applicationURL: application,
+            stableIdentifier: request.stableIdentifier, sourceCDHash: sourceCDHash)
+        applications[path] = Application(request: request, executable: executable, application: application, receipt: receipt)
+        requestIcon(path)
+        return application
+    }
+
+    func setApplicationPathIcon(path: String, png: Data) {
+        guard let app = applications[path], Self.validIcon(png) else { return }
+        let icon = app.application.deletingLastPathComponent().appendingPathComponent("icon.png")
+        do {
+            if (try? Data(contentsOf: icon)) == png { return }
+            try png.write(to: icon, options: .atomic)
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: icon.path)
+            if !representativeIsPresent(app) { try refreshClosedArtwork(path) }
+            if running, !app.pids.isEmpty {
+                publish(path, state: snapshotKnown ? "running" : "unknown")
+                ensureRepresentative(path)
+            }
+        } catch { harmonyDebug("PEDOCK icon update failed: \(error.localizedDescription)") }
+    }
+
+    func setIcon(pid: Int, png: Data) {
+        guard let path = knownProcesses.first(where: { $0.pid == pid })?.path else { return }
+        setApplicationPathIcon(path: path, png: png)
+    }
+
+    private func representativeIsPresent(_ app: Application) -> Bool {
+        NSWorkspace.shared.runningApplications.contains {
+            !$0.isTerminated && $0.executableURL?.standardizedFileURL.resolvingSymlinksInPath() == app.executable
+        }
+    }
+
+    private func refreshClosedArtwork(_ path: String) throws {
+        guard var app = applications[path], !representativeIsPresent(app), let helper else { return }
+        _ = try app.request.install(helperBinary: helper, displayName: Bundle(url: app.application)?.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? app.application.deletingPathExtension().lastPathComponent,
+            applicationsDirectory: root, hostApplicationURL: hostApplicationURL, hostBundleIdentifier: hostBundleIdentifier)
+        let template = helper.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let sourceCDHash = try GuestLauncherTrust.verifyTemplate(templateURL: template, hostApplicationURL: hostApplicationURL)
+        app.receipt = try GuestLauncherTrust.loadReceipt(from: app.application.deletingLastPathComponent(), applicationURL: app.application,
+            stableIdentifier: app.request.stableIdentifier, sourceCDHash: sourceCDHash)
+        applications[path] = app
+    }
+
+    private func requestIcon(_ path: String) {
+        guard running, var app = applications[path], !app.iconRequested else { return }
+        if installedPaths.contains(path) {
+            app.iconRequested = true; applications[path] = app
+            wantApplicationPathIcon?(path)
+        } else if let pid = app.pids.sorted().first {
+            app.iconRequested = true; applications[path] = app
+            wantIcon?(pid)
+        }
+    }
+
+    private func publish(_ path: String, state: String) {
+        guard let app = applications[path] else { return }
+        let directory = app.application.deletingLastPathComponent()
+        let runtime = directory.appendingPathComponent("runtime.plist")
+        // Do not steal another live frontend's ownership of the same VM/app.
+        if let data = try? Data(contentsOf: runtime),
+           let prior = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any],
+           let owner = prior["OwnerPID"] as? Int, owner > 0, owner <= Int(Int32.max), owner != Int(getpid()),
+           prior["VMPackagePath"] as? String == app.request.vmPackagePath,
+           prior["GuestApplicationPath"] as? String == path,
+           Darwin.kill(pid_t(owner), 0) == 0,
+           NSRunningApplication(processIdentifier: pid_t(owner))?.bundleIdentifier == hostBundleIdentifier { return }
+        let values: [String: Any] = ["Version": 1, "StableIdentifier": app.request.stableIdentifier,
+            "VMPackagePath": app.request.vmPackagePath, "GuestApplicationPath": path,
+            "OwnerPID": Int(getpid()), "Session": session, "State": state,
+            "ProcessIDs": app.pids.sorted()]
+        do {
+            let data = try PropertyListSerialization.data(fromPropertyList: values, format: .xml, options: 0)
+            if (try? Data(contentsOf: runtime)) != data {
+                try data.write(to: runtime, options: .atomic)
+                try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: runtime.path)
+            }
+            DistributedNotificationCenter.default().postNotificationName(
+                .init("com.spartan0285.poweremu.guestapp.state"), object: app.request.stableIdentifier,
+                userInfo: ["session": session, "owner": String(getpid()),
+                           "vm": app.request.vmPackagePath, "app": path, "state": state], deliverImmediately: true)
+        } catch { harmonyDebug("PEDOCK state publication failed: \(error.localizedDescription)") }
+    }
+
+    private func ensureRepresentative(_ path: String) {
+        guard var app = applications[path], !app.suppressed, !app.pids.isEmpty else { return }
+        let runtimeURL = app.application.deletingLastPathComponent().appendingPathComponent("runtime.plist")
+        guard let data = try? Data(contentsOf: runtimeURL),
+              let state = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any],
+              state["OwnerPID"] as? Int == Int(getpid()), state["Session"] as? String == session else { return }
+        if !FileManager.default.fileExists(atPath: app.application.deletingLastPathComponent().appendingPathComponent("icon.png").path) {
+            if app.iconWaitUntil == nil {
+                app.iconWaitUntil = Date().addingTimeInterval(2)
+                applications[path] = app
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+                    guard let self, self.running else { return }
+                    self.ensureRepresentative(path)
+                }
+                return
+            }
+            if let until = app.iconWaitUntil, until > Date() { return }
+        }
+        guard app.launchToken == nil else { return }
+        if NSWorkspace.shared.runningApplications.contains(where: {
+            !$0.isTerminated && GuestLauncherTrust.validates(process: $0, receipt: app.receipt)
+        }) { return } // Adopt the same icon that cold-launched PowerEmu.
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = false
+        configuration.createsNewApplicationInstance = true
+        configuration.allowsRunningApplicationSubstitution = false
+        var environment = ProcessInfo.processInfo.environment
+        for key in Array(environment.keys) where key.hasPrefix("PE_DOCK_") { environment.removeValue(forKey: key) }
+        environment["PE_DOCK_RUNTIME"] = "1"
+        configuration.environment = environment
+        let token = UUID()
+        app.launchToken = token
+        applications[path] = app
+        // LaunchServices must register the actual application URL. Launching
+        // just its executable can make later Dock/document opens start a
+        // second process instead of delivering the event to this one.
+        NSWorkspace.shared.openApplication(at: app.application, configuration: configuration) { [weak self] process, error in
+            Task { @MainActor in
+                guard let self, self.applications[path]?.launchToken == token else { return }
+                self.applications[path]?.launchToken = nil
+                if let error {
+                    self.applications[path]?.suppressed = true
+                    harmonyDebug("PEDOCK representative could not start: \(error.localizedDescription)")
+                } else if process.map({ GuestLauncherTrust.validates(process: $0, receipt: self.applications[path]!.receipt) }) != true {
+                    self.applications[path]?.suppressed = true
                 }
             }
         }
-        for a in apps where tiles[a.pid] == nil {
-            // PowerEmu itself is already in the Dock, and the guest's own
-            // helpers have no windows to come back to.
-            guard !a.name.hasPrefix("PowerEmu") else { continue }
-            add(pid: a.pid, name: a.name)
-        }
     }
 
-    /*
-     * The guest's actual process list, which is a stronger statement than the
-     * window report above.
-     *
-     * setApps() is fed from the guest's *windows*, so it cannot tell an
-     * application that quit from one that merely closed its last window, and
-     * has to wait out graceBeforeRemoval before believing either.  DOCKAPPS is
-     * built from the running processes themselves, so a tile missing from it
-     * has genuinely gone and the icon can come off the Dock at once rather
-     * than lingering for twenty seconds after the application quit.
-     *
-     * An empty report is ignored, the same as above: it is what arrives before
-     * the first real one, and it is never a reason to tear every tile down.
-     */
-    func setRunningApplications(_ pids: Set<Int>) {
-        guard running, !pids.isEmpty else { return }
-        for pid in tiles.keys where !pids.contains(pid) {
-            harmonyDebug("PEDOCK \(pid) is no longer running in the guest; removing its tile")
-            remove(pid)
-        }
-    }
-
-    /// The icon came back from the guest.
-    func setIcon(pid: Int, png: Data) {
-        harmonyDebug("PEDOCK icon for \(pid): \(png.count) bytes")
-        guard var t = tiles[pid], !t.hasIcon else { return }
-        guard let image = NSImage(data: png), image.isValid else { return }
-        do { try png.write(to: t.directory.appendingPathComponent("icon.png"), options: .atomic) }
-        catch { harmonyDebug("PEDOCK icon write failed: \(error.localizedDescription)"); return }
-        t.hasIcon = true
-        tiles[pid] = t
-        // Only data changes. The Developer ID–signed executable stays intact.
-
-        launch(pid)
-    }
-
-    /// Add a durable Dock-capable copy of the trusted helper. The executable
-    /// remains byte-for-byte identical; its adjacent launcher plist and icon
-    /// are ordinary user data, never part of a signed bundle.
-    func installPersistentLauncher(vmPackageURL: URL, appPath: String, name: String,
-                                   runningGuestPID: Int) throws -> URL {
-        guard (Bundle.main.object(forInfoDictionaryKey: "PEGuestLauncherVersion") as? NSNumber)?.intValue == 1 else {
-            throw GuestAppLaunchRequest.InstallError.unsupportedHelper
-        }
-        guard let helper else { throw GuestAppLaunchRequest.InstallError.missingHelper }
-        let request = try GuestAppLaunchRequest(vmPackageURL: vmPackageURL,
-                                               guestApplicationPath: appPath)
-        let iconURL = tiles[runningGuestPID]?.directory.appendingPathComponent("icon.png")
-        let iconData = iconURL.flatMap { try? Data(contentsOf: $0) }
-        let executable = try request.install(helperBinary: helper, displayName: name, iconData: iconData)
-        let process = Process()
-        process.executableURL = executable
-        var environment = ProcessInfo.processInfo.environment
-        for key in ["PE_DOCK_GUEST_PID", "PE_DOCK_SESSION", "PE_DOCK_NAME", "PE_DOCK_ICON",
-                    "PEGuestPID", "PESession"] { environment.removeValue(forKey: key) }
-        environment["PE_DOCK_INSTALL_ONLY"] = "1"
-        process.environment = environment
-        try process.run()
-        return executable
-    }
-
-    /// Every tile that has an icon should have a helper holding it.
-    private func ensureRunning() {
-        guard running else { return }
-        harmonyDebug("PEDOCK keep: " + tiles.map {
-            "\($0.value.name)[icon=\($0.value.hasIcon ? 1 : 0),run=\($0.value.child?.isRunning == true ? 1 : 0)]"
-        }.joined(separator: " "))
-        for (pid, t) in tiles where t.hasIcon && !t.launchFailed {
-            if let child = t.child, !child.isRunning, child.terminationStatus != 0 {
-                var failed = t; failed.launchFailed = true; tiles[pid] = failed
-                harmonyDebug("PEDOCK \(t.name) exited with status \(child.terminationStatus); automatic relaunch disabled")
-                continue
+    private func receive(_ note: Notification) {
+        guard running, let path = note.userInfo?["app"] as? String,
+              let app = applications[path], note.object as? String == app.request.stableIdentifier,
+              note.userInfo?["owner"] as? String == String(getpid()),
+              note.userInfo?["session"] as? String == session,
+              note.userInfo?["vm"] as? String == app.request.vmPackagePath,
+              let action = note.userInfo?["action"] as? String,
+              NSWorkspace.shared.runningApplications.contains(where: {
+                  GuestLauncherTrust.validates(process: $0, receipt: app.receipt)
+              }) else { return }
+        switch action {
+        case "ready":
+            applications[path]?.suppressed = false
+            publish(path, state: snapshotKnown && !app.pids.isEmpty ? "running" : "unknown")
+        case "activate":
+            if snapshotKnown, let pid = app.pids.sorted().first { activate?(pid) }
+            else { launchApplication?(path) }
+        case "quit":
+            guard snapshotKnown, !app.pids.isEmpty, !app.quitRequested else { return }
+            applications[path]?.quitRequested = true
+            for pid in app.pids.sorted() { quit?(pid) }
+            // Guest Save/Cancel owns the outcome. Do not kill or respawn the
+            // host representative while the guest remains running.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+                self?.applications[path]?.quitRequested = false
             }
-            if (t.child?.isRunning ?? false) { continue }
-            launch(pid)
+        case "open":
+            guard snapshotKnown, let pid = app.pids.sorted().first,
+                  let paths = note.userInfo?["paths"] as? [String], paths.count <= 64,
+                  paths.allSatisfy({ $0.hasPrefix("/") && !$0.contains("\0") }) else { return }
+            _ = openFiles?(paths.map { URL(fileURLWithPath: $0) }, pid)
+        default: break
         }
     }
 
-    // MARK: building one
-
-    private func add(pid: Int, name: String) {
-        guard let helper = helper else { return }
-        let directory = sessionRoot.appendingPathComponent(String(pid), isDirectory: true)
-        let safe = name.replacingOccurrences(of: "/", with: "-")
-        let executableName = safe.isEmpty || safe == "." || safe == ".." ? "Guest Application" : safe
-        do {
-            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-            // This is a standalone executable, never a mutable .app bundle.
-            // Keep its original signature, including Developer ID and runtime
-            // protections. Names/icons/session routing are runtime data.
-            try FileManager.default.copyItem(at: helper, to: directory.appendingPathComponent(executableName))
-        } catch {
-            harmonyDebug("PEDOCK could not prepare \(name): \(error.localizedDescription)")
-            return
+    private static func validIcon(_ data: Data) -> Bool {
+        guard data.count >= 24, data.count <= 4 * 1024 * 1024,
+              data.prefix(8) == Data([137, 80, 78, 71, 13, 10, 26, 10]) else { return false }
+        let b = Array(data.prefix(24))
+        func dimension(_ n: Int) -> UInt32 {
+            UInt32(b[n]) << 24 | UInt32(b[n + 1]) << 16 | UInt32(b[n + 2]) << 8 | UInt32(b[n + 3])
         }
-        tiles[pid] = Tile(pid: pid, name: name, directory: directory)
-        harmonyDebug("PEDOCK built trusted representative \(name) at \(directory.path)")
-        wantIcon?(pid)
+        return (1...512).contains(dimension(16)) && (1...512).contains(dimension(20)) && NSImage(data: data)?.isValid == true
     }
-
-    private func launch(_ pid: Int) {
-        guard let t = tiles[pid], !t.launchFailed else { return }
-        if let when = lastLaunch[pid], Date().timeIntervalSince(when) < 3 { return }
-        lastLaunch[pid] = Date()
-        let p = Process()
-        let safe = t.name.replacingOccurrences(of: "/", with: "-")
-        let executableName = safe.isEmpty || safe == "." || safe == ".." ? "Guest Application" : safe
-        p.executableURL = t.directory.appendingPathComponent(executableName)
-        p.environment = ProcessInfo.processInfo.environment.merging([
-            "PE_DOCK_GUEST_PID": String(pid), "PE_DOCK_SESSION": session,
-            "PE_DOCK_NAME": t.name, "PE_DOCK_ICON": t.directory.appendingPathComponent("icon.png").path
-        ]) { _, new in new }
-        do { try p.run() }
-        catch {
-            var failed = t; failed.launchFailed = true; tiles[pid] = failed
-            harmonyDebug("PEDOCK \(t.name) would not start; automatic relaunch disabled: \(error.localizedDescription)")
-            return
-        }
-        var have = t; have.child = p; tiles[pid] = have
-    }
-
-    private func remove(_ pid: Int) {
-        guard let t = tiles[pid] else { return }
-        // This tears down only our representative after the guest exits (or
-        // Harmony ends); asking it to Quit would send another guest request.
-        t.child?.terminate()
-        try? FileManager.default.removeItem(at: t.directory)
-        tiles[pid] = nil
-        lastLaunch[pid] = nil
-        lastSeen[pid] = nil
-    }
-
 }

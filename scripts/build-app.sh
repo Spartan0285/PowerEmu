@@ -48,10 +48,12 @@ cp "$BIN" "$OUT/Contents/MacOS/PowerEmu"
 ditto "$HELPER_STAGE" "$OUT/Contents/Helpers/PowerEmu VM.app"
 # The network helper: the only piece that ever runs as an administrator,
 # and it does nothing but carry ethernet frames for a bridged virtual Mac.
-# Trusted standalone helper for transient and persistent guest-app Dock tiles.
-# Copies stay outside mutable app bundles and preserve these signed bytes.
+# Sign one immutable application template at build time. Per-app copies keep
+# their identity, runtime state and artwork beside, never inside, the bundle.
+mkdir -p "$OUT/Contents/Helpers/GuestApplication.app/Contents/MacOS"
+cp "$ROOT/helper/Info.plist" "$OUT/Contents/Helpers/GuestApplication.app/Contents/Info.plist"
 xcrun swiftc -O -target arm64-apple-macos12.0 \
-    "$ROOT/helper/main.swift" -o "$OUT/Contents/Helpers/PowerEmuGuestApp" \
+    "$ROOT/helper/main.swift" -o "$OUT/Contents/Helpers/GuestApplication.app/Contents/MacOS/PowerEmuGuestApp" \
     -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist \
     -Xlinker "$ROOT/helper/Info.plist"
 
@@ -116,7 +118,7 @@ cat > "$OUT/Contents/Info.plist" <<EOF
 	<key>PEBuildStage</key>
 	<string>$STAGE</string>
 	<key>PEGuestLauncherVersion</key>
-	<integer>1</integer>
+	<integer>3</integer>
 	<key>PERadeon9800Experiment</key>
 	<$([ "$R350_EXPERIMENT" = 1 ] && echo true || echo false)/>
 	<key>LSMinimumSystemVersion</key>
@@ -223,7 +225,7 @@ codesign --force --sign "$SIGN" $TIMESTAMP $RUNTIME "$OUT/Contents/Helpers/power
 # Developer ID, no secure timestamp, no hardened runtime.  Everything else in
 # the bundle was signed, so nothing looked wrong until Apple refused the whole
 # archive over this one file.
-codesign --force --sign "$SIGN" $TIMESTAMP $RUNTIME "$OUT/Contents/Helpers/PowerEmuGuestApp" >/dev/null
+codesign --force --sign "$SIGN" $TIMESTAMP $RUNTIME --identifier com.spartan0285.poweremu.guestapp.template "$OUT/Contents/Helpers/GuestApplication.app" >/dev/null
 codesign --force --sign "$SIGN" $TIMESTAMP $RUNTIME --entitlements "$ROOT/app/Resources/PowerEmu.entitlements" "$OUT/Contents/MacOS/PowerEmu" >/dev/null
 if [ "${POWEREMU_SMP:-0}" = 1 ]; then
     # Hash the final signed executable: signing changes its bytes. This record

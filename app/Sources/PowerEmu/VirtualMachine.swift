@@ -69,6 +69,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
     /// Advances only when a fresh APPSLIST arrives, so callers can distinguish
     /// a current guest reply from the cached list from an earlier connection.
     private(set) var guestAppsRevision: UInt64 = 0
+    private(set) var runningGuestApps: [(path: String, name: String, pid: Int)] = []
     private var dav: WebDAVServer?
     private var shareWatcher: SharedFolderWatcher?
     /// This Mac's game controller, given to the guest as a USB gamepad.
@@ -160,11 +161,57 @@ final class VirtualMachine: ObservableObject, Identifiable {
         start(adopting: true)
     }
 
+    private func prepareDisplaysForStart() -> Bool {
+        let action = DisplayStartup.action(configuredScreens: config.displays,
+                                           hostScreens: NSScreen.screens.count,
+                                           classic: config.classic,
+                                           savedState: asleep)
+        guard action != .unchanged else { return true }
+
+        // A modal alert runs a nested event loop. Reserve this start so a
+        // second click or Dock request cannot launch another copy meanwhile.
+        state = .starting
+        defer { state = .stopped }
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        if action == .resumeBothScreens {
+            alert.messageText = "The second display isn’t connected"
+            alert.informativeText = "\(config.name) was put to sleep with two screens. To preserve its open work, both guest screens will resume together in one window. Shut down the virtual Mac before switching it to one screen."
+            alert.addButton(withTitle: "Resume")
+        } else {
+            alert.messageText = "Starting with one screen"
+            alert.informativeText = "\(config.name) is configured for two screens, but a second host display isn’t available. PowerEmu will switch this virtual Mac to one screen. You can enable two screens again in Display settings after connecting another display."
+            alert.addButton(withTitle: "Start with One Screen")
+        }
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return false }
+        guard action == .useOneScreen else { return true }
+
+        let previous = config
+        config.displays = 1
+        do {
+            try save()
+            return true
+        } catch {
+            config = previous
+            lastError = "PowerEmu could not save the one-screen setting: \(error.localizedDescription)"
+            return false
+        }
+    }
+
     private func start(adopting: Bool) {
         guard state == .stopped else { return }
         let r = VMRunner(vm: self)
         if adopting && !r.isLeftRunning() { return }
         lastError = nil
+        // Adoption reconnects to existing hardware; only a new launch may
+        // change the display configuration. Check after any bridge setup so
+        // a display unplugged while waiting is handled too.
+        if !adopting && !prepareDisplaysForStart() {
+            bridge.stop(helperSocket: r.bridgeHelperPath)
+            pendingBridgeMAC = nil
+            return
+        }
         if config.shareOnNetwork {
             r.sharedPorts = share.choosePorts(avoiding: Set([config.sshPort, config.monitorPort].compactMap { $0 }))
         }
@@ -186,6 +233,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
             a.shareClipboard = config.clipboardShared
             try? a.start()
             a.onConnect = { [weak self] in
+                self?.display?.deliverToolsConnected()
                 self?.mountSharedFolders()
                 // Reconnection must restore either state. A frontend restart
                 // must not leave the guest's menu bar and Dock hidden when
@@ -202,22 +250,28 @@ final class VirtualMachine: ObservableObject, Identifiable {
                 // badge depends on it.
                 self?.onToolsChanged?()
                 self?.agent?.send("APPS", "")
+                self?.agent?.send("DOCKAPPS", "")
                 self?.runOnConnectCommandIfAsked()
             }
             a.onWindows = { [weak self] rects in self?.display?.deliverWindows(rects) }
             a.onDragWindows = { [weak self] ids in self?.display?.onDragWindows?(ids) }
             a.onSheets = { [weak self] parents in self?.display?.onSheets?(parents) }
             a.onWindowApps = { [weak self] apps in self?.display?.deliverWindowApps(apps) }
-            a.onDockApps = { [weak self] items in self?.display?.deliverDockApps(items) }
+            a.onDockApps = { [weak self] items in
+                self?.runningGuestApps = items
+                self?.display?.deliverDockApps(items)
+            }
             a.onApps = { [weak self] items in
                 self?.guestApps = items
                 self?.guestAppsRevision &+= 1
+                self?.display?.deliverInstalledApps(items)
                 self?.onToolsChanged?()
             }
             a.onMinimized = { [weak self] m in self?.display?.deliverMinimized(m) }
             a.onFocused = { [weak self] id in self?.display?.deliverFocused(id) }
             a.onOcclusion = { [weak self] o in self?.display?.deliverOcclusion(o) }
             a.onAppIcon = { [weak self] pid, png in self?.display?.deliverAppIcon(pid, png) }
+            a.onApplicationPathIcon = { [weak self] path, png in self?.display?.deliverApplicationPathIcon(path, png) }
             a.onWindowFrame = { [weak self] data in self?.display?.onWindowFrame?(data) }
             a.onFocusReady = { [weak self] id, sequence, ok in self?.display?.onFocusReady?(id, sequence, ok) }
             a.onMenuFocus = { [weak self] token, id in self?.display?.onMenuFocus?(token, id) }
@@ -232,7 +286,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
             agent = a
             fileTransfer.agent = a
             a.onFileTransfer = { [weak self] reply in self?.fileTransfer.receive(reply) }
-            a.onDisconnect = { [weak self] in self?.fileTransfer.disconnected(); self?.display?.onSheets?([:]); self?.display?.onDragWindows?([]) }
+            a.onDisconnect = { [weak self] in self?.runningGuestApps = []; self?.display?.deliverToolsDisconnected(); self?.fileTransfer.disconnected(); self?.display?.onSheets?([:]); self?.display?.onDragWindows?([]) }
             let d = WebDAVServer(socketPath: r.davPath)
             d.setShares(config.activeSharedFolders + (config.isolated ? [] : [dropShare]))
             try? d.start()
@@ -362,7 +416,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
             // The guest's Dock tiles stand for applications in a machine
             // that has just stopped; nothing else would clear them while
             // PowerEmu keeps running.
-            VMDisplayView.harmonized?.stopGuestDock()
+            VMWindowController.open[url]?.display.stopGuestDock()
             VMWindowController.open[url]?.detachSecondScreen()
             VMWindowController.close(self)
             SecondScreenController.close(self)
@@ -661,6 +715,12 @@ final class VirtualMachine: ObservableObject, Identifiable {
     func activateGuestApp(_ pid: Int) { agent?.send("ACTIVATE", "\(pid)") }
     /// Open one of the guest's Dock applications that is not running yet.
     func launchGuestApp(path: String) { agent?.send("LAUNCH", path) }
+    func openGuestApplication(path: String) {
+        if let pid = runningGuestApps.first(where: { $0.path == path && $0.pid > 0 })?.pid {
+            activateGuestApp(pid)
+        } else { launchGuestApp(path: path) }
+        agent?.send("DOCKAPPS", "")
+    }
     /// Raise by clicking a point the guest window is not covered at.
     func raiseGuestWindowAt(_ id: Int, _ x: Int, _ y: Int) { agent?.send("RAISE", "\(id) \(x) \(y)") }
     /// Move by dragging the window's title bar, which is the only way the guest
@@ -1147,7 +1207,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
         display = nil
         display2?.stop()
         display2 = nil
-        VMDisplayView.harmonized?.stopGuestDock()
+        VMWindowController.open[url]?.display.stopGuestDock()
         VMWindowController.open[url]?.detachSecondScreen()
         VMWindowController.close(self)
         SecondScreenController.close(self)

@@ -4,11 +4,10 @@ import AppKit
 /*
  * How many screens this Mac has, as something a view can watch.
  *
- * A second guest screen is always offered; what changes with the screen count
- * is how it is *shown*.  With two host screens each guest screen gets its own
- * window, one per screen.  With one, a second window would simply cover the
- * first, so the two share the machine's window side by side instead -- see
- * CombinedScreensView.
+ * New boots warn and switch to one guest screen when only one host display
+ * is available. A saved machine must keep its original graphics devices;
+ * those wakes, and an unplug during a run, show both guest screens together
+ * instead -- see CombinedScreensView.
  *
  * Screens come and go while the app is running (a monitor is plugged in, a
  * laptop is docked, a display sleeps), and AppKit says so with

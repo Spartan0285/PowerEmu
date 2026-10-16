@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 
 @main
 enum GuestAppLauncherChecks {
@@ -27,15 +27,27 @@ enum GuestAppLauncherChecks {
             .appendingPathComponent("GuestAppLauncher-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root) }
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        let source = URL(fileURLWithPath: "/bin/ls")
-        let installed = try original.install(helperBinary: source, displayName: "Activity Monitor",
-                                             iconData: Data([1, 2, 3]),
-                                             applicationsDirectory: root)
-        guard try Data(contentsOf: source) == Data(contentsOf: installed),
-              FileManager.default.fileExists(atPath: installed.deletingLastPathComponent()
-                .appendingPathComponent("launcher.plist").path) else {
-            fatalError("persistent launcher changed helper bytes or omitted its sidecar")
-        }
+        precondition(CommandLine.arguments.count == 3, "Pass the signed template executable and signed host app")
+        let source = URL(fileURLWithPath: CommandLine.arguments[1])
+        let host = URL(fileURLWithPath: CommandLine.arguments[2])
+        let sourceBytes = try Data(contentsOf: source)
+        let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 16, pixelsHigh: 16, bitsPerSample: 8,
+            samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 64, bitsPerPixel: 32)!
+        memset(bitmap.bitmapData!, 255, 1024)
+        let png = bitmap.representation(using: .png, properties: [:])!
+        let installed = try original.install(helperBinary: source, displayName: "Activity Monitor", iconData: png,
+            applicationsDirectory: root, hostApplicationURL: host, hostBundleIdentifier: Bundle(url: host)!.bundleIdentifier!)
+        let again = try original.install(helperBinary: source, displayName: "Monitor Renamed", iconData: png,
+            applicationsDirectory: root, hostApplicationURL: host, hostBundleIdentifier: Bundle(url: host)!.bundleIdentifier!)
+        precondition(installed == again, "App display-name change must preserve a pinned application URL")
+        let template = source.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let sourceHash = try GuestLauncherTrust.verifyTemplate(templateURL: template, hostApplicationURL: host)
+        let receipt = try GuestLauncherTrust.loadReceipt(from: installed.deletingLastPathComponent(), applicationURL: installed,
+            stableIdentifier: original.stableIdentifier, sourceCDHash: sourceHash)
+        precondition(GuestLauncherTrust.validatesInstalledBundle(applicationURL: installed, receipt: receipt))
+        let unchangedSource = try Data(contentsOf: source)
+        precondition(unchangedSource == sourceBytes)
+        precondition(FileManager.default.fileExists(atPath: installed.appendingPathComponent("Contents/Resources/GuestApp.icns").path))
 
         let badApplicationURLs = [
             URL(string: "poweremu://guest-app?vm=%2Ftmp%2FTest.poweremu")!,

@@ -1,5 +1,9 @@
-# Guest Dock runtime regression
+# Unified guest Dock regression
 
-Compile helper/main.swift with the same linker flags as scripts/build-app.sh and sign it with the existing development Developer ID. Compile exit.c as a separate executable and sign it with that identity. This avoids deliberately copying and launching a platform-restricted system executable.
+The distributed `GuestApplication.app` template and test host must be Developer-ID signed by PowerEmu's Team ID. Per-app native launchers are generated locally with their unique VM/app identifier, sealed ICNS artwork, and an ad-hoc signature. Owner-only receipts bind their source and generated CodeDirectory hashes. Neither the distributed template nor running generated apps are modified.
 
-Compile main.swift alongside app/Sources/PowerEmu/GuestDock.swift and pass both trusted executable paths. The test launches only its own temporary Dock representatives, using injected storage/helper paths; it does not touch the user's GuestApps cache or VM. It takes about eleven seconds and verifies unchanged code/signatures, runtime names, icon data, concurrent session isolation, cleanup and failure suppression.
+Compile `main.swift` with `GuestDock.swift`, `GuestAppLauncher.swift` and `GuestLauncherTrust.swift` into a small Developer-ID-signed test application. Pass the absolute template `Contents/MacOS/PowerEmuGuestApp` path. The fixture uses two unique temporary VM identities and only their own launcher directories under `~/Applications/PowerEmu Guest Apps`, then removes those directories.
+
+Coverage: one representative per VM/app, multiple guest processes, stale action rejection, graceful Quit/Cancel, live icon updates without bundle rewrite/restart, duplicate coalescing, disconnect versus valid empty snapshots, durable targets across restart, and two-VM isolation. It verifies generated signatures/receipts and live process identity. `tests/GuestLauncherTrust/run.sh` covers source integrity and receipt/hash/permission failures. `app/Tests/Harmony/GuestDockOpen.swift` verifies native document routing.
+
+These fixtures do not establish native Keep in Dock or drag/reorder behavior. Exercise those through macOS UI; retain the pinned URL across guest/VM/host shutdown, inspect its dormant icon, then click that exact pin to launch the correct Tiger VM/app in Harmony. Do not manufacture a passing pin by editing Dock preferences.

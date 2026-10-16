@@ -140,9 +140,18 @@ static BOOL InstallAgent(void)
     NSString *stage=[dir stringByAppendingPathComponent:@"PowerEmu Agent.installing.app"];
     NSString *backup=[dir stringByAppendingPathComponent:@"PowerEmu Agent.previous.app"];
     if (![fm fileExistsAtPath:src]) return NO;
+    /* Reject incomplete media before stopping the working agent. Copying a
+     * candidate binary with mode 0644 can otherwise replace good Tools with
+     * an app that Launch Services cannot execute. */
+    NSString *agentExecutable=@"Contents/MacOS/PowerEmu Agent";
+    if (![fm isExecutableFileAtPath:[src stringByAppendingPathComponent:agentExecutable]]) return NO;
     if (![fm fileExistsAtPath:dir] && ![fm createDirectoryAtPath:dir attributes:nil]) return NO;
     if ([fm fileExistsAtPath:stage]) [fm removeFileAtPath:stage handler:nil];
     if (![fm copyPath:src toPath:stage handler:nil]) return NO;
+    if (![fm isExecutableFileAtPath:[stage stringByAppendingPathComponent:agentExecutable]]) {
+        [fm removeFileAtPath:stage handler:nil];
+        return NO;
+    }
     StopAgent();
     if ([fm fileExistsAtPath:backup]) [fm removeFileAtPath:backup handler:nil];
     BOOL hadOld=[fm fileExistsAtPath:dst];

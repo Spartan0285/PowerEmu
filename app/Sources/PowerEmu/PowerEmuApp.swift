@@ -36,6 +36,10 @@ struct PowerEmuApp: App {
                 OpenServicesButton()
             }
             CommandMenu("Machine") {
+                Button("Guest Applications…") {
+                    (VMDisplayView.harmonized ?? VMWindowController.key?.display ?? VMDisplayView.showing)?.showGuestAppsPanel()
+                }
+                Divider()
                 Button("Release Mouse  (⌃⌥G)") { VMWindowController.key?.display.ungrab() }
                 Button("Full Screen  (⌃⌥F)") {
                     /* Two guest screens go full screen together, one per
@@ -190,58 +194,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             menu.addItem(withTitle: "Exit Harmony", action: #selector(exitHarmony), keyEquivalent: "")
                 .target = self
         }
-        // The guest's own applications, so they can be reached from this Mac's
-        // Dock while Harmony is on -- the guest's Dock is put away, and macOS
-        // will not let one app add Dock tiles for another's windows, so they
-        // live in this menu.
-        /*
-         * Any running machine, not only one in Harmony.  The list was reached
-         * through VMDisplayView.harmonized, which is nil unless Harmony is on,
-         * so a guest running in an ordinary window offered nothing here at all.
-         */
-        if let d = MainActor.assumeIsolated({ VMDisplayView.harmonized ?? VMDisplayView.showing }) {
-            let apps = MainActor.assumeIsolated { d.guestApps }
-            if !apps.isEmpty {
-                menu.addItem(NSMenuItem.separator())
-                let header = NSMenuItem(title: "Virtual Mac", action: nil, keyEquivalent: "")
-                header.isEnabled = false
-                menu.addItem(header)
-                menu.addItem(withTitle: "Keep This List on Screen",
-                             action: #selector(showGuestAppsPanel), keyEquivalent: "").target = self
-                for a in apps {
-                    let item = NSMenuItem(title: a.app, action: #selector(openGuestApp(_:)), keyEquivalent: "")
-                    item.target = self
-                    item.tag = a.pid
-                    item.indentationLevel = 1
-                    menu.addItem(item)
-                }
-            }
-            /*
-             * And the guest's own Dock -- what somebody keeps there, running or
-             * not.  Harmony hides that Dock, so without this there is no way to
-             * open anything that is not already up.  Needs PowerEmu Tools 2.21.
-             */
-            let dockApps = MainActor.assumeIsolated { d.guestDockApps }.filter { $0.pid == 0 }
-            if !dockApps.isEmpty {
-                menu.addItem(NSMenuItem.separator())
-                let h = NSMenuItem(title: "In the Virtual Mac's Dock", action: nil, keyEquivalent: "")
-                h.isEnabled = false
-                menu.addItem(h)
-                for a in dockApps.prefix(16) {
-                    let item = NSMenuItem(title: a.name, action: #selector(launchGuestApp(_:)), keyEquivalent: "")
-                    item.target = self
-                    item.representedObject = a.path
-                    item.indentationLevel = 1
-                    menu.addItem(item)
-                    let pin = NSMenuItem(title: "Add Persistent Dock Launcher for \(a.name)…",
-                                         action: #selector(keepGuestAppInDock(_:)), keyEquivalent: "")
-                    pin.target = self
-                    pin.representedObject = ["path": a.path, "name": a.name, "pid": String(a.pid)]
-                    pin.indentationLevel = 2
-                    menu.addItem(pin)
-                }
-                menu.addItem(NSMenuItem.separator())
-            }
+        if MainActor.assumeIsolated({ VMDisplayView.harmonized ?? VMDisplayView.showing }) != nil {
+            menu.addItem(NSMenuItem.separator())
+            menu.addItem(withTitle: "Guest Applications…",
+                         action: #selector(showGuestAppsPanel), keyEquivalent: "").target = self
         }
         // Windows the guest has put in its own Dock, which is hidden while
         // Harmony is on -- without these there would be no way back to them.
@@ -295,28 +251,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         (VMDisplayView.harmonized ?? VMDisplayView.showing)?.onLaunchGuestApp?(path)
     }
 
-    @MainActor @objc private func keepGuestAppInDock(_ sender: NSMenuItem) {
-        guard let fields = sender.representedObject as? [String: String],
-              let path = fields["path"], let name = fields["name"],
-              let pid = Int(fields["pid"] ?? "0"),
-              let display = VMDisplayView.harmonized ?? VMDisplayView.showing,
-              let controller = VMWindowController.open.values.first(where: { $0.display === display }) else {
-            showGuestLauncherError("Open the virtual Mac’s screen before keeping this app in the Dock.")
-            return
-        }
-        do {
-            _ = try display.guestDock.installPersistentLauncher(vmPackageURL: controller.vm.url,
-                                                                appPath: path, name: name,
-                                                                runningGuestPID: pid)
-            let alert = NSAlert()
-            alert.messageText = "Dock Launcher Ready"
-            alert.informativeText = "Control-click \(name)’s icon in this Mac’s Dock and choose Keep in Dock to leave it there after quitting."
-            alert.runModal()
-        } catch {
-            showGuestLauncherError("PowerEmu could not create the Dock launcher: \(error.localizedDescription)")
-        }
-    }
-
     @MainActor private func handleGuestAppLaunch(_ request: GuestAppLaunchRequest) {
         let key = GuestAppLaunchKey(vmPackagePath: request.vmPackagePath,
                                     applicationPath: request.guestApplicationPath)
@@ -348,6 +282,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             showGuestLauncherError("The virtual Mac for this Dock launcher is no longer in PowerEmu’s library. Open the machine package in PowerEmu, then create a new launcher.")
             return
         }
+        // Auto-start may already have begun while the cold-launch URL waited
+        // for the library. It is still a cold app launch into Harmony.
+        let enterHarmonyAfterLaunch = vm.state == .stopped || vm.state == .starting
         NSApp.activate(ignoringOtherApps: true)
         if vm.state == .stopped { vm.start() }
         else if vm.state == .paused { vm.resume() }
@@ -380,10 +317,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         self.pendingGuestAppLaunches.remove(key)
                         if vm.guestApps.contains(where: { $0.path == request.guestApplicationPath }) {
                             self.recentGuestAppLaunches[key] = now
-                            vm.launchGuestApp(path: request.guestApplicationPath)
+                            vm.openGuestApplication(path: request.guestApplicationPath)
                             if let controller = VMWindowController.open[vm.url] {
                                 controller.showWindow(nil)
                                 controller.window?.makeKeyAndOrderFront(nil)
+                                if enterHarmonyAfterLaunch { controller.display.requestHarmony(true) }
                             }
                         } else {
                             self.showGuestLauncherError("“\(request.guestApplicationPath)” is not installed in \(vm.config.name).")
@@ -402,6 +340,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     self.pendingGuestAppLaunches.remove(key)
                     let detail = vm.lastError.map { " \($0)" } ?? ""
                     self.showGuestLauncherError("PowerEmu could not connect to \(vm.config.name)’s guest tools. Make sure PowerEmu Tools are installed and the virtual Mac has started.\(detail)")
+                    return
+                }
+                if vm.state == .stopped && vm.lastError == nil {
+                    // A startup alert was cancelled. Nothing failed, and the
+                    // shortcut request must not outlive the user's choice.
+                    timer.invalidate()
+                    self.pendingGuestAppLaunches.remove(key)
                 }
             }
         }

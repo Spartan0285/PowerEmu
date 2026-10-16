@@ -1,101 +1,157 @@
 import AppKit
 
-/*
- * The virtual Mac's applications, in a window of this Mac's own.
- *
- * They can already be reached from PowerEmu's Dock menu, but only while
- * Harmony is on and only by holding the Dock icon down: a list that is hard to
- * find and gone the moment the pointer leaves it.  This is the same list as a
- * panel -- it floats above everything, including a guest running fullscreen,
- * and a click brings that application forward inside the guest.
- *
- * It owns nothing.  The applications come from the machine, every click is
- * handed straight back to it, and the panel closes with the machine it belongs
- * to.
- */
+/// Searchable guest application shortcuts for one virtual Mac.
 @MainActor
-final class GuestAppsPanel: NSPanel {
+final class GuestAppsPanel: NSPanel, NSSearchFieldDelegate {
+    private final class AppListDocument: NSView {
+        override var isFlipped: Bool { true }
+    }
+    typealias Item = (path: String, name: String, installed: Bool)
+    private let search = NSSearchField()
+    private let scroll = NSScrollView()
     private let stack = NSStackView()
-    typealias Item = (path: String, name: String, pid: Int)
-    private var open: ((Item) -> Void)?
+    private let status = NSTextField(wrappingLabelWithString: "")
     private var apps: [Item] = []
+    private var open: ((Item) -> Void)?
+    private var reveal: ((Item) -> Void)?
 
     init(title name: String) {
-        super.init(contentRect: NSRect(x: 0, y: 0, width: 260, height: 120),
-                   styleMask: [.titled, .closable, .utilityWindow, .nonactivatingPanel],
+        super.init(contentRect: NSRect(x: 0, y: 0, width: 440, height: 560),
+                   styleMask: [.titled, .closable, .utilityWindow],
                    backing: .buffered, defer: false)
-        self.title = name
+        title = "\(name) Applications"
         isFloatingPanel = true
-        // Above a guest running fullscreen, which an ordinary floating window
-        // would sit behind.
-        level = .modalPanel
+        level = .floating
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         hidesOnDeactivate = false
         isReleasedWhenClosed = false
 
+        let heading = NSTextField(wrappingLabelWithString: "Open a guest app, then use Keep in Dock on its icon to pin it like a Mac app.")
+        heading.font = .systemFont(ofSize: 12)
+        heading.textColor = .secondaryLabelColor
+        search.placeholderString = "Search installed apps"
+        search.delegate = self
+        search.sendsSearchStringImmediately = true
         stack.orientation = .vertical
         stack.alignment = .leading
-        stack.spacing = 2
-        stack.edgeInsets = NSEdgeInsets(top: 10, left: 12, bottom: 10, right: 12)
+        stack.spacing = 3
         stack.translatesAutoresizingMaskIntoConstraints = false
+        let document = AppListDocument()
+        document.translatesAutoresizingMaskIntoConstraints = false
+        document.addSubview(stack)
+        scroll.documentView = document
+        scroll.hasVerticalScroller = true
+        scroll.drawsBackground = false
+        status.font = .systemFont(ofSize: 12)
+        status.textColor = .secondaryLabelColor
         let content = NSView()
-        content.addSubview(stack)
+        for view in [heading, search, scroll, status] {
+            view.translatesAutoresizingMaskIntoConstraints = false
+            content.addSubview(view)
+        }
         NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: content.topAnchor),
-            stack.leadingAnchor.constraint(equalTo: content.leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-            stack.bottomAnchor.constraint(lessThanOrEqualTo: content.bottomAnchor),
+            stack.topAnchor.constraint(equalTo: document.topAnchor),
+            stack.leadingAnchor.constraint(equalTo: document.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: document.trailingAnchor),
+            stack.bottomAnchor.constraint(equalTo: document.bottomAnchor),
+            document.widthAnchor.constraint(equalTo: scroll.contentView.widthAnchor),
+            heading.topAnchor.constraint(equalTo: content.topAnchor, constant: 16),
+            heading.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
+            heading.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
+            search.topAnchor.constraint(equalTo: heading.bottomAnchor, constant: 12),
+            search.leadingAnchor.constraint(equalTo: heading.leadingAnchor),
+            search.trailingAnchor.constraint(equalTo: heading.trailingAnchor),
+            scroll.topAnchor.constraint(equalTo: search.bottomAnchor, constant: 10),
+            scroll.leadingAnchor.constraint(equalTo: heading.leadingAnchor),
+            scroll.trailingAnchor.constraint(equalTo: heading.trailingAnchor),
+            scroll.bottomAnchor.constraint(equalTo: status.topAnchor, constant: -8),
+            status.leadingAnchor.constraint(equalTo: heading.leadingAnchor),
+            status.trailingAnchor.constraint(equalTo: heading.trailingAnchor),
+            status.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -12),
+            status.heightAnchor.constraint(greaterThanOrEqualToConstant: 18),
         ])
         contentView = content
     }
 
-    /// Show the panel for a machine, with the list it has now.
-    func present(apps: [Item], open: @escaping (Item) -> Void) {
-        self.open = open
-        update(apps: apps)
+    func present(apps: [Item], status message: String,
+                 open: @escaping (Item) -> Void, reveal: @escaping (Item) -> Void) {
+        self.open = open; self.reveal = reveal
+        self.apps = Self.unique(apps)
+        status.stringValue = message
+        render()
         if !isVisible, let screen = NSScreen.main {
-            // Near the Dock end of the screen, where the icon that opens it is.
-            let f = screen.visibleFrame
-            setFrameOrigin(NSPoint(x: f.midX - frame.width / 2, y: f.minY + 80))
+            let frame = screen.visibleFrame
+            setFrameOrigin(NSPoint(x: frame.midX - frame.width / 2, y: frame.midY - frame.height / 2))
         }
-        orderFrontRegardless()
+        makeKeyAndOrderFront(nil)
     }
 
-    /// Keep the list current while the panel is open; the guest's applications
-    /// come and go without anybody clicking anything.
-    func update(apps: [Item]) {
-        guard apps.map(\.pid) != self.apps.map(\.pid)
-                || apps.map(\.path) != self.apps.map(\.path) else { return }
-        self.apps = apps
-        stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        if apps.isEmpty {
-            let empty = NSTextField(labelWithString: "This virtual Mac's Dock is empty, or its PowerEmu Tools are older than 2.21")
+    func update(apps: [Item], status message: String) {
+        self.apps = Self.unique(apps)
+        status.stringValue = message
+        render()
+    }
+
+    func controlTextDidChange(_ obj: Notification) { render() }
+
+    private func render() {
+        stack.arrangedSubviews.forEach { view in
+            stack.removeArrangedSubview(view)
+            view.removeFromSuperview()
+        }
+        let query = search.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let visible = apps.filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) || $0.path.localizedCaseInsensitiveContains(query) }
+        if visible.isEmpty {
+            let empty = NSTextField(labelWithString: apps.isEmpty ? "No installed-app list is available yet." : "No apps match this search.")
             empty.textColor = .secondaryLabelColor
-            empty.font = .systemFont(ofSize: 11)
             stack.addArrangedSubview(empty)
+            empty.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -12).isActive = true
+            return
         }
-        for (i, a) in apps.enumerated() {
-            // Running applications are marked, the way the Dock marks them, so
-            // a click is understood as bringing one forward rather than
-            // opening a second copy.
-            let b = NSButton(title: a.pid > 0 ? "\u{25CF} " + a.name : "   " + a.name,
-                             target: self, action: #selector(pick(_:)))
-            b.tag = i
-            b.bezelStyle = .inline
-            b.isBordered = false
-            b.contentTintColor = .labelColor
-            b.alignment = .left
-            b.font = .systemFont(ofSize: 13)
-            stack.addArrangedSubview(b)
-            b.widthAnchor.constraint(equalTo: stack.widthAnchor,
-                                     constant: -24).isActive = true
+        for (index, app) in visible.enumerated() {
+            let row = NSStackView()
+            row.orientation = .horizontal
+            row.alignment = .centerY
+            row.spacing = 8
+            let label = NSTextField(labelWithString: app.name)
+            label.toolTip = app.path
+            let context = NSMenu()
+            let show = NSMenuItem(title: "Show Shortcut in Finder", action: #selector(revealShortcut(_:)), keyEquivalent: "")
+            show.target = self; show.representedObject = app.path
+            context.addItem(show)
+            label.menu = context
+            let launch = NSButton(title: "Open", target: self, action: #selector(openApp(_:)))
+            launch.bezelStyle = .rounded
+            launch.isEnabled = app.installed
+            launch.toolTip = app.installed ? nil : "Reconnect PowerEmu Tools to verify this saved shortcut."
+            launch.tag = index
+            launch.identifier = NSUserInterfaceItemIdentifier(app.path)
+            row.addArrangedSubview(label)
+            row.addArrangedSubview(NSView())
+            row.addArrangedSubview(launch)
+            stack.addArrangedSubview(row)
+            row.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -12).isActive = true
+            label.widthAnchor.constraint(greaterThanOrEqualToConstant: 250).isActive = true
         }
-        let rows = max(1, apps.count)
-        setContentSize(NSSize(width: 260, height: CGFloat(rows) * 22 + 20))
     }
 
-    @objc private func pick(_ sender: NSButton) {
-        guard sender.tag >= 0, sender.tag < apps.count else { return }
-        open?(apps[sender.tag])
+    @objc private func openApp(_ sender: NSButton) {
+        guard let path = sender.identifier?.rawValue,
+              let item = apps.first(where: { $0.path == path }) else { return }
+        open?(item)
+    }
+
+    @objc private func revealShortcut(_ sender: NSMenuItem) {
+        guard let path = sender.representedObject as? String,
+              let item = apps.first(where: { $0.path == path }) else { return }
+        reveal?(item)
+    }
+
+    private static func unique(_ apps: [Item]) -> [Item] {
+        var byPath: [String: Item] = [:]
+        for app in apps where GuestAppShortcutSelection.validApplicationPath(app.path) {
+            byPath[app.path] = app
+        }
+        return byPath.values.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 }

@@ -102,6 +102,7 @@ struct NewMachineSheet: View {
     @State private var showHelp = false
     @State private var dropTargeted = false
     @State private var error: String?
+    @State private var showingDiskRestore = false
 
     // MARK: Derived
 
@@ -349,6 +350,13 @@ struct NewMachineSheet: View {
         .frame(width: 800, height: 540)
         .environment(\.colorScheme, .dark)
         .onAppear { if let d = initialDisc, disc == nil { use(d) } }
+        .sheet(isPresented: $showingDiskRestore) {
+            DiskRestoreSheet { vm in
+                onDone(vm)
+                dismiss()
+            }
+            .environmentObject(library)
+        }
     }
 
     private var backdrop: some View {
@@ -558,6 +566,17 @@ struct NewMachineSheet: View {
                     .font(.callout).foregroundStyle(.orange)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            Divider().overlay(.white.opacity(0.15))
+            Button {
+                showingDiskRestore = true
+            } label: {
+                Label("Already have a restored system disk?", systemImage: "internaldrive")
+                    .font(.callout)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.white.opacity(0.9))
+            Text("Import a bootable disk image into a new virtual Mac.")
+                .font(.caption).foregroundStyle(.white.opacity(0.65))
         }
     }
 

@@ -7,6 +7,7 @@ OUT=${1:?usage: make-tools-disc.sh OUT.iso}
 INSTALL="guest/build/Install PowerEmu Tools.pkg"
 UNINSTALL="guest/build/Uninstall PowerEmu Tools.pkg"
 [ -d "$INSTALL" ] && [ -d "$UNINSTALL" ] || { echo "Build guest packages first" >&2; exit 1; }
+sh scripts/check-tools-executables.sh guest/build
 tmp=$(mktemp -d /tmp/pe-tools.XXXXXX); trap 'rm -rf "$tmp"' EXIT
 mkdir "$tmp/PowerEmu Tools"
 ditto "$INSTALL" "$tmp/PowerEmu Tools/Install PowerEmu Tools.pkg"

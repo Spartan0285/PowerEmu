@@ -32,6 +32,8 @@ final class GuestAgent: ObservableObject {
     var onMinimized: (([(pid: Int, index: Int, title: String)]) -> Void)?
     /// One of the guest's applications' icons, as a PNG.
     var onAppIcon: ((Int, Data) -> Void)?
+    /// Icon for an installed application selected by path, whether it is running or not.
+    var onApplicationPathIcon: ((String, Data) -> Void)?
     var onWindowFrame: ((Data) -> Void)?
     var onFocusReady: ((Int, Int, Bool) -> Void)?
     var onFileTransfer: (([String: Any]) -> Void)?
@@ -193,6 +195,16 @@ final class GuestAgent: ObservableObject {
         else { conn?.send(verb, payload) }
     }
 
+    /// Request a LaunchServices icon for one installed guest app bundle.
+    /// The guest independently checks its current installed-app inventory.
+    func requestApplicationPathIcon(_ path: String) {
+        let controls = CharacterSet.controlCharacters
+        guard path.hasPrefix("/"), path.utf8.count <= 4096,
+              path == (path as NSString).standardizingPath,
+              path.unicodeScalars.allSatisfy({ !controls.contains($0) }) else { return }
+        send("APPPATHICON", path)
+    }
+
     private func handle(_ verb: String, _ payload: Data) {
         if verb == "WINDOWFRAME" { onWindowFrame?(payload); return }
         let text = String(decoding: payload, as: UTF8.self)
@@ -284,8 +296,10 @@ final class GuestAgent: ObservableObject {
             var items: [(path: String, name: String, pid: Int)] = []
             for line in text.split(separator: "\n") {
                 let f = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
-                guard f.count >= 3, !f[0].isEmpty else { continue }
-                items.append((path: f[0], name: f[1], pid: Int(f[2]) ?? 0))
+                guard f.count == 3, GuestAppLaunchRequest.isValidGuestApplicationPath(f[0]),
+                      !f[1].isEmpty, f[1].utf8.count <= 256,
+                      let pid = Int(f[2]), (0...Int(Int32.max)).contains(pid) else { return }
+                items.append((path: f[0], name: f[1], pid: pid))
             }
             onDockApps?(items)
         case "APPSLIST":
@@ -311,6 +325,21 @@ final class GuestAgent: ObservableObject {
             let head = String(decoding: payload[..<nl], as: UTF8.self)
             guard let pid = Int(head.trimmingCharacters(in: .whitespaces)) else { return }
             onAppIcon?(pid, Data(payload[payload.index(after: nl)...]))
+        case "APPPATHICON":
+            let maxPathBytes = 4096
+            let maxPNGBytes = 4 * 1024 * 1024
+            guard payload.count <= maxPathBytes + 1 + maxPNGBytes,
+                  let nl = payload.firstIndex(of: 0x0A),
+                  payload.distance(from: payload.startIndex, to: nl) > 0,
+                  payload.distance(from: payload.startIndex, to: nl) <= maxPathBytes,
+                  let path = String(data: payload[..<nl], encoding: .utf8),
+                  path.hasPrefix("/"),
+                  path == (path as NSString).standardizingPath,
+                  path.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) }) else { return }
+            let png = Data(payload[payload.index(after: nl)...])
+            let signature: [UInt8] = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+            guard png.count <= maxPNGBytes, png.starts(with: signature) else { return }
+            onApplicationPathIcon?(path, png)
         case "OCCLUDE":
             var out: [Int: [CGRect]] = [:]
             for line in text.split(separator: "\n") {
@@ -420,6 +449,9 @@ private final class Connection: @unchecked Sendable {
         while let nl = inbox.firstIndex(of: 0x0a) {
             let head = String(decoding: inbox[inbox.startIndex..<nl], as: UTF8.self).split(separator: " ")
             guard head.count == 2, let size = Int(head[1]), (0...70_000_000).contains(size) else {
+                close(); inbox.removeAll(); return []
+            }
+            if head[0] == "APPPATHICON", size > 4 * 1024 * 1024 + 4097 {
                 close(); inbox.removeAll(); return []
             }
             let start = inbox.index(after: nl)

@@ -160,7 +160,7 @@ static BOOL PEHarmonyAXAsyncEnabled(void)
 
 #include "PETransferZip.h"
 
-#define PE_AGENT_VERSION "2.23"
+#define PE_AGENT_VERSION "2.24"
 
 extern CGError CGSGetConnectionIDForPSN(CGSConnectionID cid, ProcessSerialNumber *psn,
                                         CGSConnectionID *out);
@@ -336,6 +336,7 @@ static int AgentPort(void)
 - (void)runResult:(NSArray *)result;
 #endif
 - (void)sendAppIcon:(NSString *)pidStr;
+- (void)sendAppPathIcon:(NSString *)path;
 - (BOOL)reportMenuBarFor:(pid_t)pid;
 - (void)reportMenuItems:(NSString *)args;
 - (BOOL)enqueueAsyncMenuItems:(NSString *)args;
@@ -749,16 +750,15 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
     NSMutableDictionary *running = [NSMutableDictionary dictionary];
     while (GetNextProcess(&psn) == noErr) {
         ProcessInfoRec info;
-        FSSpec spec;
+        FSRef bundleRef;
         pid_t pid = 0;
         memset(&info, 0, sizeof(info));
         info.processInfoLength = sizeof(info);
-        info.processAppSpec = &spec;
         if (GetProcessInformation(&psn, &info) != noErr) continue;
         if (info.processMode & modeOnlyBackground) continue;
         if (GetProcessPID(&psn, &pid) != noErr) continue;
-        {
-            CFURLRef url = CFURLCreateFromFSRef(NULL, (const FSRef *)&spec);
+        if (GetProcessBundleLocation(&psn, &bundleRef) == noErr) {
+            CFURLRef url = CFURLCreateFromFSRef(NULL, &bundleRef);
             NSString *path = nil;
             if (url) {
                 path = [(NSURL *)url path];
@@ -1250,6 +1250,9 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
     NSString *hello = [NSString stringWithFormat:@"%s\t%@\t%@", PE_AGENT_VERSION,
         [sv objectForKey:@"ProductVersion"], NSUserName()];
     [self send:@"HELLO" text:hello];
+    [self send:@"LOG" text:[NSString stringWithFormat:@"HARMONYWORKERS focus=%d menu=%d background=%d",
+        (int)PEFocusAsyncEnabled(), (int)PEMenuItemsAsyncEnabled(),
+        getenv("PE_HARMONY_AX_ASYNC") && !strcmp(getenv("PE_HARMONY_AX_ASYNC"),"1")]];
     /* The screen layout up front, so Harmony knows what it has to work with
      * before anybody asks for it. */
     [self sendScreens];
@@ -1488,6 +1491,8 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
         }
     } else if ([verb isEqualToString:@"APPICON"]) {
         [self sendAppIcon:text];
+    } else if ([verb isEqualToString:@"APPPATHICON"]) {
+        [self sendAppPathIcon:text];
     } else if ([verb isEqualToString:@"MENUS"]) {
         menuBarPid = 0; menuAttemptedPID=0; menuAttemptedAt=0;
         [self reportFocused];
@@ -2128,45 +2133,153 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
  * The icon of one of the guest's applications, so this Mac can put it in its
  * own Dock.  "APPICON <pid>" comes back as the pid, a newline, and a PNG.
  */
+- (NSData *)PNGIconForApplicationPath:(NSString *)path
+{
+    NSImage *icon = nil;
+    NSBitmapImageRep *rep;
+    NSImage *flat;
+    NSData *png;
+
+    /* Prefer an app's declared ICNS resource. Some Tiger apps have a valid
+     * bundle icon even though LaunchServices returns only its generic icon. */
+    {
+        NSBundle *bundle = [NSBundle bundleWithPath:path];
+        NSString *declared = [[bundle infoDictionary] objectForKey:@"CFBundleIconFile"];
+        NSString *name = declared;
+        NSString *type = nil;
+        NSString *resource = nil;
+        NSString *resolvedBundle;
+        NSString *resolvedResource;
+        NSDictionary *attributes;
+        if ([declared isKindOfClass:[NSString class]] && [declared length]) {
+            type = [declared pathExtension];
+            if (![[type lowercaseString] length] ||
+                [[type lowercaseString] isEqualToString:@"icns"]) {
+                if ([[type lowercaseString] isEqualToString:@"icns"])
+                    name = [declared stringByDeletingPathExtension];
+                if ([name length] &&
+                    [[name lastPathComponent] isEqualToString:name] &&
+                    [name rangeOfCharacterFromSet:[NSCharacterSet controlCharacterSet]].location == NSNotFound) {
+                    resource = [bundle pathForResource:name ofType:@"icns"];
+                }
+            }
+        }
+        if ([resource length]) {
+            resolvedBundle = [path stringByResolvingSymlinksInPath];
+            resolvedResource = [resource stringByResolvingSymlinksInPath];
+            if ([resolvedResource hasPrefix:[resolvedBundle stringByAppendingString:@"/"]]) {
+                attributes = [[NSFileManager defaultManager]
+                    fileAttributesAtPath:resolvedResource traverseLink:YES];
+                if ([[attributes objectForKey:NSFileType] isEqualToString:NSFileTypeRegular] &&
+                    [[attributes objectForKey:NSFileSize] unsignedLongLongValue] <= 8 * 1024 * 1024) {
+                    NSImage *declaredIcon = [[[NSImage alloc]
+                        initWithContentsOfFile:resolvedResource] autorelease];
+                    if ([declaredIcon isValid]) icon = declaredIcon;
+                }
+            }
+        }
+    }
+    if (!icon) icon = [[NSWorkspace sharedWorkspace] iconForFile:path];
+    if (!icon) return nil;
+    [icon setSize:NSMakeSize(128, 128)];
+    flat = [[[NSImage alloc] initWithSize:NSMakeSize(128, 128)] autorelease];
+    [flat lockFocus];
+    [icon drawInRect:NSMakeRect(0, 0, 128, 128)
+            fromRect:NSZeroRect operation:NSCompositeSourceOver fraction:1.0];
+    rep = [[[NSBitmapImageRep alloc]
+               initWithFocusedViewRect:NSMakeRect(0, 0, 128, 128)] autorelease];
+    [flat unlockFocus];
+    png = [rep representationUsingType:NSPNGFileType properties:nil];
+    if (![png length] || [png length] > 4 * 1024 * 1024) return nil;
+    return png;
+}
+
+/* Validate against the same fresh, shallow installed-app inventory as APPSLIST.
+ * Path-derived icon lookup is limited to a listed .app inside these roots. */
+- (BOOL)isInstalledApplicationPath:(NSString *)path
+{
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSArray *roots = [NSArray arrayWithObjects:@"/Applications",
+                      @"/Applications/Utilities",
+                      [@"~/Applications" stringByExpandingTildeInPath], nil];
+    NSCharacterSet *controls = [NSCharacterSet controlCharacterSet];
+    unsigned r;
+
+    if (![path length] || [path lengthOfBytesUsingEncoding:NSUTF8StringEncoding] > 4096 ||
+        ![path isAbsolutePath] ||
+        ![[path stringByStandardizingPath] isEqualToString:path] ||
+        [path rangeOfCharacterFromSet:controls].location != NSNotFound ||
+        ![[path pathExtension] isEqualToString:@"app"]) return NO;
+
+    for (r = 0; r < [roots count]; r++) {
+        NSString *root = [roots objectAtIndex:r];
+        NSArray *kids = [fm directoryContentsAtPath:root];
+        NSEnumerator *e = [kids objectEnumerator];
+        NSString *kid;
+        while ((kid = [e nextObject])) {
+            NSString *candidate;
+            NSString *resolvedRoot;
+            NSString *resolvedPath;
+            NSBundle *bundle;
+            BOOL isDirectory = NO;
+            if (![[kid pathExtension] isEqualToString:@"app"]) continue;
+            candidate = [root stringByAppendingPathComponent:kid];
+            if (![candidate isEqualToString:path]) continue;
+            resolvedRoot = [root stringByResolvingSymlinksInPath];
+            resolvedPath = [path stringByResolvingSymlinksInPath];
+            if (![resolvedPath hasPrefix:[resolvedRoot stringByAppendingString:@"/"]] ||
+                ![[resolvedPath pathExtension] isEqualToString:@"app"] ||
+                ![fm fileExistsAtPath:resolvedPath isDirectory:&isDirectory] ||
+                !isDirectory) return NO;
+            bundle = [NSBundle bundleWithPath:resolvedPath];
+            return bundle != nil && [[bundle infoDictionary] count] > 0;
+        }
+    }
+    return NO;
+}
+
+/* Existing running-process icon protocol remains APPICON: <pid>\n<PNG>. */
 - (void)sendAppIcon:(NSString *)pidStr
 {
     pid_t pid = (pid_t)[pidStr intValue];
     ProcessSerialNumber psn;
     FSRef ref;
-    NSImage *icon = nil;
+    CFURLRef url;
+    NSString *path;
+    NSData *png;
     NSMutableData *out;
 
-    if (pid <= 0 || GetProcessForPID(pid, &psn) != noErr) return;
-    if (GetProcessBundleLocation(&psn, &ref) == noErr) {
-        CFURLRef url = CFURLCreateFromFSRef(NULL, &ref);
-        if (url) {
-            NSString *path = [(NSURL *)url path];
-            icon = [[NSWorkspace sharedWorkspace] iconForFile:path];
-            CFRelease(url);
-        }
-    }
-    if (!icon) return;
-
-    /* 128 square: big enough for this Mac's Dock at any size it is set to. */
-    [icon setSize:NSMakeSize(128, 128)];
-    {
-        NSBitmapImageRep *rep;
-        NSData *png;
-        NSImage *flat = [[[NSImage alloc] initWithSize:NSMakeSize(128, 128)] autorelease];
-        [flat lockFocus];
-        [icon drawInRect:NSMakeRect(0, 0, 128, 128)
-                fromRect:NSZeroRect operation:NSCompositeSourceOver fraction:1.0];
-        rep = [[[NSBitmapImageRep alloc]
-                   initWithFocusedViewRect:NSMakeRect(0, 0, 128, 128)] autorelease];
-        [flat unlockFocus];
-        png = [rep representationUsingType:NSPNGFileType properties:nil];
-        if (!png) return;
-        out = [NSMutableData dataWithData:
-                  [[NSString stringWithFormat:@"%d\n", (int)pid]
-                      dataUsingEncoding:NSUTF8StringEncoding]];
-        [out appendData:png];
-    }
+    if (pid <= 0 || GetProcessForPID(pid, &psn) != noErr ||
+        GetProcessBundleLocation(&psn, &ref) != noErr) return;
+    url = CFURLCreateFromFSRef(NULL, &ref);
+    if (!url) return;
+    path = [[(NSURL *)url path] retain];
+    CFRelease(url);
+    png = [self PNGIconForApplicationPath:path];
+    [path release];
+    if (!png) return;
+    out = [NSMutableData dataWithData:
+              [[NSString stringWithFormat:@"%d\n", (int)pid]
+                  dataUsingEncoding:NSUTF8StringEncoding]];
+    [out appendData:png];
     [self send:@"APPICON" data:out];
+}
+
+/* Selected but unopened shortcuts request APPPATHICON: <path>\n<PNG>. */
+- (void)sendAppPathIcon:(NSString *)path
+{
+    NSData *png;
+    NSData *pathData;
+    NSMutableData *out;
+
+    if (![self isInstalledApplicationPath:path]) return;
+    pathData = [path dataUsingEncoding:NSUTF8StringEncoding];
+    png = [self PNGIconForApplicationPath:path];
+    if (![pathData length] || [pathData length] > 4096 || !png) return;
+    out = [NSMutableData dataWithData:pathData];
+    [out appendBytes:"\n" length:1];
+    [out appendData:png];
+    [self send:@"APPPATHICON" data:out];
 }
 
 #include "PEFileTransfer.inc"

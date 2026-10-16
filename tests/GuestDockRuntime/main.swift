@@ -1,56 +1,115 @@
 import AppKit
-var diagnostics = [String]()
-func harmonyDebug(_ text: String) { diagnostics.append(text); print(text) }
+func harmonyDebug(_ text: String) { print(text) }
 
-@MainActor func check() throws {
+@MainActor func runChecks() throws {
+    precondition(CommandLine.arguments.count == 2)
     let helper = URL(fileURLWithPath: CommandLine.arguments[1])
-    let source = try Data(contentsOf: helper)
-    let root = FileManager.default.temporaryDirectory.appendingPathComponent("poweremu-dock-test-" + UUID().uuidString)
-    defer { try? FileManager.default.removeItem(at: root) }
-    let image = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 8, pixelsHigh: 8,
-        bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
-        colorSpaceName: .deviceRGB, bytesPerRow: 32, bitsPerPixel: 32)!
-    for pixel in 0..<64 {
-        let bytes = image.bitmapData! + pixel * 4
-        bytes[0] = 255; bytes[1] = 64; bytes[2] = 0; bytes[3] = 255
+    let bytes = try Data(contentsOf: helper)
+    let fm = FileManager.default
+    let temp = fm.temporaryDirectory.appendingPathComponent("UnifiedDock-" + UUID().uuidString, isDirectory: true)
+    try fm.createDirectory(at: temp, withIntermediateDirectories: true)
+    let vm1 = temp.appendingPathComponent("One.poweremu", isDirectory: true)
+    let vm2 = temp.appendingPathComponent("Two.poweremu", isDirectory: true)
+    for vm in [vm1, vm2] { try fm.createDirectory(at: vm, withIntermediateDirectories: true) }
+    let path = "/Applications/Unified Dock Test.app"
+    let root = fm.homeDirectoryForCurrentUser.appendingPathComponent("Applications/PowerEmu Guest Apps", isDirectory: true)
+    let requests = try [vm1, vm2].map { try GuestAppLaunchRequest(vmPackageURL: $0, guestApplicationPath: path) }
+    let dirs = requests.map { root.appendingPathComponent($0.stableIdentifier, isDirectory: true) }
+    precondition(dirs.allSatisfy { !fm.fileExists(atPath: $0.path) })
+    let one = GuestDock(helperBinary: helper)
+    let two = GuestDock(helperBinary: helper)
+    defer {
+        one.stop(); two.stop()
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
+        for dir in dirs {
+            for app in NSWorkspace.shared.runningApplications where app.executableURL?.path.hasPrefix(dir.path + "/") == true { app.forceTerminate() }
+            try? fm.removeItem(at: dir)
+        }
+        try? fm.removeItem(at: temp)
     }
+    func wait(_ seconds: Double = 0.8) { RunLoop.current.run(until: Date().addingTimeInterval(seconds)) }
+    func helpers(_ index: Int) -> [NSRunningApplication] {
+        NSWorkspace.shared.runningApplications.filter { !$0.isTerminated && $0.executableURL?.path.hasPrefix(dirs[index].path + "/") == true }
+    }
+    func runtime(_ index: Int) throws -> [String: Any] {
+        try PropertyListSerialization.propertyList(from: Data(contentsOf: dirs[index].appendingPathComponent("runtime.plist")), options: [], format: nil) as! [String: Any]
+    }
+    func action(_ index: Int, _ name: String, session: String? = nil, vm: String? = nil) throws {
+        let value = try runtime(index)
+        DistributedNotificationCenter.default().postNotificationName(.init("com.spartan0285.poweremu.guestapp.action"),
+            object: requests[index].stableIdentifier, userInfo: ["action": name, "owner": String(getpid()),
+                "session": session ?? value["Session"] as! String, "vm": vm ?? requests[index].vmPackagePath, "app": path], deliverImmediately: true)
+    }
+    var launches = [String](), activated = [Int](), quits = [Int]()
+    one.launchApplication = { launches.append($0) }; one.activate = { activated.append($0) }; one.quit = { quits.append($0) }
+    one.configure(vmPackageURL: vm1); two.configure(vmPackageURL: vm2)
+    one.start(); two.start()
+    let application = try one.prepareApplication(path: path, name: "Unified Dock Test")
+    let executable = Bundle(url: application)!.executableURL!
+    wait()
+    precondition(helpers(0).isEmpty && launches.isEmpty, "Preparing a closed shortcut must not start its helper or guest app")
+    one.setRunningGuestApps([(path, "Unified Dock Test", 301)])
+    two.setRunningGuestApps([(path, "Unified Dock Test", 401)])
+    wait(3)
+    precondition(helpers(0).count == 1 && helpers(1).count == 1, "One icon per VM and app")
+    let originalPID = helpers(0)[0].processIdentifier
+    let initialBytes = try Data(contentsOf: executable)
+    precondition(!initialBytes.isEmpty)
+    let mode = try fm.attributesOfItem(atPath: dirs[0].appendingPathComponent("runtime.plist").path)[.posixPermissions] as! NSNumber
+    precondition(mode.intValue == 0o600)
+    one.setRunningGuestApps([(path, "Unified Dock Test", 301), (path, "Unified Dock Test", 302)])
+    wait()
+    precondition(helpers(0).count == 1 && helpers(0)[0].processIdentifier == originalPID, "Multiple processes/windows do not duplicate the app identity")
+    try action(0, "activate", session: UUID().uuidString)
+    try action(0, "quit", vm: requests[1].vmPackagePath)
+    wait()
+    precondition(activated.isEmpty && quits.isEmpty, "Foreign session and VM actions rejected")
+    try action(0, "activate"); wait(); precondition(activated == [301])
+    let duplicate = Process()
+    duplicate.executableURL = executable
+    try duplicate.run(); wait()
+    precondition(!duplicate.isRunning && duplicate.terminationStatus == 0 && helpers(0).count == 1,
+                 "A simultaneous launch coalesces into the existing stable representative")
+    precondition(activated == [301, 301], "The duplicate launch activates the existing guest app once")
+    _ = helpers(0)[0].terminate(); wait()
+    precondition(Set(quits) == [301, 302] && helpers(0).count == 1, "Quit reaches the guest and preserves the representative while Save/Cancel is pending")
+    let image = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 8, pixelsHigh: 8, bitsPerSample: 8,
+        samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 32, bitsPerPixel: 32)!
+    memset(image.bitmapData!, 255, 256)
     let png = image.representation(using: .png, properties: [:])!
-    let first = GuestDock(storageRoot: root, helperBinary: helper)
-    let second = GuestDock(storageRoot: root, helperBinary: helper)
-    defer { first.stop(); second.stop() }
-    first.wantIcon = { first.setIcon(pid: $0, png: png) }
-    second.wantIcon = { second.setIcon(pid: $0, png: png) }
-    first.start(); first.setApps([(101, "Dock Test One")])
-    second.start(); second.setApps([(101, "Dock Test Two")])
-    RunLoop.current.run(until: Date().addingTimeInterval(3))
-    let children = NSWorkspace.shared.runningApplications.filter { $0.executableURL?.path.hasPrefix(root.path + "/") == true }
-    precondition(children.count == 2, "Both sessions must retain a live Dock representative")
-    precondition(Set(children.compactMap(\.localizedName)) == ["Dock Test One", "Dock Test Two"])
-    for child in children {
-        precondition(child.activationPolicy == .regular)
-        let copied = try Data(contentsOf: child.executableURL!)
-        precondition(copied == source, "Executable signature bytes changed")
-        let verify = Process(); verify.executableURL = URL(fileURLWithPath: "/usr/bin/codesign")
-        verify.arguments = ["--verify", "--strict", child.executableURL!.path]
-        try verify.run(); verify.waitUntilExit(); precondition(verify.terminationStatus == 0)
-        let storedIcon = child.executableURL!.deletingLastPathComponent().appendingPathComponent("icon.png")
-        let storedPNG = try Data(contentsOf: storedIcon)
-        precondition(storedPNG == png && NSImage(data: storedPNG)?.isValid == true)
-    }
-    first.stop()
-    RunLoop.current.run(until: Date().addingTimeInterval(0.5))
-    precondition(NSWorkspace.shared.runningApplications.contains { $0.localizedName == "Dock Test Two" && !$0.isTerminated })
-    second.stop()
-    RunLoop.current.run(until: Date().addingTimeInterval(0.5))
-    precondition(!NSWorkspace.shared.runningApplications.contains { $0.executableURL?.path.hasPrefix(root.path + "/") == true })
-
-    // A rejected or crashing helper must not be launched every keeper tick.
-    let failing = GuestDock(storageRoot: root, helperBinary: URL(fileURLWithPath: CommandLine.arguments[2]))
-    failing.wantIcon = { failing.setIcon(pid: $0, png: png) }
-    failing.start(); failing.setApps([(102, "Dock Failure Probe")])
-    RunLoop.current.run(until: Date().addingTimeInterval(6.5))
-    failing.stop()
-    precondition(diagnostics.filter { $0.contains("exited with status 1; automatic relaunch disabled") }.count == 1)
-    print("PASS: trusted bytes/signatures, distinct names/icon data, concurrent session ownership, cleanup and failed-launch suppression")
+    one.setApplicationPathIcon(path: path, png: png); wait()
+    precondition(helpers(0)[0].processIdentifier == originalPID, "Artwork must update without helper restart")
+    let runningBytes = try Data(contentsOf: executable)
+    precondition(runningBytes == initialBytes, "A live artwork update must not rewrite a running signed bundle")
+    one.guestToolsDisconnected(); wait()
+    let unknown = try runtime(0)
+    precondition(unknown["State"] as? String == "unknown" && helpers(0).count == 1)
+    one.setRunningGuestApps([]); wait(1.5)
+    precondition(helpers(0).isEmpty && helpers(1).count == 1, "Complete empty snapshot clears only its own VM runtime")
+    precondition(fm.fileExists(atPath: executable.path), "Pinned launcher target survives guest app exit")
+    one.setRunningGuestApps([(path, "Unified Dock Test", 601)]); wait(1.5)
+    precondition(helpers(0).count == 1 && helpers(0)[0].executableURL?.path == executable.path)
+    let newPID = helpers(0)[0].processIdentifier
+    one.stop(); wait(1.5)
+    precondition(helpers(0).isEmpty && fm.fileExists(atPath: executable.path))
+    one.start(); one.setRunningGuestApps([(path, "Unified Dock Test", 701)]); wait(1.5)
+    precondition(helpers(0).count == 1 && helpers(0)[0].processIdentifier != newPID && helpers(0)[0].executableURL?.path == executable.path)
+    let finalBytes = try Data(contentsOf: executable)
+    let sourceAfter = try Data(contentsOf: helper)
+    precondition(sourceAfter == bytes, "Distributed Developer ID template is unchanged")
+    precondition(!finalBytes.isEmpty)
+    let template = helper.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+    let sourceHash = try GuestLauncherTrust.verifyTemplate(templateURL: template, hostApplicationURL: Bundle.main.bundleURL)
+    let receipt = try GuestLauncherTrust.loadReceipt(from: dirs[0], applicationURL: application,
+        stableIdentifier: requests[0].stableIdentifier, sourceCDHash: sourceHash)
+    precondition(GuestLauncherTrust.validatesInstalledBundle(applicationURL: application, receipt: receipt))
+    precondition(GuestLauncherTrust.validates(process: helpers(0)[0], receipt: receipt))
+    print("PASS: one stable VM/app identity, no launch on creation, multi-process grouping, scoped actions, graceful Quit/Cancel, icon updates without restart, disconnect vs empty snapshot, stable restart target and cross-VM isolation")
 }
-MainActor.assumeIsolated { try! check() }
+let app = NSApplication.shared
+app.setActivationPolicy(.accessory)
+app.finishLaunching()
+MainActor.assumeIsolated {
+    do { try runChecks(); exit(0) }
+    catch { fputs("FAIL: \(error)\n", stderr); exit(1) }
+}
