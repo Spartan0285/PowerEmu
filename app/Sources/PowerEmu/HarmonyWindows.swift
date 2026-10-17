@@ -32,15 +32,52 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
     // Experimental complete-window source. No screen crops or focus cycling.
     let completeWindowCapture = ProcessInfo.processInfo.environment["POWEREMU_HARMONY_MASKED"] != "1"
     private(set) var guestCursor = NSCursor.arrow
+    private var guestCursorImage: CGImage?
+    private var guestCursorHot = CGPoint.zero
+    /// The card's hardware cursor carries only the picture and its top-left
+    /// (hot spot always 0,0), so shapes like the I-beam were drawn offset.
+    /// Once the agent reports the WindowServer's own cursor, hot spot
+    /// included, that is used and the card's copy is ignored here.
+    private var agentCursor = false
+    private var guestCursorDefines = 0
+    private var agentCursorReports = 0
     func setGuestCursor(_ image: CGImage?, hotSpot: CGPoint) {
-        if let image, HarmonyCursorImage.hasVisiblePixels(image) {
-            let bounded = CGPoint(x: min(CGFloat(image.width - 1), max(0, hotSpot.x)),
-                                  y: min(CGFloat(image.height - 1), max(0, hotSpot.y)))
+        guestCursorDefines += 1
+        let visible = image.map(HarmonyCursorImage.hasVisiblePixels) ?? false
+        harmonyDebug("PECURSOR card n=\(guestCursorDefines) size=\(image?.width ?? 0)x\(image?.height ?? 0) visible=\(visible) agentActive=\(agentCursor)")
+        guard !agentCursor else { return }
+        guestCursorImage = visible ? image : nil
+        guestCursorHot = hotSpot
+        rebuildGuestCursor()
+    }
+    func setAgentCursor(_ image: CGImage, hotSpot: CGPoint) {
+        guard active else { return }
+        agentCursor = true
+        agentCursorReports += 1
+        harmonyDebug("PECURSOR agent n=\(agentCursorReports) size=\(image.width)x\(image.height) hot=(\(Int(hotSpot.x)),\(Int(hotSpot.y))) visible=\(HarmonyCursorImage.hasVisiblePixels(image)) cardDefines=\(guestCursorDefines)")
+        guestCursorImage = HarmonyCursorImage.hasVisiblePixels(image) ? image : nil
+        guestCursorHot = hotSpot
+        rebuildGuestCursor()
+    }
+    private func rebuildGuestCursor() {
+        if let image = guestCursorImage {
+            let bounded = CGPoint(x: min(CGFloat(image.width - 1), max(0, guestCursorHot.x)),
+                                  y: min(CGFloat(image.height - 1), max(0, guestCursorHot.y)))
             guestCursor = NSCursor(image: NSImage(cgImage: image, size: CGSize(width: image.width, height: image.height)), hotSpot: bounded)
         } else { guestCursor = .arrow }
         for proxy in proxies.values {
             if let view = proxy.contentView { proxy.invalidateCursorRects(for: view) }
         }
+        // Cursor rects are only re-read on the next move in the key window, so
+        // a shape the guest changes under a still pointer (Word's I-beam once
+        // its document takes focus) never showed. Apply it now.
+        if proxyUnderPointer() != nil { guestCursor.set() }
+    }
+    /// The proxy the pointer is over, if PowerEmu is active and one is.
+    func proxyUnderPointer() -> HarmonyProxy? {
+        guard active, NSApp.isActive else { return nil }
+        let number = NSWindow.windowNumber(at: NSEvent.mouseLocation, belowWindowWithWindowNumber: 0)
+        return proxies.values.first { $0.windowNumber == number && $0.isVisible }
     }
     var releaseInput: (() -> Void)?
     var onGuestWindowFocus: ((Bool) -> Void)?
@@ -54,12 +91,17 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
     private var requestSequence = 0
     private var requestedProxy: HarmonyProxy?
     private var captureScheduler = HarmonyCaptureScheduler()
+    private var interactionTiming = HarmonyInteractionTiming()
+    private var pixelLatency = HarmonyPixelLatency()
     private var requestedBaseSequence = 0
     private var captureBeganAt = Date.distantPast
     private var capturedFrameCount = 0
     private var capturedFrameMilliseconds: Double = 0
     private var decodedFrameMilliseconds: Double = 0
     private var recentFrameTimings: [(unchanged: Bool, milliseconds: Double, bytes: Int)] = []
+    private var recentWindowCaptures: [Int: Int] = [:]
+    private var totalFrameRequests = 0
+    private var totalHiddenFrameRequests = 0
 
     private func requestNextFrame() {
         guard active, completeWindowCapture, !decodingFrame else { return }
@@ -81,8 +123,12 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
         }
         forceCaptures.formIntersection(Set(candidates.map(\.id)))
         captureScheduler.paceForegroundIdle = ProcessInfo.processInfo.environment["POWEREMU_HARMONY_VISIBLE_CACHE"] == "1"
+        captureScheduler.prioritizeInteraction = ProcessInfo.processInfo.environment["POWEREMU_HARMONY_INPUT_PRIORITY"] == "1"
+        captureScheduler.suspendOccluded = ProcessInfo.processInfo.environment["POWEREMU_HARMONY_SKIP_OCCLUDED"] == "1"
         guard let id = captureScheduler.next(candidates, foreground: foreground,
                                              now: ProcessInfo.processInfo.systemUptime) else { return }
+        totalFrameRequests += 1
+        if candidates.first(where: { $0.id == id })?.visible == false { totalHiddenFrameRequests += 1 }
         requestedFrame = id
         requestedProxy = proxies[id]
         requestSequence += 1
@@ -134,6 +180,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
         capturedFrameMilliseconds += elapsed
         decodedFrameMilliseconds += decodeMS
         recentFrameTimings.append((Int(header[3]) == 2, elapsed, data.count))
+        recentWindowCaptures[requested, default: 0] += 1
         if capturedFrameCount % 30 == 0 {
             harmonyDebug(String(format: "PEDECODE meanMS=%.3f worker=serial", decodedFrameMilliseconds / Double(capturedFrameCount)))
             harmonyDebug(String(format: "PEWINDOWFRAME count=%d meanRoundTripMS=%.1f bytes=%d", capturedFrameCount,
@@ -146,6 +193,9 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
             harmonyDebug(String(format: "PEFRAMEBATCH full=%d fullMeanMS=%.1f unchanged=%d unchangedMeanMS=%.1f bytes=%d",
                                 full.count, mean(full), idle.count, mean(idle), recentFrameTimings.reduce(0) { $0 + $1.bytes }))
             recentFrameTimings.removeAll(keepingCapacity: true)
+            harmonyDebug("PEFRAMEWINDOWS " + recentWindowCaptures.sorted { $0.key < $1.key }
+                .map { "\($0.key):\($0.value)" }.joined(separator: ","))
+            recentWindowCaptures.removeAll(keepingCapacity: true)
         }
         guard let p = proxies[requested], p === proxy else { return }
         let unchanged = Int(header[3]) == 2 && Int(header[1]) == p.capturedImage?.width
@@ -157,10 +207,11 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
            (Int(header[3]) != 4 || p.acceptedCaptureSequence == requestedBaseSequence),
            Int(p.guestRect.width) == frame.image.width, Int(p.guestRect.height) == frame.image.height {
             let first = !p.hasContents
+            pixelLatency.observe(id: requested, identity: ObjectIdentifier(p), image: frame.image, now: ProcessInfo.processInfo.systemUptime)
             p.setOwnImage(frame.image)
             accepted = true
             if first && !p.isMiniaturized {
-                p.orderFront(nil)
+                placeFirstAppearance(p)
                 // Finder drag images appear as new frontmost CGS windows.
                 // Painting one must not steal key focus and release the source's
                 // held mouse button through windowDidResignKey.
@@ -172,6 +223,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
             }
         }
         if accepted {
+            interactionTiming.published(id: requested, sequence: requestSequence, now: ProcessInfo.processInfo.systemUptime)
             reconcileSheets()
             p.acceptedCaptureSequence = requestSequence
             captureScheduler.completed(requested, unchanged: unchanged,
@@ -196,6 +248,41 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
             for (id, pid) in windowApplications { proxies[id]?.applicationPid = pid }
         }
     }
+    /// The host's front-to-back proxy stack when Harmony was last left, with
+    /// each window's owner so a reused window number is not mistaken for it.
+    private var savedStacking: [(id: Int, pid: Int)] = []
+    /// Windows in the first list after entering Harmony: only these are being
+    /// restored. A window that appears later (a pop-up, a dialog, a new
+    /// document) is the guest's front window and goes on top.
+    private var restoringIDs: Set<Int>?
+    /// Front-to-back order to place proxies in as they first appear. The
+    /// guest's list keeps each application's windows together, so across
+    /// applications the stack the user left is the better answer; windows
+    /// it does not know about (opened since) go in front of it.
+    private func stackingOrder() -> [Int] {
+        let remembered = savedStacking.filter { saved in
+            order.contains(saved.id) && (windowApplications[saved.id] ?? saved.pid) == saved.pid
+        }.map(\.id)
+        return order.filter { !remembered.contains($0) } + remembered
+    }
+    /// Captures land front window first, so ordering each new proxy to the
+    /// front reversed the stack. Slot it in beside its neighbours instead.
+    private func placeFirstAppearance(_ p: HarmonyProxy) {
+        guard restoringIDs?.contains(p.id) == true else { p.orderFront(nil); return }
+        let stack = stackingOrder()
+        let shown = { (id: Int) -> HarmonyProxy? in
+            guard id != p.id, let q = self.proxies[id], q.isVisible, !q.isMiniaturized else { return nil }
+            return q
+        }
+        guard let index = stack.firstIndex(of: p.id) else { p.orderFront(nil); return }
+        if let above = stack[..<index].reversed().lazy.compactMap(shown).first {
+            p.order(.below, relativeTo: above.windowNumber)
+        } else if let below = stack[(index + 1)...].lazy.compactMap(shown).first {
+            p.order(.above, relativeTo: below.windowNumber)
+        } else {
+            p.orderFront(nil)
+        }
+    }
     func activateApplication(_ pid: Int) -> Bool {
         // Minimized windows are absent from the guest's on-screen order. Keep
         // their owner on the proxy so its application tile can restore the
@@ -208,16 +295,21 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
         return true
     }
     private var menuFocus = HarmonyMenuFocusIntent()
-    func beginMenuFocus() -> String {
+    func beginMenuFocus(ownerPID: Int) -> String {
         let token = UUID().uuidString
-        menuFocus.begin(token: token, now: ProcessInfo.processInfo.systemUptime)
+        menuFocus.begin(token: token, ownerPID: ownerPID, now: ProcessInfo.processInfo.systemUptime)
         return token
     }
     func completeMenuFocus(_ token: String, id: Int) {
-        guard menuFocus.consume(token: token, now: ProcessInfo.processInfo.systemUptime) else { return }
         guard active, NSApp.isActive,
               let proxy = proxies[id], !proxy.isMiniaturized,
+              let ownerPID = windowApplications[id], ownerPID > 0,
+              proxy.applicationPid == ownerPID,
               minimizing[id] == nil, !proxy.restoreIntent.isPending else { return }
+        // The guest resolves its front window after a delay. A different app
+        // must never borrow this menu command's permission to raise a window.
+        guard menuFocus.consume(token: token, ownerPID: ownerPID,
+                                now: ProcessInfo.processInfo.systemUptime) else { return }
         // This acknowledges an explicit menu action, not a periodic guest
         // focus report. Only this window crosses the host's stacking order.
         proxy.makeKeyAndOrderFront(nil)
@@ -269,6 +361,16 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
         focusTiming.acknowledge(id: id, sequence: sequence, ok: ok, queuedEvents: focusEvents.count, now: ProcessInfo.processInfo.systemUptime)
         focusTimeout?.cancel(); pendingFocus = nil
         let events = focusEvents; focusEvents = []
+        // Word keeps its focus on a palette until a click reaches the
+        // document, so an agent that waits for the document to be focused
+        // first never confirms. Dropping that click left Word stuck there.
+        let paletteHeldFocus = !ok && active && proxies[id] != nil
+            && focusedGuestWindow != id && sameApplicationPalette(id, focusedGuestWindow)
+        if paletteHeldFocus {
+            harmonyDebug("PEFOCUS palette-held id=\(id) palette=\(focusedGuestWindow) events=\(events.count)")
+            for event in events { event() }
+            return
+        }
         guard ok, active, proxies[id] != nil else {
             harmonyDebug("PEFOCUS failed id=\(id)")
             return
@@ -276,9 +378,18 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
         focusedGuestWindow = id
         for event in events { event() }
     }
+    /// One of the two is a classified palette and both belong to one guest
+    /// application: focus moves between them only when a click lands.
+    private func sameApplicationPalette(_ a: Int, _ b: Int) -> Bool {
+        guard a != b, let pid = windowApplications[a], pid > 0, windowApplications[b] == pid else { return false }
+        return paletteOwners[a] == pid || paletteOwners[b] == pid
+    }
     func sendProxyButton(_ bit: Int32, _ down: Bool, windowID: Int? = nil) {
         withFocus(windowID: windowID) { [weak self] in
             guard let self else { return }
+            if bit == 1 && down, let id = windowID, let proxy = self.proxies[id] {
+                self.pixelLatency.click(id: id, identity: ObjectIdentifier(proxy), now: ProcessInfo.processInfo.systemUptime)
+            }
             self.sendButton?(bit, down)
             self.refreshAfterInteraction(windowID)
         }
@@ -299,6 +410,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
     private func refreshAfterInteraction(_ id: Int?) {
         guard let id = id ?? (NSApp.keyWindow as? HarmonyProxy)?.id else { return }
         forceCaptures.insert(id)
+        interactionTiming.dispatched(id: id, sequence: requestSequence, now: ProcessInfo.processInfo.systemUptime)
         captureScheduler.interacted(id, now: ProcessInfo.processInfo.systemUptime)
         requestNextFrame()
     }
@@ -340,6 +452,9 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
             prepare(id, completion)
         }
     }
+    func isCurrentFileDropTarget(_ proxy: HarmonyProxy) -> Bool {
+        active && proxies[proxy.id] === proxy && order.contains(proxy.id)
+    }
     var dropPromises: (([NSFilePromiseReceiver], Int) -> Bool)?
     var dropFiles: (([URL], Int) -> Bool)?
     var raiseWindowAt: ((Int, Int, Int) -> Void)?
@@ -353,6 +468,49 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
 
     private var proxies: [Int: HarmonyProxy] = [:]
     private var sheetParents: [Int: Int] = [:]
+    private var paletteOwners: [Int: Int] = [:]
+    func usesGuestPaletteDrag(_ id: Int) -> Bool {
+        guard active, ProcessInfo.processInfo.environment["POWEREMU_HARMONY_PALETTE_DRAG"] == "1",
+              let owner = paletteOwners[id], owner > 0,
+              windowApplications[id] == owner, vanished[id] == nil,
+              order.contains(id), let proxy = proxies[id], proxy.hasContents,
+              !proxy.isMiniaturized, minimizing[id] == nil, !proxy.restoreIntent.isPending,
+              !dragWindows.contains(id), sheetParents[id] == nil else { return false }
+        return true
+    }
+    func setPalettes(_ owners: [Int: Int]) {
+        guard active, ProcessInfo.processInfo.environment["POWEREMU_HARMONY_PALETTES"] == "1" else { return }
+        paletteOwners = owners
+        reconcilePalettes()
+    }
+    private func reconcilePalettes() {
+        guard active, NSApp.isActive, !pointerGestureActive,
+              let key = NSApp.keyWindow as? HarmonyProxy, !key.isMenuBar,
+              let pid = windowApplications[key.id] else { return }
+        let owners = paletteOwners.filter { id, owner in
+            owner == pid && windowApplications[id] == owner && proxies[id]?.hasContents == true
+                && proxies[id]?.isMiniaturized == false && vanished[id] == nil && !dragWindows.contains(id)
+        }
+        let windows = order.compactMap { id -> HarmonyPalettePolicy.Window? in
+            guard let p = proxies[id] else { return nil }
+            let kind: HarmonyPalettePolicy.WindowKind = p.isMenuBar ? .menuBar :
+                dragWindows.contains(id) ? .dragImage : sheetParents[id] != nil ? .sheet :
+                paletteOwners[id] != nil ? .palette : .document
+            return .init(id: id, ownerPID: windowApplications[id], kind: kind,
+                         isMinimized: p.isMiniaturized, isVanished: vanished[id] != nil)
+        }
+        let relationships = HarmonyPalettePolicy.parentRelationships(paletteOwners: owners, windows: windows)
+        for id in order.reversed() {
+            guard let parentID = relationships[id], let palette = proxies[id], let parent = proxies[parentID],
+                  palette.isVisible, parent.isVisible, palette.parent == nil,
+                  let paletteIndex = NSApp.orderedWindows.firstIndex(of: palette),
+                  let parentIndex = NSApp.orderedWindows.firstIndex(of: parent), paletteIndex > parentIndex else { continue }
+            // Relative ordering only: palettes keep independent guest coordinates,
+            // remain nonmodal, and never acquire a global floating level.
+            palette.order(.above, relativeTo: parent.windowNumber)
+        }
+    }
+
     private var dragWindows: Set<Int> = []
     func setDragWindows(_ ids: Set<Int>) {
         guard active else { return }
@@ -394,6 +552,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
         return modalChild(of: child) ?? proxies[child]
     }
     private func reconcileSheets() {
+        defer { reconcilePalettes() }
         for (id, child) in proxies {
             let parent = sheetParents[id].flatMap { proxies[$0] }
             let attach = vanished[id] == nil && parent.map { vanished[$0.id] == nil } == true && parent?.isMiniaturized == false
@@ -650,6 +809,12 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
         let prevSaid = gatesSaid
         let secs = max(0.001, Date().timeIntervalSince(prevSaid))
         gatesSaid = Date()
+        if completeWindowCapture {
+            harmonyDebug(String(format: "PECOMPLETE at=%.6f requests=%d hidden=%d responses=%d visible=%d pending=%d borrowed=%d",
+                ProcessInfo.processInfo.systemUptime, totalFrameRequests, totalHiddenFrameRequests,
+                capturedFrameCount, proxies.values.filter { $0.occlusionState.contains(.visible) }.count,
+                requestedFrame == nil ? 0 : 1, captureScheduler.borrowedInteractionSlots))
+        }
         defer { framesAtReport = frames }
         /*
          * How old the picture on screen actually is, per window, which is the
@@ -851,6 +1016,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
     /// This Mac's menu bar height, and the guest's -- to bottom-align them.
     var hostMenuBar: CGFloat = 0
     private var guestMenuBar: CGFloat = 22
+    private(set) var dropEpoch = UUID()
     private(set) var active = false
 
     /// Complete-window mode maps one guest pixel to one logical host point.
@@ -959,13 +1125,28 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
     private var offsetY: CGFloat { max(0, hostMenuBar - guestMenuBar * scale) }
 
     func setActive(_ on: Bool, screenFrame: CGRect, guestSize: CGSize, hostMenuBar: CGFloat) {
+        dropEpoch = UUID()
         windowFrameTimer?.invalidate(); windowFrameTimer = nil
         requestedFrame = nil; requestedProxy = nil
         forceCaptures.removeAll()
         captureScheduler = HarmonyCaptureScheduler()
+        restoringIDs = nil
+        agentCursor = false
+        if active && !on {
+            savedStacking = NSApp.orderedWindows.compactMap { window -> (id: Int, pid: Int)? in
+                guard let p = window as? HarmonyProxy, proxies[p.id] === p, !p.isMenuBar,
+                      p.isVisible, let pid = windowApplications[p.id] ?? p.applicationPid else { return nil }
+                return (p.id, pid)
+            }
+            // A stale focus from the last session would make the wrong window
+            // key on the way back in, and ask the guest to raise it.
+            focusedGuestWindow = 0
+        }
         menuFocus.cancel()
         pendingFocus = nil; focusEvents = []; focusTimeout?.cancel()
         for line in focusTiming.finish() { harmonyDebug(line) }
+        for line in interactionTiming.finish() { harmonyDebug(line) }
+        for line in pixelLatency.finish() { harmonyDebug(line) }
         active = on
         if let keyWindowObserver { NotificationCenter.default.removeObserver(keyWindowObserver) }
         keyWindowObserver = nil
@@ -989,7 +1170,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
             }
         } else {
             stopPointerTracking()
-            sheetParents = [:]; dragWindows = []
+            sheetParents = [:]; paletteOwners = [:]; dragWindows = []
             for p in proxies.values { p.parent?.removeChildWindow(p) }
             for p in proxies.values { p.orderOut(nil) }; proxies = [:]; order = []
             menuBar?.orderOut(nil); menuBar = nil
@@ -1628,6 +1809,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
         }
         if completeWindowCapture {
             order = shown.map { $0.id }
+            if restoringIDs == nil { restoringIDs = Set(order) }
             reconcileSheets()
             requestNextFrame()
             return
@@ -2314,7 +2496,9 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
         withFocus(windowID: id) { [weak self, weak p] in
             guard let self, let p, self.proxies[id] === p else { return }
             self.sendPoint?(Int((p.guestRect.minX + local.x).rounded()), Int((p.guestRect.minY + local.y).rounded()))
-            self.forceCaptures.insert(id)
+            // Hovering over windows that are not key now moves the guest's
+            // pointer too; only the key window pays for a forced capture.
+            if p.isKeyWindow { self.forceCaptures.insert(id) }
         }
     }
     func proxyButton(_ down: Bool, at point: CGPoint? = nil, windowID: Int? = nil) {
@@ -2430,6 +2614,7 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
     }
 
     func proxyRaise(_ id: Int) {
+        defer { reconcilePalettes() }
         guard !dragWindows.contains(id) else { return }
         if let child = modalChild(of: id) { activateProxy(child); return }
         guard minimizing[id] == nil, proxies[id]?.restoreIntent.isPending != true else { return }
@@ -2444,6 +2629,13 @@ final class HarmonyWindowManager: NSObject, NSWindowDelegate {
          * already in front.
          */
         if id == focusedGuestWindow && pendingFocus == nil {
+            proxies[id]?.orderFront(nil)
+            return
+        }
+        // Nor is a click on a palette of the application already in front:
+        // the guest never focuses a palette for a button click, and asking it
+        // to raise one could bring the document up over it.
+        if pendingFocus == nil, paletteOwners[id] != nil, sameApplicationPalette(id, focusedGuestWindow) {
             proxies[id]?.orderFront(nil)
             return
         }
@@ -2787,7 +2979,10 @@ final class HarmonyProxyView: NSView, NSDraggingSource {
         super.updateTrackingAreas()
         trackingAreas.forEach(removeTrackingArea)
         addTrackingArea(NSTrackingArea(rect: .zero,
-            options: [.mouseEnteredAndExited, .cursorUpdate, .activeInActiveApp, .inVisibleRect],
+            // .mouseMoved: the key window gets moves anyway; this carries them
+            // over the others too, so the guest's pointer (and so its cursor
+            // shape) follows over a document while its palette is key.
+            options: [.mouseEnteredAndExited, .mouseMoved, .cursorUpdate, .activeInActiveApp, .inVisibleRect],
             owner: self))
     }
     override func cursorUpdate(with event: NSEvent) {
@@ -2796,8 +2991,18 @@ final class HarmonyProxyView: NSView, NSDraggingSource {
     override func mouseEntered(with event: NSEvent) {
         (proxy?.manager?.guestCursor ?? .arrow).set()
     }
-    override func mouseExited(with event: NSEvent) { NSCursor.arrow.set() }
+    override func mouseExited(with event: NSEvent) {
+        // Moving between two proxies can deliver the new window's enter before
+        // this exit; only fall back to the arrow when no proxy is under it.
+        if let manager = proxy?.manager, manager.proxyUnderPointer() != nil { manager.guestCursor.set() }
+        else { NSCursor.arrow.set() }
+    }
+    /// The key window receives a move twice: as the window's mouse-moved
+    /// event and from the tracking area. Forward each one once.
+    private var lastMoveTimestamp: TimeInterval = -1
     override func mouseMoved(with e: NSEvent) {
+        guard e.timestamp != lastMoveTimestamp else { return }
+        lastMoveTimestamp = e.timestamp
         (proxy?.manager?.guestCursor ?? .arrow).set()
         if let proxy { proxy.manager?.sendPointInProxy(proxy.id, at: hostPoint(e)) }
     }
@@ -2827,17 +3032,57 @@ final class HarmonyProxyView: NSView, NSDraggingSource {
      * window is raised first, so what happens next happens in front of the
      * reader rather than behind whatever they dropped onto.
      */
+    private var dropIntent = HarmonyDropIntent()
+
+    private func validDropDestination(_ s: NSDraggingInfo) -> Bool {
+        guard let proxy, let manager = proxy.manager, manager.isCurrentFileDropTarget(proxy),
+              !proxy.isMenuBar, !proxy.isDragImage, proxy.hasContents,
+              harmonyDropHitsView(s, view: self, window: proxy) else { return false }
+        return !manager.hostPointInMenuBar(proxy.convertPoint(toScreen: s.draggingLocation))
+    }
+
     override func draggingEntered(_ s: NSDraggingInfo) -> NSDragOperation {
-        s.draggingPasteboard.canReadObject(forClasses: [NSURL.self, NSFilePromiseReceiver.self], options: nil) ? .copy : []
+        dropIntent.cancel()
+        guard let manager = proxy?.manager, validDropDestination(s),
+              s.draggingPasteboard.canReadObject(forClasses: [NSURL.self, NSFilePromiseReceiver.self], options: nil) else { return [] }
+        dropIntent.enter(sequence: s.draggingSequenceNumber, epoch: manager.dropEpoch)
+        harmonyDebug("PEDROP entered id=\(proxy?.id ?? 0) drag=\(s.draggingSequenceNumber)")
+        return .copy
+    }
+
+    override func draggingUpdated(_ s: NSDraggingInfo) -> NSDragOperation {
+        guard let manager = proxy?.manager,
+              dropIntent.accepts(sequence: s.draggingSequenceNumber, epoch: manager.dropEpoch,
+                                 destinationValid: validDropDestination(s)) else { return [] }
+        return .copy
+    }
+
+    override func draggingExited(_ sender: NSDraggingInfo?) {
+        dropIntent.cancel()
+        harmonyDebug("PEDROP exited id=\(proxy?.id ?? 0)")
+    }
+    override func draggingEnded(_ sender: NSDraggingInfo) { dropIntent.cancel() }
+
+    override func prepareForDragOperation(_ s: NSDraggingInfo) -> Bool {
+        guard let manager = proxy?.manager else { return false }
+        return dropIntent.accepts(sequence: s.draggingSequenceNumber, epoch: manager.dropEpoch,
+                                  destinationValid: validDropDestination(s))
     }
 
     override func performDragOperation(_ s: NSDraggingInfo) -> Bool {
-        guard let proxy, let m = proxy.manager else { return false }
-        m.proxyRaise(proxy.id)
+        guard let proxy, let m = proxy.manager,
+              dropIntent.consume(sequence: s.draggingSequenceNumber, epoch: m.dropEpoch,
+                                 destinationValid: validDropDestination(s)) else {
+            harmonyDebug("PEDROP rejected drag=\(s.draggingSequenceNumber)")
+            return false
+        }
+        harmonyDebug("PEDROP accepted id=\(proxy.id) drag=\(s.draggingSequenceNumber)")
         if let urls = s.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL], !urls.isEmpty {
+            m.proxyRaise(proxy.id)
             return m.dropFiles?(urls, proxy.id) ?? false
         }
         if let promises = s.draggingPasteboard.readObjects(forClasses: [NSFilePromiseReceiver.self], options: nil) as? [NSFilePromiseReceiver], !promises.isEmpty {
+            m.proxyRaise(proxy.id)
             return m.dropPromises?(promises, proxy.id) ?? false
         }
         return false
@@ -2877,7 +3122,7 @@ final class HarmonyProxyView: NSView, NSDraggingSource {
         if m.redirectBlockedInteraction(proxy.id) { return }
         m.activateProxy(proxy)                       // select the host window and focus its guest
         let p = convert(e.locationInWindow, from: nil)
-        if p.y >= bounds.height - 22 && !m.isSheetWindow(proxy.id) {
+        if p.y >= bounds.height - 22 && !m.isSheetWindow(proxy.id) && !m.usesGuestPaletteDrag(proxy.id) {
             /*
              * The title bar carries the close, minimize and zoom buttons as
              * well as being the handle to drag by, and which one a press means

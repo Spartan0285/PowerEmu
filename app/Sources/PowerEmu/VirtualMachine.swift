@@ -255,6 +255,8 @@ final class VirtualMachine: ObservableObject, Identifiable {
             }
             a.onWindows = { [weak self] rects in self?.display?.deliverWindows(rects) }
             a.onDragWindows = { [weak self] ids in self?.display?.onDragWindows?(ids) }
+            a.onPalettes = { [weak self] owners in self?.display?.onPalettes?(owners) }
+            a.onCursorImage = { [weak self] image, hot in self?.display?.onAgentCursor?(image, hot) }
             a.onSheets = { [weak self] parents in self?.display?.onSheets?(parents) }
             a.onWindowApps = { [weak self] apps in self?.display?.deliverWindowApps(apps) }
             a.onDockApps = { [weak self] items in
@@ -286,7 +288,7 @@ final class VirtualMachine: ObservableObject, Identifiable {
             agent = a
             fileTransfer.agent = a
             a.onFileTransfer = { [weak self] reply in self?.fileTransfer.receive(reply) }
-            a.onDisconnect = { [weak self] in self?.runningGuestApps = []; self?.display?.deliverToolsDisconnected(); self?.fileTransfer.disconnected(); self?.display?.onSheets?([:]); self?.display?.onDragWindows?([]) }
+            a.onDisconnect = { [weak self] in self?.runningGuestApps = []; self?.display?.deliverToolsDisconnected(); self?.fileTransfer.disconnected(); self?.display?.onSheets?([:]); self?.display?.onPalettes?([:]); self?.display?.onDragWindows?([]) }
             let d = WebDAVServer(socketPath: r.davPath)
             d.setShares(config.activeSharedFolders + (config.isolated ? [] : [dropShare]))
             try? d.start()
@@ -713,6 +715,12 @@ final class VirtualMachine: ObservableObject, Identifiable {
     }
 
     func activateGuestApp(_ pid: Int) { agent?.send("ACTIVATE", "\(pid)") }
+    /// A Dock click: activate, then 'rapp'. Agents before REOPEN ignore it
+    /// and still get the ACTIVATE.
+    func reopenGuestApp(_ pid: Int) {
+        activateGuestApp(pid)
+        agent?.send("REOPEN", "\(pid)")
+    }
     /// Open one of the guest's Dock applications that is not running yet.
     func launchGuestApp(path: String) { agent?.send("LAUNCH", path) }
     func openGuestApplication(path: String) {

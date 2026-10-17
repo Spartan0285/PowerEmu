@@ -32,6 +32,7 @@
 #include "PEMenuItemsAsyncState.h"
 #include "PEMinWindowsAsyncState.h"
 #include "PEHarmonyStallTrace.h"
+#include "PEBoundedConnect.h"
 static PEHarmonyStallTrace peHarmonyStallTrace;
 
 /*
@@ -72,6 +73,16 @@ extern CGError CGSOrderWindow(CGSConnectionID cid, CGSWindowID wid, int mode, CG
 /* Which application a window belongs to, to bring it to the front on a click. */
 extern CGError CGSGetWindowOwner(CGSConnectionID cid, CGSWindowID wid, CGSConnectionID *owner);
 extern CGError CGSConnectionGetPID(CGSConnectionID cid, pid_t *pid, CGSConnectionID owner);
+/* The WindowServer's current cursor, hot spot included. The card's hardware
+ * cursor only ever gets the picture and its top-left, so in Harmony -- where
+ * this Mac draws the pointer -- the hot spot has to come from here. The hot
+ * spot argument is read as a CGRect so either a point or a rect fits. */
+extern int CGSCurrentCursorSeed(void);
+extern CGError CGSGetGlobalCursorDataSize(CGSConnectionID cid, int *size);
+extern CGError CGSGetGlobalCursorData(CGSConnectionID cid, unsigned char *data, int *size, int *rowBytes,
+                                      CGRect *rect, CGRect *hotSpot, int *depth, int *components,
+                                      int *bitsPerComponent);
+static int peCursorSeed = -1;
 #include <sys/socket.h>
 #include <sys/select.h>
 #include <signal.h>
@@ -160,7 +171,7 @@ static BOOL PEHarmonyAXAsyncEnabled(void)
 
 #include "PETransferZip.h"
 
-#define PE_AGENT_VERSION "2.24"
+#define PE_AGENT_VERSION "2.25"
 
 extern CGError CGSGetConnectionIDForPSN(CGSConnectionID cid, ProcessSerialNumber *psn,
                                         CGSConnectionID *out);
@@ -321,6 +332,7 @@ static int AgentPort(void)
 - (void)changed:(NSString *)list;
 - (void)harmony:(BOOL)on;
 - (void)reportWindows:(NSTimer *)t;
+- (void)reportCursor;
 - (void)setResolution:(NSString *)wh;
 - (BOOL)setMode:(int)index width:(int)w height:(int)h;
 - (void)sendScreens;
@@ -410,9 +422,22 @@ static AXUIElementRef PEFindAXWindowInProcess(CGRect rect, ProcessSerialNumber p
                                       (CFTypeRef *)&windows) == kAXErrorSuccess && windows) {
         NSMutableArray *all = [NSMutableArray arrayWithArray:(NSArray *)windows];
         CFIndex i, roots = [all count];
-        for (i = 0; i < roots; i++) PEAppendSheets((AXUIElementRef)[all objectAtIndex:i], all, 0);
-        CFIndex n = [all count];
-        for (i = 0; i < n; i++) {
+        /* Same root-before-sheet match order, but ordinary windows need not
+         * query every sheet tree before their geometry can be matched. */
+        const char *lazySetting = getenv("PE_FOCUS_LAZY_SHEETS");
+        BOOL expanded = !(lazySetting && !strcmp(lazySetting, "1"));
+        if (expanded)
+            for (i = 0; i < roots; i++) PEAppendSheets((AXUIElementRef)[all objectAtIndex:i], all, 0);
+        for (i = 0; ; i++) {
+            if (i == [all count]) {
+                if (!expanded) {
+                    CFIndex root;
+                    for (root = 0; root < roots; root++)
+                        PEAppendSheets((AXUIElementRef)[all objectAtIndex:root], all, 0);
+                    expanded = YES;
+                }
+                if (i == [all count]) break;
+            }
             AXUIElementRef w = (AXUIElementRef)[all objectAtIndex:i];
             CFTypeRef posRef = NULL, sizeRef = NULL;
             CGPoint p; CGSize sz;
@@ -674,6 +699,20 @@ static NSString *MountPointFor(NSString *from)
             return [NSString stringWithUTF8String:m[i].f_mntonname];
     }
     return nil;
+}
+
+/* A no-reply kCoreEventClass event (quit, reopen) to one application. */
+static void SendProcessCoreEvent(const ProcessSerialNumber *psn, AEEventID eventID)
+{
+    AppleEvent ev, reply;
+    AEDesc target;
+    if (AECreateDesc(typeProcessSerialNumber, psn, sizeof(*psn), &target) != noErr) return;
+    if (AECreateAppleEvent(kCoreEventClass, eventID, &target,
+                           kAutoGenerateReturnID, kAnyTransactionID, &ev) == noErr) {
+        AESend(&ev, &reply, kAENoReply, kAENormalPriority, kAEDefaultTimeout, NULL, NULL);
+        AEDisposeDesc(&ev);
+    }
+    AEDisposeDesc(&target);
 }
 
 /* Ask loginwindow to shut down or restart, as the Apple menu does:
@@ -1106,7 +1145,7 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
         struct sockaddr_in address;memset(&address,0,sizeof address);
         address.sin_len=sizeof address;address.sin_family=AF_INET;
         address.sin_port=htons(AgentPort());address.sin_addr.s_addr=inet_addr(AgentHost());
-        if(connect(fd,(struct sockaddr *)&address,sizeof address)==0) {
+        if(PEBoundedConnect(fd,(struct sockaddr *)&address,sizeof address,2000)==0) {
             NSData *identity=[session dataUsingEncoding:NSUTF8StringEncoding];
             NSString *header=[NSString stringWithFormat:@"CAPTUREHELLO %u\n",(unsigned)[identity length]];
             NSMutableData *hello=[NSMutableData dataWithData:[header dataUsingEncoding:NSASCIIStringEncoding]];[hello appendData:identity];
@@ -1167,7 +1206,7 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
         memset(&address, 0, sizeof address);
         address.sin_len = sizeof address; address.sin_family = AF_INET;
         address.sin_port = htons(AgentPort()); address.sin_addr.s_addr = inet_addr(AgentHost());
-        if (frameSock >= 0 && connect(frameSock, (struct sockaddr *)&address, sizeof address) != 0) {
+        if (frameSock >= 0 && PEBoundedConnect(frameSock, (struct sockaddr *)&address, sizeof address, 2000) != 0) {
             close(frameSock); frameSock = -1;
         }
         NSData *hello = [session dataUsingEncoding:NSUTF8StringEncoding];
@@ -1219,7 +1258,7 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
     a.sin_family = AF_INET;
     a.sin_port = htons(AgentPort());
     a.sin_addr.s_addr = inet_addr(AgentHost());
-    if (connect(s, (struct sockaddr *)&a, sizeof a) != 0) {
+    if (PEBoundedConnect(s, (struct sockaddr *)&a, sizeof a, 2000) != 0) {
         close(s);
         [self retryLater];
         return;
@@ -1386,10 +1425,20 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
                 [self enqueueAsyncFocusWindow:[[f objectAtIndex:0] intValue]
                                      sequence:focusRequestSequence];
             } else {
+                /* Legacy retries need the same session/epoch lease as async work.
+                 * Invalidate before Harmony teardown can enter a nested run loop. */
+                PEFocusAsyncJob job;
+                [focusCondition lock];
+                BOOL accepted = PEFocusStateEnqueue(&focusState, [[f objectAtIndex:0] intValue],
+                    focusRequestSequence, raiseBringsAppForward);
+                if (accepted) PEFocusStateTake(&focusState, &job);
+                [focusCondition unlockWithCondition:focusState.hasPending ? 1 : 0];
+                if (!accepted) return;
+                NSData *lease = [NSData dataWithBytes:&job length:sizeof(job)];
                 PEHarmonyStallEnter(&peHarmonyStallTrace, PE_HARMONY_STALL_MAIN, PE_HARMONY_STALL_FOCUS_RAISE_AX, [[f objectAtIndex:0] intValue]);
                 [self raiseWindow:[f objectAtIndex:0]];
                 PEHarmonyStallEnter(&peHarmonyStallTrace, PE_HARMONY_STALL_MAIN, PE_HARMONY_STALL_FOCUS_CONFIRM_AX, [[f objectAtIndex:0] intValue]);
-                [self confirmFocus:[NSArray arrayWithObjects:[f objectAtIndex:0], [f objectAtIndex:1], @"0", nil]];
+                [self confirmFocus:[NSArray arrayWithObjects:[f objectAtIndex:0], [f objectAtIndex:1], @"0", lease, nil]];
                 PEHarmonyStallLeave(&peHarmonyStallTrace, PE_HARMONY_STALL_MAIN);
             }
         }
@@ -1464,18 +1513,17 @@ static OSStatus SendLoginwindowEvent(AEEventID what)
         /* Somebody quit the application's tile in this Mac's Dock. */
         pid_t qp = (pid_t)[text intValue];
         ProcessSerialNumber qpsn;
-        if (qp > 0 && GetProcessForPID(qp, &qpsn) == noErr) {
-            AppleEvent ev, reply;
-            AEDesc target;
-            if (AECreateDesc(typeProcessSerialNumber, &qpsn, sizeof(qpsn), &target) == noErr) {
-                if (AECreateAppleEvent(kCoreEventClass, kAEQuitApplication, &target,
-                                       kAutoGenerateReturnID, kAnyTransactionID, &ev) == noErr) {
-                    AESend(&ev, &reply, kAENoReply, kAENormalPriority,
-                           kAEDefaultTimeout, NULL, NULL);
-                    AEDisposeDesc(&ev);
-                }
-                AEDisposeDesc(&target);
-            }
+        if (qp > 0 && GetProcessForPID(qp, &qpsn) == noErr)
+            SendProcessCoreEvent(&qpsn, kAEQuitApplication);
+    } else if ([verb isEqualToString:@"REOPEN"]) {
+        /* A click on the application's tile in this Mac's Dock.  The real
+         * Dock brings the application forward and then sends it 'rapp', which
+         * is how Finder knows to open a window when it has none. */
+        pid_t rp = (pid_t)[text intValue];
+        ProcessSerialNumber rpsn;
+        if (rp > 0 && GetProcessForPID(rp, &rpsn) == noErr) {
+            SetFrontProcess(&rpsn);
+            SendProcessCoreEvent(&rpsn, kAEReopenApplication);
         }
     } else if ([verb isEqualToString:@"WINDOWFRAME"]) {
         if (!captureLock) captureLock = [[NSLock alloc] init];
@@ -1711,7 +1759,10 @@ enum { PERunOutputCap = 256 * 1024 };
 
 - (void)harmony:(BOOL)on
 {
+    /* Reject queued focus retries even during nested teardown event loops. */
+    [focusCondition lock]; PEFocusStateHarmony(&focusState, on); [focusCondition unlockWithCondition:focusState.hasPending ? 1 : 0];
     sheetEpoch++;
+    peCursorSeed = -1;          /* the host needs the current cursor on entry */
     [self invalidateAsyncMinWindows];
     [self refreshAsyncMinWindowsContext];
     // Host reconnects reconcile both states. Repeating the current state must
@@ -1722,7 +1773,6 @@ enum { PERunOutputCap = 256 * 1024 };
         [self reportWindows:nil];
         return;
     }
-    [focusCondition lock]; PEFocusStateHarmony(&focusState, on); [focusCondition unlockWithCondition:focusState.hasPending ? 1 : 0];
     [self refreshAsyncMinWindowsContext];
     [self invalidateAsyncMenuItems];
     [menuCondition lock]; PEMenuStateInvalidate(&menuState); [menuPendingJob release]; menuPendingJob=nil;
@@ -2357,9 +2407,45 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
     }
 }
 
+/* "CURSORIMG": "w h hotx hoty rowBytes depth components bpc\n" then the
+ * WindowServer's own pixels, sent once per cursor change. Anything odd is
+ * reported as a LOG line and not sent, so the host keeps what it had. */
+- (void)reportCursor
+{
+    int seed = CGSCurrentCursorSeed();
+    if (seed == peCursorSeed) return;
+    peCursorSeed = seed;
+    CGSConnectionID cid = _CGSDefaultConnection();
+    int size = 0, rowBytes = 0, depth = 0, components = 0, bpc = 0;
+    CGRect rect = CGRectZero, hot[2];
+    memset(hot, 0, sizeof hot);
+    if (CGSGetGlobalCursorDataSize(cid, &size) != kCGErrorSuccess || size <= 0 || size > 1024 * 1024) {
+        [self send:@"LOG" text:[NSString stringWithFormat:@"CURSOR size failed seed=%d size=%d", seed, size]];
+        return;
+    }
+    NSMutableData *pixels = [NSMutableData dataWithLength:size];
+    CGError err = CGSGetGlobalCursorData(cid, [pixels mutableBytes], &size, &rowBytes, &rect, hot,
+                                         &depth, &components, &bpc);
+    int w = (int)rect.size.width, h = (int)rect.size.height;
+    int hx = (int)hot[0].origin.x, hy = (int)hot[0].origin.y;
+    BOOL ok = err == kCGErrorSuccess && w > 0 && h > 0 && w <= 256 && h <= 256 &&
+        bpc == 8 && depth == 32 && rowBytes >= w * 4 && size >= rowBytes * h &&
+        hx >= 0 && hy >= 0 && hx < w && hy < h;
+    [self send:@"LOG" text:[NSString stringWithFormat:
+        @"CURSOR seed=%d err=%d size=%d rowBytes=%d rect=(%g,%g,%g,%g) hot=(%g,%g,%g,%g) depth=%d comps=%d bpc=%d ok=%d",
+        seed, err, size, rowBytes, rect.origin.x, rect.origin.y, rect.size.width, rect.size.height,
+        hot[0].origin.x, hot[0].origin.y, hot[0].size.width, hot[0].size.height, depth, components, bpc, ok]];
+    if (!ok) return;
+    NSString *head = [NSString stringWithFormat:@"%d %d %d %d %d %d %d %d\n", w, h, hx, hy, rowBytes, depth, components, bpc];
+    NSMutableData *payload = [NSMutableData dataWithData:[head dataUsingEncoding:NSASCIIStringEncoding]];
+    [payload appendBytes:[pixels bytes] length:rowBytes * h];
+    [self send:@"CURSORIMG" data:payload];
+}
+
 - (void)reportWindows:(NSTimer *)t
 {
     BOOL profile = getenv("POWEREMU_CAPTURE_PROFILE") != NULL;
+    [self reportCursor];
     CFAbsoluteTime reportBegan = profile ? CFAbsoluteTimeGetCurrent() : 0;
     if (deferredHarmonyExit) {
         if (!CGDisplayIsCaptured(CGMainDisplayID())) [self harmony:NO];
@@ -2948,6 +3034,10 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
     BOOL current=PEMenuItemsStateCurrent(&menuItemsState,job);
     BOOL allowed=PEMenuItemsStateCanPublish(&menuItemsState,job,connected,harmonyActive,
         session,epoch,(int)frontPID);
+    if (getenv("PE_MENU_PICK_DIAGNOSTICS") && !strcmp(getenv("PE_MENU_PICK_DIAGNOSTICS"), "1"))
+        NSLog(@"PE_MENU_ITEMS_GATE stage=before-read pid=%d path=%s current=%d allowed=%d connected=%d harmony=%d session=%u epoch=%u front=%d",
+              job.pid, job.path, (int)current, (int)allowed, (int)connected, (int)harmonyActive,
+              session, epoch, (int)frontPID);
     if (current && !allowed) PEMenuItemsStateFinish(&menuItemsState,job);
     [gate replaceObjectAtIndex:1 withObject:[NSNumber numberWithBool:allowed]];
     [menuItemsCondition unlockWithCondition:PEMenuItemsStateReady(&menuItemsState) ? 1 : 0];
@@ -2960,9 +3050,18 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
     NSString *path=[NSString stringWithUTF8String:job.path];
     NSMutableString *out=[NSMutableString stringWithFormat:@"%d\t%@\n",job.pid,path];
     AXUIElementRef item=PECopyMenuElement((pid_t)job.pid,path);
+    BOOL found=(item != NULL);
     if (item) {
         PEAppendMenuItems(item,path,0,out);
         CFRelease(item);
+    }
+    if (getenv("PE_MENU_PICK_DIAGNOSTICS") && !strcmp(getenv("PE_MENU_PICK_DIAGNOSTICS"), "1")) {
+        NSData *bytes=[out dataUsingEncoding:NSUTF8StringEncoding];
+        NSLog(@"PE_MENU_ITEMS_READ pid=%d path=%s item=%d bytes=%lu",
+              job.pid, job.path, (int)found, (unsigned long)[bytes length]);
+        if (!strcmp(job.path, "7"))
+            NSLog(@"PE_MENU_ITEMS_PAYLOAD pid=%d path=%s begin\n%@\nPE_MENU_ITEMS_PAYLOAD_END",
+                  job.pid, job.path, out);
     }
     NSArray *result=[NSArray arrayWithObjects:boxedJob,out,nil];
     [self performSelectorOnMainThread:@selector(publishAsyncMenuItems:) withObject:result waitUntilDone:NO];
@@ -2984,6 +3083,10 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
     BOOL current=PEMenuItemsStateCurrent(&menuItemsState,job);
     BOOL publish=PEMenuItemsStateCanPublish(&menuItemsState,job,connected,harmonyActive,
         session,epoch,(int)frontPID);
+    if (getenv("PE_MENU_PICK_DIAGNOSTICS") && !strcmp(getenv("PE_MENU_PICK_DIAGNOSTICS"), "1"))
+        NSLog(@"PE_MENU_ITEMS_GATE stage=publish pid=%d path=%s current=%d allowed=%d sock=%d sent=%d connected=%d harmony=%d session=%u epoch=%u front=%d",
+              job.pid, job.path, (int)current, (int)publish, sock, (int)(publish && sock>=0), (int)connected,
+              (int)harmonyActive, session, epoch, (int)frontPID);
     if (current) PEMenuItemsStateFinish(&menuItemsState,job);
     [menuItemsCondition unlockWithCondition:PEMenuItemsStateReady(&menuItemsState) ? 1 : 0];
     if (publish && sock>=0)
@@ -3010,6 +3113,41 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
     [self send:@"MENUITEMS" text:out];
 }
 
+/* Word's custom Font menu accepts AXPress on a closed leaf without applying
+ * it. Initialize that menu once, then resolve the leaf again. Other menus
+ * retain their normal direct action, and ambiguous failures are never retried. */
+static BOOL PEWordFontMenuNeedsOpen(pid_t pid, NSString *path)
+{
+    NSArray *parts = [path componentsSeparatedByString:@"."];
+    if ([parts count] != 2) return NO;
+    NSCharacterSet *notDigits = [[NSCharacterSet characterSetWithCharactersInString:@"0123456789"] invertedSet];
+    unsigned i;
+    for (i = 0; i < 2; ++i) {
+        NSString *part = [parts objectAtIndex:i];
+        if (![part length] || [part rangeOfCharacterFromSet:notDigits].location != NSNotFound) return NO;
+    }
+    ProcessSerialNumber psn; FSRef ref;
+    if (GetProcessForPID(pid, &psn) != noErr || GetProcessBundleLocation(&psn, &ref) != noErr) return NO;
+    CFURLRef url = CFURLCreateFromFSRef(NULL, &ref);
+    if (!url) return NO;
+    NSString *bundlePath = [(NSURL *)url path];
+    NSBundle *bundle = [NSBundle bundleWithPath:bundlePath];
+    BOOL word = [[[bundle infoDictionary] objectForKey:@"CFBundleIdentifier"] isEqualToString:@"com.microsoft.Word"];
+    /* Office 2004 is also distributed as a single CFM executable, not .app. */
+    ProcessInfoRec info;
+    memset(&info, 0, sizeof(info)); info.processInfoLength = sizeof(info);
+    if (!word && GetProcessInformation(&psn, &info) == noErr &&
+        info.processSignature == 'MSWD' && [[bundlePath lastPathComponent] isEqualToString:@"Microsoft Word"])
+        word = YES;
+    CFRelease(url);
+    if (!word) return NO;
+    AXUIElementRef parent = PECopyMenuElement(pid, [parts objectAtIndex:0]);
+    BOOL match = parent && [PEAXString(parent, kAXRoleAttribute) isEqualToString:@"AXMenuBarItem"] &&
+        [PEAXString(parent, kAXTitleAttribute) isEqualToString:@"Font"];
+    if (parent) CFRelease(parent);
+    return match;
+}
+
 /* "<pid> <path>" -- somebody picked it over on the host. */
 - (void)pickMenuItem:(NSString *)args
 {
@@ -3026,12 +3164,44 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
      * should end up in front here too.
      */
     if (pid > 0 && GetProcessForPID(pid, &psn) == noErr) SetFrontProcess(&psn);
-    item = PECopyMenuElement(pid, [f objectAtIndex:1]);
+    NSString *path = [f objectAtIndex:1];
+    item = PECopyMenuElement(pid, path);
+    if (item && PEWordFontMenuNeedsOpen(pid, path) &&
+        [PEAXString(item, kAXRoleAttribute) isEqualToString:@"AXMenuItem"] &&
+        PEAXInt(item, kAXEnabledAttribute, 0)) {
+        NSString *expectedTitle = [[PEAXString(item, kAXTitleAttribute) copy] autorelease];
+        NSString *parentPath = [[path componentsSeparatedByString:@"."] objectAtIndex:0];
+        AXUIElementRef parent = PECopyMenuElement(pid, parentPath);
+        AXError opened = parent ? AXUIElementPerformAction(parent, kAXPressAction) : kAXErrorInvalidUIElement;
+        if (parent) CFRelease(parent);
+        CFRelease(item); item = NULL;
+        if (opened != kAXErrorSuccess) { return; }
+        ProcessSerialNumber front; pid_t frontPID = 0;
+        if (GetFrontProcess(&front) != noErr || GetProcessPID(&front, &frontPID) != noErr || frontPID != pid) { return; }
+        if (!PEWordFontMenuNeedsOpen(pid, path)) { return; }
+        item = PECopyMenuElement(pid, path);
+        if (!item) { return; }
+        if (![PEAXString(item, kAXTitleAttribute) isEqualToString:expectedTitle] ||
+            ![PEAXString(item, kAXRoleAttribute) isEqualToString:@"AXMenuItem"] ||
+            !PEAXInt(item, kAXEnabledAttribute, 0)) {
+            CFRelease(item); return;
+        }
+    }
     if (item) {
         AXError result = AXUIElementPerformAction(item, kAXPressAction);
+        if (getenv("PE_MENU_PICK_DIAGNOSTICS") &&
+            !strcmp(getenv("PE_MENU_PICK_DIAGNOSTICS"), "1")) {
+            NSString *title = PEAXString(item, kAXTitleAttribute);
+            NSString *role = PEAXString(item, kAXRoleAttribute);
+            NSLog(@"PE_MENU_PICK pid=%d path=%@ title=%@ role=%@ AXPress=%d",
+                  (int)pid, path, title, role, (int)result);
+        }
         CFRelease(item);
         if (result == kAXErrorSuccess && [f count] >= 3)
             [self performSelector:@selector(reportMenuFocus:) withObject:[f objectAtIndex:2] afterDelay:0.15];
+    } else if (getenv("PE_MENU_PICK_DIAGNOSTICS") &&
+               !strcmp(getenv("PE_MENU_PICK_DIAGNOSTICS"), "1")) {
+        NSLog(@"PE_MENU_PICK pid=%d path=%@ unresolved AXPress=not-run", (int)pid, path);
     }
 }
 
@@ -3232,16 +3402,21 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
 - (void)sheetWorker:(NSNumber *)epoch
 {
     NSAutoreleasePool *pool=[[NSAutoreleasePool alloc]init];
-    NSString *report=PESheetReport();
+    BOOL classify=getenv("PE_PALETTE_CLASSIFY") && !strcmp(getenv("PE_PALETTE_CLASSIFY"),"1");
+    NSMutableString *palettes=classify ? [NSMutableString string] : nil;
+    NSString *report=PESheetReportWithPalettes(palettes);
     [self performSelectorOnMainThread:@selector(sheetResult:)
-        withObject:[NSArray arrayWithObjects:epoch,report,nil] waitUntilDone:NO];
+        withObject:[NSArray arrayWithObjects:epoch,report,palettes ? (id)palettes : (id)[NSNull null],nil] waitUntilDone:NO];
     [pool release];
 }
 - (void)sheetResult:(NSArray *)result
 {
     sheetReportBusy=NO;
-    if(windowTimer && sock>=0 && [[result objectAtIndex:0] unsignedIntValue]==sheetEpoch)
+    if(windowTimer && sock>=0 && [[result objectAtIndex:0] unsignedIntValue]==sheetEpoch) {
         [self send:@"SHEETS" text:[result objectAtIndex:1]];
+        if([result objectAtIndex:2]!=[NSNull null])
+            [self send:@"PALETTES" text:[result objectAtIndex:2]];
+    }
 }
 
 - (void)enqueueAsyncFocusWindow:(int)wid sequence:(int)sequence
@@ -3404,7 +3579,8 @@ static int pe_unknown_set(CGSWindowID wid, int seen)
                 AXUIElementRef app=AXUIElementCreateApplication(pid);
                 CFTypeRef focused=NULL;
                 if (app && AXUIElementCopyAttributeValue(app,kAXFocusedWindowAttribute,&focused)==kAXErrorSuccess && focused) {
-                    focusedMatches = CFEqual(target,focused) || PESheetBelongsToFocus(target,(AXUIElementRef)focused);
+                    focusedMatches = CFEqual(target,focused) || PESheetBelongsToFocus(target,(AXUIElementRef)focused) ||
+                        PEPaletteSharesFocus(target,(AXUIElementRef)focused);
                     CFRelease(focused);
                 }
                 if (app) CFRelease(app);
@@ -3428,6 +3604,10 @@ done:
 
 - (void)confirmFocus:(NSArray *)request
 {
+    if ([request count] != 4 || ![[request objectAtIndex:3] isKindOfClass:[NSData class]] ||
+        [[request objectAtIndex:3] length] != sizeof(PEFocusAsyncJob)) return;
+    PEFocusAsyncJob job; [[request objectAtIndex:3] getBytes:&job length:sizeof(job)];
+    if (![self isAsyncFocusJobCurrent:job]) return; /* Before any AX/CGS call. */
     int wid = [[request objectAtIndex:0] intValue];
     int sequence = [[request objectAtIndex:1] intValue];
     int attempt = [[request objectAtIndex:2] intValue];
@@ -3438,11 +3618,18 @@ done:
     ProcessSerialNumber front;
     if (CGSGetScreenRectForWindow(_CGSDefaultConnection(), wid, &rect) == 0) {
         AXUIElementRef target = PEFindAXWindowForWindow(rect, wid, &pid, NULL);
+        /* Pop-up lists and menus are not Accessibility windows, so they can
+         * never become the focused one. The front application's own pop-up is
+         * ready for the click that is waiting on it. */
+        if (!target && GetFrontProcess(&front) == noErr && GetProcessPID(&front, &frontPID) == noErr &&
+            PEWindowOwnerMatchesPID(wid, frontPID))
+            ok = YES;
         if (target && GetFrontProcess(&front) == noErr && GetProcessPID(&front, &frontPID) == noErr && pid == frontPID) {
             AXUIElementRef app = AXUIElementCreateApplication(pid);
             CFTypeRef focused = NULL;
             if (AXUIElementCopyAttributeValue(app, kAXFocusedWindowAttribute, &focused) == kAXErrorSuccess && focused) {
-                ok = CFEqual(target, focused) || PESheetBelongsToFocus(target, (AXUIElementRef)focused);
+                ok = CFEqual(target, focused) || PESheetBelongsToFocus(target, (AXUIElementRef)focused) ||
+                    PEPaletteSharesFocus(target, (AXUIElementRef)focused);
                 CFArrayRef blocking=PECopySheets(target);
                 if(blocking && CFArrayGetCount(blocking)>0)ok=NO;
                 if(blocking)CFRelease(blocking);
@@ -3452,9 +3639,10 @@ done:
         }
         if (target) CFRelease(target);
     }
+    if (![self isAsyncFocusJobCurrent:job]) return; /* Calls can run nested events. */
     if (!ok && attempt < 30) {
         [self performSelector:@selector(confirmFocus:) withObject:[NSArray arrayWithObjects:
-            [request objectAtIndex:0], [request objectAtIndex:1], [NSString stringWithFormat:@"%d", attempt + 1], nil]
+            [request objectAtIndex:0], [request objectAtIndex:1], [NSString stringWithFormat:@"%d", attempt + 1], [request objectAtIndex:3], nil]
             afterDelay:0.02];
         return;
     }

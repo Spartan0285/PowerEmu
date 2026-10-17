@@ -72,7 +72,7 @@ static void PEReportSheetChildren(AXUIElementRef parent,int *ids,int count,NSMut
     }
     if(sheets)CFRelease(sheets);
 }
-static NSString *PESheetReport(void) {
+static NSString *PESheetReportWithPalettes(NSMutableString *palettes) {
     NSMutableString *out=[NSMutableString string];
     if(!AXAPIEnabled())return out;
     ProcessSerialNumber psn={0,kNoProcess};
@@ -83,8 +83,27 @@ static NSString *PESheetReport(void) {
            CGSGetOnScreenWindowList(_CGSDefaultConnection(),owner,128,ids,&count)!=0 || !count)continue;
         AXUIElementRef app=AXUIElementCreateApplication(pid);CFTypeRef windows=NULL;
         if(AXUIElementCopyAttributeValue(app,kAXWindowsAttribute,&windows)==0 && windows && CFGetTypeID(windows)==CFArrayGetTypeID()) {
-            int i;for(i=0;i<CFArrayGetCount(windows) && i<64;i++)
-                PEReportSheetChildren((AXUIElementRef)CFArrayGetValueAtIndex(windows,i),ids,count,out,0);
+            int i;for(i=0;i<CFArrayGetCount(windows) && i<64;i++) {
+                AXUIElementRef window=(AXUIElementRef)CFArrayGetValueAtIndex(windows,i);
+                if(CFGetTypeID(window)!=AXUIElementGetTypeID())continue;
+                PEReportSheetChildren(window,ids,count,out,0);
+                if(palettes) {
+                    CFTypeRef role=NULL,subrole=NULL;
+                    int wid=PESheetWindowID(window,ids,count);
+                    CGRect before,after;
+                    BOOL valid=wid>0 && CGSGetScreenRectForWindow(_CGSDefaultConnection(),wid,&before)==0 &&
+                        AXUIElementCopyAttributeValue(window,kAXRoleAttribute,&role)==0 && role && CFEqual(role,CFSTR("AXWindow")) &&
+                        AXUIElementCopyAttributeValue(window,CFSTR("AXSubrole"),&subrole)==0 && subrole && CFEqual(subrole,CFSTR("AXFloatingWindow"));
+                    int currentOwner=0,currentPID=0,windowOwner=0;
+                    if(valid && GetProcessPID(&psn,&currentPID)==noErr && currentPID==pid &&
+                       CGSGetConnectionIDForPSN(_CGSDefaultConnection(),&psn,&currentOwner)==0 && currentOwner==owner &&
+                       CGSGetWindowOwner(_CGSDefaultConnection(),wid,&windowOwner)==0 && windowOwner==owner &&
+                       CGSGetScreenRectForWindow(_CGSDefaultConnection(),wid,&after)==0 && CGRectEqualToRect(before,after) &&
+                       PESheetWindowID(window,ids,count)==wid)
+                        [palettes appendFormat:@"%d,%d;",wid,(int)pid];
+                    if(role)CFRelease(role);if(subrole)CFRelease(subrole);
+                }
+            }
         }
         if(windows)CFRelease(windows);CFRelease(app);
     }
@@ -93,4 +112,19 @@ static NSString *PESheetReport(void) {
 static BOOL PESheetBelongsToFocus(AXUIElementRef target,AXUIElementRef focused) {
     NSMutableArray *sheets=[NSMutableArray array];PEAppendSheets(focused,sheets,0);
     return [sheets containsObject:(id)target];
+}
+static BOOL PEIsFloatingWindow(AXUIElementRef window) {
+    CFTypeRef subrole=NULL;
+    BOOL floating=AXUIElementCopyAttributeValue(window,CFSTR("AXSubrole"),&subrole)==0 && subrole &&
+        CFEqual(subrole,CFSTR("AXFloatingWindow"));
+    if(subrole)CFRelease(subrole);
+    return floating;
+}
+/* Focus moves between a document and its floating palettes only when a click
+ * lands: Word keeps it on the palette's font field until the document is
+ * clicked, and a palette button never takes it at all. Waiting for focus to
+ * move first means that click is never delivered, so within the front
+ * application either side being a palette is ready for input. */
+static BOOL PEPaletteSharesFocus(AXUIElementRef target,AXUIElementRef focused) {
+    return !CFEqual(target,focused) && (PEIsFloatingWindow(focused) || PEIsFloatingWindow(target));
 }

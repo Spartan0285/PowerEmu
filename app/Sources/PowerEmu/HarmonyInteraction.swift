@@ -44,11 +44,14 @@ struct HarmonyRestoreIntent {
 
 /// A menu's asynchronous guest reply may arrive after another selection.
 struct HarmonyMenuFocusIntent {
-    private var pending: (token: String, deadline: TimeInterval)?
-    mutating func begin(token: String, now: TimeInterval) { pending = (token, now + 2) }
+    private var pending: (token: String, ownerPID: Int, deadline: TimeInterval)?
+    mutating func begin(token: String, ownerPID: Int, now: TimeInterval) {
+        pending = ownerPID > 0 ? (token, ownerPID, now + 2) : nil
+    }
     mutating func cancel() { pending = nil }
-    mutating func consume(token: String, now: TimeInterval) -> Bool {
-        guard let value = pending, value.token == token else { return false }
+    mutating func consume(token: String, ownerPID: Int, now: TimeInterval) -> Bool {
+        guard let value = pending, value.token == token,
+              value.ownerPID == ownerPID else { return false }
         pending = nil
         return now <= value.deadline
     }

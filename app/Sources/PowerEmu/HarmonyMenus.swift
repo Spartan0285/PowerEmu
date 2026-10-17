@@ -44,6 +44,10 @@ final class HarmonyMenuBar: NSObject, NSMenuDelegate {
     private var menus: [String: NSMenu] = [:]      // path -> the menu under it
     private var filled = Set<String>()             // paths already read from the guest
     private var requested = Set<String>()
+    private var lastRequestAt: [String: TimeInterval] = [:]
+    private let menuRefreshInterval: TimeInterval = 0.75
+    private let requestTimeout: TimeInterval = 2.0
+    private var menuGeneration: UInt64 = 0
     private var savedMainMenu: NSMenu?
     private var installed: NSMenu?
     private(set) var active = false
@@ -67,18 +71,37 @@ final class HarmonyMenuBar: NSObject, NSMenuDelegate {
         // report would throw away menus already read.
         if pid == self.pid, tops.map({ $0.title }) == self.tops.map({ $0.title }),
            tops.map({ $0.index }) == self.tops.map({ $0.index }) { return }
+        menuGeneration &+= 1
         self.pid = pid
         self.appName = app
         self.tops = tops
-        menus.removeAll(); filled.removeAll(); requested.removeAll()
+        menus.removeAll(); filled.removeAll(); requested.removeAll(); lastRequestAt.removeAll()
         install()
     }
 
     /// The contents of one menu came back.
     func setItems(pid: Int, path: String, items: [HarmonyMenuItem]) {
         guard pid == self.pid, let menu = menus[path] else { return }
-        filled.insert(path)
+        requested.remove(path)
+        // An empty response may mean the AX menu is still initializing. Drop
+        // old actionable entries and retry only when it is opened again.
+        guard hasDirectItems(items, path: path) else {
+            menu.removeAllItems()
+            menu.addItem(placeholder())
+            filled.remove(path)
+            return
+        }
         fill(menu, path: path, from: items)
+        filled.insert(path)
+    }
+
+    private func hasDirectItems(_ items: [HarmonyMenuItem], path: String) -> Bool {
+        let prefix = path + "."
+        return items.contains { item in
+            guard item.path.hasPrefix(prefix) else { return false }
+            let remainder = item.path.dropFirst(prefix.count)
+            return !remainder.isEmpty && !remainder.contains(".")
+        }
     }
 
     // MARK: building
@@ -118,14 +141,27 @@ final class HarmonyMenuBar: NSObject, NSMenuDelegate {
      */
     private func prefetch() {
         let pid = self.pid
+        let generation = menuGeneration
         for (n, t) in tops.enumerated() {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15 * Double(n)) { [weak self] in
-                guard let self, self.pid == pid else { return }   // moved on since
+                guard let self, self.pid == pid, self.menuGeneration == generation else { return }
                 let path = "\(t.index)"
-                guard !self.filled.contains(path) else { return }
-                self.send?("MENUITEMS", "\(pid) \(path)")
+                self.requestItems(path: path, refreshCached: false)
             }
         }
+    }
+
+    private func requestItems(path: String, refreshCached: Bool, force: Bool = false) {
+        let now = ProcessInfo.processInfo.systemUptime
+        if requested.contains(path) {
+            guard let last = lastRequestAt[path], now - last >= requestTimeout else { return }
+            requested.remove(path) // No response arrived; retry on this real open.
+        }
+        guard refreshCached || !filled.contains(path) else { return }
+        if !force, let last = lastRequestAt[path], now - last < menuRefreshInterval { return }
+        requested.insert(path)
+        lastRequestAt[path] = now
+        send?("MENUITEMS", "\(pid) \(path)")
     }
 
     /// This Mac's own menu, kept so there is always a way out of Harmony.
@@ -197,7 +233,9 @@ final class HarmonyMenuBar: NSObject, NSMenuDelegate {
                 // these can be filled straight away.
                 fill(sub, path: it.path, from: items)
                 if sub.numberOfItems == 0 { sub.addItem(placeholder()) }
-                filled.insert(it.path)
+                requested.remove(it.path)
+                if hasDirectItems(items, path: it.path) { filled.insert(it.path) }
+                else { filled.remove(it.path) }
                 m.action = nil                // opening it is what it is for
                 m.target = nil
                 m.submenu = sub
@@ -211,12 +249,10 @@ final class HarmonyMenuBar: NSObject, NSMenuDelegate {
 
     func menuWillOpen(_ menu: NSMenu) {
         guard let path = menus.first(where: { $0.value === menu })?.key else { return }
-        // Top-level menus carry everything under them, so a submenu that is
-        // already built needs nothing; only ask again if it never arrived.
-        guard !filled.contains(path) else { return }
-        guard !path.contains(".") else { return }
-        requested.insert(path)
-        send?("MENUITEMS", "\(pid) \(path)")
+        // Refresh on a real open so enabled states and dynamic menus do not
+        // stay stale forever. A per-path cooldown and in-flight set bound the
+        // requests when AppKit opens the same menu repeatedly.
+        requestItems(path: path, refreshCached: true)
     }
 
     @objc private func pick(_ sender: NSMenuItem) {
@@ -227,9 +263,10 @@ final class HarmonyMenuBar: NSObject, NSMenuDelegate {
             let t = String(top)
             filled.remove(t)
             let pid = self.pid
+            let generation = menuGeneration
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
-                guard let self, self.pid == pid, !self.filled.contains(t) else { return }
-                self.send?("MENUITEMS", "\(pid) \(t)")
+                guard let self, self.pid == pid, self.menuGeneration == generation else { return }
+                self.requestItems(path: t, refreshCached: true, force: true)
             }
         }
     }
@@ -237,7 +274,8 @@ final class HarmonyMenuBar: NSObject, NSMenuDelegate {
     // MARK: leaving
 
     func remove() {
-        pid = 0; tops = []; menus.removeAll(); filled.removeAll(); requested.removeAll()
+        menuGeneration &+= 1
+        pid = 0; tops = []; menus.removeAll(); filled.removeAll(); requested.removeAll(); lastRequestAt.removeAll()
         active = false; guestWindowFocused = false
         if let saved = savedMainMenu {
             NSApp.mainMenu = saved

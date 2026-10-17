@@ -49,8 +49,10 @@ final class DisplayChannel: @unchecked Sendable {
     var onAppIcon: ((Int, Data) -> Void)?
     var onWindowFrame: ((Data) -> Void)?
     var onFocusReady: ((Int, Int, Bool) -> Void)?
+    var onPalettes: (([Int: Int]) -> Void)?
     var onSheets: (([Int: Int]) -> Void)?
     var onDragWindows: ((Set<Int>) -> Void)?
+    var onAgentCursor: ((CGImage, CGPoint) -> Void)?
     var onMenuFocus: ((String, Int) -> Void)?
     var onGuestFullscreen: (() -> Void)?
     var onHarmonyReady: ((String, CGSize, Bool) -> Void)?
@@ -635,6 +637,18 @@ final class VMDisplayView: NSView {
         }
     }
 
+    /// A lost Tools session cannot keep usable proxy windows or pending input.
+    /// Return to the ordinary framebuffer, which does not depend on Tools.
+    func harmonyToolsDisconnected() {
+        guestDock.guestToolsDisconnected()
+        guard harmony || harmonyPreparation != nil else { return }
+        releaseAll()
+        requestHarmony(false)
+        showStatus("Harmony connection lost",
+                   "PowerEmu Tools disconnected. You can continue using the guest desktop and try Harmony again after Tools reconnects.",
+                   spinning: false, dismissAfter: 12)
+    }
+
     func requestHarmony(_ on: Bool) {
         if on { channel.sendToAgent?("SCREENS", "") }
         harmonyDebug("PEHARMONY request on=\(on) view=\(self === VMDisplayView.secondScreen ? "screen2" : "screen1") "
@@ -754,7 +768,7 @@ final class VMDisplayView: NSView {
                                 + "Try again with the window on the display you want to match.",
                                 spinning: false, dismissAfter: 12)
             } else {
-                self.showStatus("Harmony could not match the display",
+                self.showStatus("Harmony could not start",
                                 "PowerEmu Tools did not respond. The guest may still be running normally. "
                                 + "If this keeps happening, save your work in the guest and restart it.",
                                 spinning: false, dismissAfter: 12)
@@ -1131,6 +1145,7 @@ final class VMDisplayView: NSView {
 
     /// Bring a guest application to the front (this Mac's Dock menu).
     var onActivateGuestApp: ((Int) -> Void)?
+    var onReopenGuestApp: ((Int) -> Void)?
     var onToolsStateQuery: (() -> String)?
     func activateGuestApp(_ pid: Int) { onActivateGuestApp?(pid) }
     /// While a window is dragged by its title bar, its layer holds a frozen
@@ -1455,6 +1470,8 @@ final class VMDisplayView: NSView {
         }
         channel.onWindows = { [weak self] rects in self?.setHarmonyWindows(rects) }
         channel.onDragWindows = { [weak self] ids in self?.harmonyManager.setDragWindows(ids) }
+        channel.onPalettes = { [weak self] owners in self?.harmonyManager.setPalettes(owners) }
+        channel.onAgentCursor = { [weak self] image, hot in self?.harmonyManager.setAgentCursor(image, hotSpot: hot) }
         channel.onSheets = { [weak self] parents in self?.harmonyManager.setSheets(parents) }
         channel.onWindowApps = { [weak self] apps in
             self?.guestWindowApps = apps
@@ -1512,7 +1529,11 @@ final class VMDisplayView: NSView {
         }
         harmonyMenus.send = { [weak self] verb, text in
             guard let self else { return }
-            let payload = verb == "MENUPICK" ? text + " " + self.harmonyManager.beginMenuFocus() : text
+            var payload = text
+            if verb == "MENUPICK", let first = text.split(separator: " ").first,
+               let ownerPID = Int(first), ownerPID > 0 {
+                payload += " " + self.harmonyManager.beginMenuFocus(ownerPID: ownerPID)
+            }
             self.channel.sendToAgent?(verb, payload)
         }
         channel.onMenuFocus = { [weak self] token, id in self?.harmonyManager.completeMenuFocus(token, id: id) }
@@ -1568,7 +1589,9 @@ final class VMDisplayView: NSView {
         guestDock.wantIcon = { [weak self] pid in self?.onWantAppIcon?(pid) }
         guestDock.activate = { [weak self] pid in
             guard let self else { return }
-            if !self.harmonyManager.activateApplication(pid) { self.onActivateGuestApp?(pid) }
+            // No window to bring forward: reopen it, as the real Dock does,
+            // so Finder opens a window instead of only taking the menu bar.
+            if !self.harmonyManager.activateApplication(pid) { self.onReopenGuestApp?(pid) }
         }
         guestDock.openFiles = { [weak self] urls, pid in self?.onDropFilesToApp?(urls, pid) ?? false }
         guestDock.quit = { [weak self] pid in self?.onQuitGuestApp?(pid) }
@@ -3074,7 +3097,7 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
         channel.onInstalledApps = { [weak display] items in display?.setInstalledGuestApps(items) }
         channel.onApplicationPathIcon = { [weak display] path, png in display?.guestDock.setApplicationPathIcon(path: path, png: png) }
         channel.onToolsConnected = { [weak display] in display?.guestDock.guestToolsReconnected() }
-        channel.onToolsDisconnected = { [weak display] in display?.guestDock.guestToolsDisconnected() }
+        channel.onToolsDisconnected = { [weak display] in display?.harmonyToolsDisconnected() }
         display.guestDock.refreshApplications = { [weak vm] in
             guard vm?.agent?.connected == true else { return }
             vm?.agent?.send("DOCKAPPS", "")
@@ -3129,6 +3152,7 @@ final class VMWindowController: NSWindowController, NSWindowDelegate {
         VMDisplayView.showing = display
         display.machineName = vm.config.name
         display.onActivateGuestApp = { [weak vm] pid in vm?.activateGuestApp(pid) }
+        display.onReopenGuestApp = { [weak vm] pid in vm?.reopenGuestApp(pid) }
         display.onRestoreGuestWindow = { [weak vm] pid, i in vm?.restoreGuestWindow(pid, i) }
         display.onMinimizeGuestWindow = { [weak vm] id in vm?.minimizeGuestWindow(id) }
         display.onToolsStateQuery = { [weak vm] in String(describing: vm?.toolsState) }

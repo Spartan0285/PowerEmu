@@ -6,14 +6,16 @@
 	<key>CFBundleIdentifier</key><string>com.spartan0285.poweremu.agent</string>
 	<key>CFBundleName</key><string>PowerEmu Agent</string>
 	<key>CFBundlePackageType</key><string>APPL</string>
-	<key>CFBundleShortVersionString</key><string>2.24</string>
-	<key>CFBundleVersion</key><string>224</string>
+	<key>CFBundleShortVersionString</key><string>2.25</string>
+	<key>CFBundleVersion</key><string>225</string>
 	<key>LSBackgroundOnly</key><true/>
 	<key>LSEnvironment</key>
 	<dict>
 		<key>PE_MENU_ITEMS_ASYNC</key><string>1</string>
 		<key>PE_HARMONY_AX_ASYNC</key><string>1</string>
-		<key>PE_FOCUS_ASYNC</key><string>1</string>
+		<key>PE_FOCUS_ASYNC</key><string>0</string>
+		<key>PE_FOCUS_LAZY_SHEETS</key><string>1</string>
+		<key>PE_PALETTE_CLASSIFY</key><string>1</string>
 	</dict>
 	<key>LSMinimumSystemVersion</key><string>10.4</string>
 </dict>

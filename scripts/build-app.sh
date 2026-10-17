@@ -122,6 +122,10 @@ cat > "$OUT/Contents/Info.plist" <<EOF
 	<key>LSEnvironment</key>
 	<dict>
 		<key>POWEREMU_HARMONY_NATIVE_POLLING</key><string>1</string>
+		<key>POWEREMU_HARMONY_PALETTES</key><string>1</string>
+		<key>POWEREMU_HARMONY_PALETTE_DRAG</key><string>1</string>
+		<key>POWEREMU_HARMONY_SKIP_OCCLUDED</key><string>1</string>
+		<key>POWEREMU_HARMONY_INPUT_PRIORITY</key><string>0</string>
 		<key>POWEREMU_HARMONY_VISIBLE_CACHE</key><string>0</string>
 		<key>POWEREMU_R200_AIC_RT</key><string>1</string>
 	</dict>

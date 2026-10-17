@@ -38,7 +38,10 @@ final class GuestAgent: ObservableObject {
     var onFocusReady: ((Int, Int, Bool) -> Void)?
     var onFileTransfer: (([String: Any]) -> Void)?
     var onDisconnect: (() -> Void)?
+    var onPalettes: (([Int: Int]) -> Void)?
     var onSheets: (([Int: Int]) -> Void)?
+    /// Tiger's current cursor from the WindowServer, with its hot spot.
+    var onCursorImage: ((CGImage, CGPoint) -> Void)?
     var onDragWindows: ((Set<Int>) -> Void)?
     var onMenuFocus: ((String, Int) -> Void)?
     var onGuestFullscreen: (() -> Void)?
@@ -59,13 +62,13 @@ final class GuestAgent: ObservableObject {
     var onRunResult: ((String, Int, Double, String, String) -> Void)?
     private var listenFD: Int32 = -1
     private var acceptSource: DispatchSourceRead?
-    private var conn: Connection?
-    private var frameConnection: Connection?
-    private var captureConnection: Connection?
+    private var conn: AgentConnection?
+    private var frameConnection: AgentConnection?
+    private var captureConnection: AgentConnection?
     var hasDirectCaptureChannel: Bool { captureConnection != nil }
     var preferDirectCaptureRequests = true
     private var frameSession = UUID().uuidString
-    private var incoming: [Int32: Connection] = [:]
+    private var incoming: [Int32: AgentConnection] = [:]
     private var connectionEpochs: [Int32: UUID] = [:]
     private var clipTimer: Timer?
     private var lastChangeCount = NSPasteboard.general.changeCount
@@ -125,7 +128,7 @@ final class GuestAgent: ObservableObject {
         guard incoming.count < 16 else { close(fd); return }
         let epoch = UUID()
         connectionEpochs[fd] = epoch
-        incoming[fd] = Connection(fd: fd,
+        incoming[fd] = AgentConnection(fd: fd,
             onMessage: { [weak self] verb, payload in
                 MainActor.assumeIsolated {
                     guard self?.connectionEpochs[fd] == epoch else { return }
@@ -211,6 +214,15 @@ final class GuestAgent: ObservableObject {
         switch verb {
         case "DRAGWINDOWS":
             onDragWindows?(Set(text.split(separator: ";").compactMap { Int($0) }.filter { $0 > 0 }))
+        case "PALETTES":
+            var owners: [Int: Int] = [:]
+            for row in text.split(separator: ";").prefix(4096) {
+                let fields = row.split(separator: ",")
+                if fields.count == 2, let id = Int(fields[0]), let pid = Int(fields[1]), id > 0, pid > 0 {
+                    owners[id] = pid
+                }
+            }
+            onPalettes?(owners)
         case "SHEETS":
             var parents: [Int: Int] = [:]
             for row in text.split(separator: ";") {
@@ -325,6 +337,26 @@ final class GuestAgent: ObservableObject {
             let head = String(decoding: payload[..<nl], as: UTF8.self)
             guard let pid = Int(head.trimmingCharacters(in: .whitespaces)) else { return }
             onAppIcon?(pid, Data(payload[payload.index(after: nl)...]))
+        case "CURSORIMG":
+            // "w h hotx hoty rowBytes depth components bpc\n" then the pixels,
+            // 32-bit big-endian ARGB from the PowerPC WindowServer.
+            guard payload.count <= 1_100_000, let nl = payload.firstIndex(of: 0x0A) else { return }
+            let f = String(decoding: payload[..<nl], as: UTF8.self).split(separator: " ").compactMap { Int($0) }
+            guard f.count == 8 else { return }
+            let (w, h, hx, hy, rowBytes) = (f[0], f[1], f[2], f[3], f[4])
+            guard w > 0, h > 0, w <= 256, h <= 256, f[5] == 32, f[7] == 8, rowBytes >= w * 4,
+                  payload.distance(from: payload.index(after: nl), to: payload.endIndex) >= rowBytes * h,
+                  (0..<w).contains(hx), (0..<h).contains(hy) else { return }
+            let pixels = HarmonyCursorImage.resolvingInvert(Data(payload[payload.index(after: nl)...]),
+                                                            width: w, height: h, rowBytes: rowBytes)
+            guard let provider = CGDataProvider(data: pixels as CFData),
+                  let image = CGImage(width: w, height: h, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: rowBytes,
+                                      space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedFirst.rawValue
+                                                               | CGBitmapInfo.byteOrder32Big.rawValue),
+                                      provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)
+            else { return }
+            onCursorImage?(image, CGPoint(x: hx, y: hy))
         case "APPPATHICON":
             let maxPathBytes = 4096
             let maxPNGBytes = 4 * 1024 * 1024
@@ -408,82 +440,5 @@ final class GuestAgent: ObservableObject {
         guard shareClipboard, connected, let s = pb.string(forType: .string), s != lastClip else { return }
         lastClip = s
         send("CLIP", s)
-    }
-}
-
-/// One agent connection: reads frames on a background queue, writes
-/// synchronously (messages are small).
-private final class Connection: @unchecked Sendable {
-    let fd: Int32
-    private let source: DispatchSourceRead
-    private var inbox = Data()
-    private let lock = NSLock()
-    private var closed = false
-
-    init(fd: Int32, onMessage: @escaping @Sendable (String, Data) -> Void, onClose: @escaping @Sendable () -> Void) {
-        self.fd = fd
-        var one: Int32 = 1
-        setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int32>.size))
-        source = DispatchSource.makeReadSource(fileDescriptor: fd, queue: DispatchQueue(label: "poweremu.agent"))
-        source.setCancelHandler { Darwin.close(fd) }
-        source.setEventHandler { [weak self] in
-            guard let self else { return }
-            var buf = [UInt8](repeating: 0, count: 65536)
-            let n = read(fd, &buf, buf.count)
-            if n <= 0 {
-                self.close()
-                DispatchQueue.main.async { onClose() }
-                return
-            }
-            self.inbox.append(contentsOf: buf[0..<n])
-            for (verb, payload) in self.frames() {
-                DispatchQueue.main.async { onMessage(verb, payload) }
-            }
-        }
-        source.resume()
-    }
-
-    /// Complete frames in the inbox, removed from it.
-    private func frames() -> [(String, Data)] {
-        var out: [(String, Data)] = []
-        while let nl = inbox.firstIndex(of: 0x0a) {
-            let head = String(decoding: inbox[inbox.startIndex..<nl], as: UTF8.self).split(separator: " ")
-            guard head.count == 2, let size = Int(head[1]), (0...70_000_000).contains(size) else {
-                close(); inbox.removeAll(); return []
-            }
-            if head[0] == "APPPATHICON", size > 4 * 1024 * 1024 + 4097 {
-                close(); inbox.removeAll(); return []
-            }
-            let start = inbox.index(after: nl)
-            guard inbox.distance(from: start, to: inbox.endIndex) >= size else { break }
-            let end = inbox.index(start, offsetBy: size)
-            out.append((head.first.map(String.init) ?? "", Data(inbox[start..<end])))
-            inbox = Data(inbox[end...])
-        }
-        return out
-    }
-
-    func send(_ verb: String, _ payload: Data) {
-        var d = Data("\(verb) \(payload.count)\n".utf8)
-        d.append(payload)
-        lock.lock(); defer { lock.unlock() }
-        guard !closed else { return }
-        d.withUnsafeBytes { raw in
-            var p = raw.baseAddress!
-            var left = raw.count
-            while left > 0 {
-                let n = write(fd, p, left)
-                if n < 0 && errno == EINTR { continue }
-                if n <= 0 { break }
-                p += n; left -= n
-            }
-        }
-    }
-
-    func close() {
-        lock.lock(); defer { lock.unlock() }
-        guard !closed else { return }
-        closed = true
-        source.cancel()
     }
 }

@@ -73,7 +73,9 @@ fi
 
 # The public artifact must carry the same runtime settings as the accepted
 # Harmony test build, rather than just compiling its opt-in implementations.
-for setting in POWEREMU_HARMONY_NATIVE_POLLING POWEREMU_R200_AIC_RT; do
+for setting in POWEREMU_HARMONY_NATIVE_POLLING POWEREMU_R200_AIC_RT \
+        POWEREMU_HARMONY_PALETTES POWEREMU_HARMONY_PALETTE_DRAG \
+        POWEREMU_HARMONY_SKIP_OCCLUDED; do
     if [ "$(plutil -extract "LSEnvironment.$setting" raw "$APP/Contents/Info.plist")" != 1 ]; then
         echo "release is missing the validated $setting setting" >&2
         exit 1

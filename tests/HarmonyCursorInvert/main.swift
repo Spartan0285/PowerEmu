@@ -1,0 +1,10 @@
+import Foundation
+// 3x1: invert, transparent, opaque red (big-endian ARGB)
+let px = Data([0,0xFF,0xFF,0xFF,  0,0,0,0,  0xFF,0xFF,0,0])
+let out = [UInt8](HarmonyCursorImage.resolvingInvert(px, width: 3, height: 1, rowBytes: 12))
+precondition(Array(out[0..<4]) == [0xFF,0,0,0], "invert pixel becomes opaque black")
+precondition(Array(out[4..<8]) == [0xFF,0xFF,0xFF,0xFF], "neighbour becomes white edge")
+precondition(Array(out[8..<12]) == [0xFF,0xFF,0,0], "opaque pixel untouched")
+let plain = Data([0xFF,1,2,3, 0,0,0,0])
+precondition(HarmonyCursorImage.resolvingInvert(plain, width: 2, height: 1, rowBytes: 8) == plain, "no invert: unchanged")
+print("PASS invert cursor conversion")

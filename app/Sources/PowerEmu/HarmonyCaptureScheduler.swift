@@ -22,7 +22,16 @@ struct HarmonyCaptureScheduler {
     private var lastForeground: Int?
     private var interaction: (id: Int, expires: Double)?
     private var interactionPending = false
+    private var interactionDebt = false
+    private(set) var borrowedInteractionSlots = 0
     var paceForegroundIdle = false
+    /// Permit one post-input foreground slot beyond the normal burst, then
+    /// service an eligible background window before permitting another loan.
+    var prioritizeInteraction = false
+    /// A complete first image is still needed before ordering a new proxy.
+    /// Once painted, a fully occluded host window can keep its last image
+    /// until AppKit reports it exposed. No guest visibility guess is used.
+    var suspendOccluded = false
 
     /// A prompt refresh followed by a short foreground burst. The streak
     /// budget survives repeated input so background windows cannot starve.
@@ -54,6 +63,7 @@ struct HarmonyCaptureScheduler {
         }
         let eligible = candidates.filter {
             let state = states[$0.id] ?? State()
+            if suspendOccluded && !$0.visible && !$0.needsImage { return false }
             let foregroundDue = paceForegroundIdle && state.idle > 0 ? state.last + 1.0 / 30 : -.infinity
             let backgroundFloor = state.last + ($0.visible ? 0.125 : 0.8)
             return state.retry <= now && (($0.id == foreground && foregroundDue <= now) || $0.needsImage || state.exposed ||
@@ -65,27 +75,44 @@ struct HarmonyCaptureScheduler {
         if let input = interaction {
             if input.expires < now || !live.contains(input.id) || input.id != foreground {
                 interaction = nil; interactionPending = false
-            } else if interactionPending, foregroundStreak < 6,
-                      let selected = eligible.first(where: { $0.id == input.id }) {
-                interactionPending = false
-                foregroundStreak += 1
-                return selected.id
+            } else if interactionPending, let selected = eligible.first(where: { $0.id == input.id }) {
+                let backgroundWaiting = eligible.contains { $0.id != foreground }
+                let initialOrExposedWaiting = eligible.contains { $0.needsImage || states[$0.id]?.exposed == true }
+                if foregroundStreak < 6, !interactionDebt {
+                    interactionPending = false
+                    foregroundStreak += 1
+                    return selected.id
+                }
+                if prioritizeInteraction, !interactionDebt, backgroundWaiting, !initialOrExposedWaiting {
+                    interactionPending = false
+                    interactionDebt = true
+                    if borrowedInteractionSlots < Int.max { borrowedInteractionSlots += 1 }
+                    foregroundStreak += 1
+                    return selected.id
+                }
             }
         }
         // First images/resizes must not wait behind repeats. Failed windows
         // have a retry deadline so they cannot monopolize this priority lane.
         if let first = oldest(eligible.filter { $0.needsImage || states[$0.id]?.exposed == true }) {
+            if first.id != foreground { interactionDebt = false }
             foregroundStreak = 0
             return first.id
         }
         let front = eligible.first { $0.id == foreground }
         let background = oldest(eligible.filter { $0.id != foreground })
+        if interactionDebt, let background {
+            interactionDebt = false
+            foregroundStreak = 0
+            return background.id
+        }
         let foregroundBudget = interaction?.id == foreground && interaction != nil ? 6 : 4
         if let front, foregroundStreak < foregroundBudget || background == nil {
             foregroundStreak = min(foregroundBudget, foregroundStreak + 1)
             return front.id
         }
         if let background {
+            interactionDebt = false
             foregroundStreak = 0
             return background.id
         }
